@@ -1,0 +1,70 @@
+#   Refer for explanation to following link:
+#   https://lefthook.dev/configuration/
+
+assert_lefthook_installed: true
+skip_lfs: true
+
+output:
+  - meta
+  - summary
+  - success
+  - failure
+  # - execution
+  - skips
+
+pre-commit:
+  parallel: true
+  commands:
+    format-frontend:
+      tags:
+        - frontend
+      glob: "*.{js,ts,html,css,json}"
+      run: pnpm -s format:frontend
+    check-frontend:
+      tags:
+        - frontend
+      glob: "*.{js,ts,html,css,json}"
+      run: pnpm -s check:frontend
+    lint-frontend:
+      tags:
+        - frontend
+      glob: "*.{js,ts,html,css,json}"
+      run: pnpm -s lint:frontend
+    # test-frontend:
+    #   tags:
+    #     - frontend
+    #   glob: "*.{js,ts,html,css}"
+    #   run: pnpm -s test:frontend
+    format-backend:
+      tags:
+        - backend
+        - rust
+      root: "src-tauri/"
+      glob: "*.{rs,toml,json}"
+      run: cargo fmt
+    check-backend:
+      tags:
+        - backend
+        - rust
+      root: "src-tauri/"
+      glob: "*.{rs,toml,json}"
+      run: cargo check
+    test-backend:
+      tags:
+        - backend
+        - rust
+      root: "src-tauri/"
+      glob: "*.{rs,toml,json}"
+      run: cargo test
+
+pre-push:
+  commands:
+    build-frontend:
+      tags:
+        - frontend
+      run: pnpm -s build:frontend
+
+commit-msg:
+  commands:
+    verify-commit-message:
+      run: npx --no-install commitlint --edit {1}

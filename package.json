@@ -22,7 +22,8 @@
     "format:backend": "cargo fmt --manifest-path src-tauri/Cargo.toml",
     "check:backend": "cargo check --manifest-path src-tauri/Cargo.toml",
     "test:backend": "cargo test --manifest-path src-tauri/Cargo.toml",
-    "release": "release-it"
+    "release": "release-it",
+    "postinstall": "lefthook install"
   },
   "engines": {
     "node": ">=24",

@@ -6,7 +6,7 @@
 
 <h1 align="center">Mind Flayer</h1>
 
-<p align="center">👻 A powerful open-source cross-platform desktop AI assistant app built with Tauri, Solid, Vite7, TS, Tailwind CSS and more!</p>
+<p align="center">👻 A powerful desktop AI assistant app built with Tauri, Solid, Vite7, TS and more!</p>
 
 <p align="center">
   English | <a href="README.zh-CN.md">简体中文</a>

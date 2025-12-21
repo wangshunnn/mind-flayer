@@ -1,4 +1,8 @@
 <p align="center">
+  <strong>⚠️ This project is in early WIP (Work In Progress) stage</strong>
+</p>
+
+<p align="center">
   <img width="350px" height="150px" src="public/tauri.svg"/>
 </p>
 
@@ -6,7 +10,7 @@
 
 <h1 align="center">Mind Flayer</h1>
 
-<p align="center">👻 A powerful desktop AI assistant app built with Tauri, Solid, Vite7, TS and more!</p>
+<p align="center">👻 A powerful desktop AI assistant app built with Tauri, React, Vite7, TS and more!</p>
 
 <p align="center">
   English | <a href="README.zh-CN.md">简体中文</a>
@@ -19,8 +23,9 @@
     <img src="https://img.shields.io/badge/Tauri2.0-24C8DB?logo=tauri&logoColor=FFC131">
     <img src="https://img.shields.io/badge/Rust-c57c54?logo=rust&logoColor=E34F26">
     <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=fff">
-    <img src="https://img.shields.io/badge/Solid-2C4F7C?logo=solid&logoColor=fff">
+    <img src="https://img.shields.io/badge/React%2019-2C4F7C?logo=react&logoColor=61DAFB">
     <img src="https://img.shields.io/badge/Tailwind%20CSS-%2338B2AC.svg?logo=tailwind-css&logoColor=white">
+    <img src="https://img.shields.io/badge/shadcn/ui-000000?logo=shadcnui&logoColor=fff">
     <img src="https://img.shields.io/badge/Biome-60A5FA?logo=biome&logoColor=fff">
     <img src="https://img.shields.io/badge/Vite7-646CFF?logo=vite&logoColor=fff">
     <img src="https://img.shields.io/badge/vitest-6E9F18?logo=vitest&logoColor=fff">
@@ -35,10 +40,11 @@
 
 ### Frontend
 
-- **[Solid.js](https://www.solidjs.com/)** - High-performance reactive JavaScript framework with fine-grained reactivity
+- **[React 19](https://react.dev/)** - JavaScript library for building user interfaces with latest concurrent features and optimizations
 - **[TypeScript](https://www.typescriptlang.org/)** - JavaScript superset with type safety and better developer experience
 - **[Vite 7](https://vitejs.dev/)** - Next-generation frontend build tool with blazing-fast dev server and optimized production builds
 - **[Tailwind CSS 4](https://tailwindcss.com/)** - Utility-first CSS framework for rapidly building modern UIs
+- **[shadcn/ui](https://ui.shadcn.com/)** - Beautifully designed components built with Radix UI and Tailwind CSS
 
 ### Backend
 

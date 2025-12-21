@@ -1,4 +1,8 @@
 <p align="center">
+  <strong>⚠️ 项目处于早期 WIP（开发中）状态</strong>
+</p>
+
+<p align="center">
   <img width="350px" height="150px" src="public/tauri.svg"/>
 </p>
 
@@ -6,7 +10,7 @@
 
 <h1 align="center">Mind Flayer</h1>
 
-<p align="center">👻 一个强大的开源跨平台桌面 AI 助手应用，使用 Tauri、Solid、Vite7、TS、Tailwind CSS 等技术构建！</p>
+<p align="center">👻 一个强大的开源跨平台桌面 AI 助手应用，使用 Tauri、React、Vite7、TS、Tailwind CSS 等技术构建！</p>
 
 <p align="center">
   <a href="README.md">English</a> | 简体中文
@@ -19,8 +23,9 @@
     <img src="https://img.shields.io/badge/Tauri2.0-24C8DB?logo=tauri&logoColor=FFC131">
     <img src="https://img.shields.io/badge/Rust-c57c54?logo=rust&logoColor=E34F26">
     <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=fff">
-    <img src="https://img.shields.io/badge/Solid-2C4F7C?logo=solid&logoColor=fff">
+    <img src="https://img.shields.io/badge/React%2019-2C4F7C?logo=react&logoColor=61DAFB">
     <img src="https://img.shields.io/badge/Tailwind%20CSS-%2338B2AC.svg?logo=tailwind-css&logoColor=white">
+    <img src="https://img.shields.io/badge/shadcn/ui-000000?logo=shadcnui&logoColor=fff">
     <img src="https://img.shields.io/badge/Biome-60A5FA?logo=biome&logoColor=fff">
     <img src="https://img.shields.io/badge/Vite7-646CFF?logo=vite&logoColor=fff">
     <img src="https://img.shields.io/badge/vitest-6E9F18?logo=vitest&logoColor=fff">
@@ -35,10 +40,11 @@
 
 ### 前端
 
-- **[Solid.js](https://www.solidjs.com/)** - 高性能响应式 JavaScript 框架，具有细粒度的响应性
+- **[React 19](https://react.dev/)** - 用于构建用户界面的 JavaScript 库，支持最新的并发特性和优化
 - **[TypeScript](https://www.typescriptlang.org/)** - 具有类型安全和更好开发体验的 JavaScript 超集
 - **[Vite 7](https://vitejs.dev/)** - 下一代前端构建工具，拥有极速的开发服务器和优化的生产构建
 - **[Tailwind CSS 4](https://tailwindcss.com/)** - 实用优先的 CSS 框架，用于快速构建现代 UI
+- **[shadcn/ui](https://ui.shadcn.com/)** - 基于 Radix UI 和 Tailwind CSS 构建的精美设计组件库
 
 ### 后端
 

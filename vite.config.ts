@@ -1,3 +1,4 @@
+import path from "node:path"
 import process from "node:process"
 import tailwindcss from "@tailwindcss/vite"
 import { defineConfig } from "vite"
@@ -8,6 +9,13 @@ const host = process.env.TAURI_DEV_HOST
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [solid(), tailwindcss()],
+
+  resolve: {
+    alias: {
+      "~": path.resolve(__dirname, "."),
+      "@": path.resolve(__dirname, "./src")
+    }
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   // 1. prevent Vite from obscuring rust errors

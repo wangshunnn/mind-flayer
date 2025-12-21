@@ -30,6 +30,7 @@
     "pnpm": ">=10"
   },
   "dependencies": {
+    "@solidjs/router": "^0.15.4",
     "@tauri-apps/api": "^2.9.1",
     "@tauri-apps/plugin-opener": "^2.5.2",
     "solid-js": "^1.9.10"

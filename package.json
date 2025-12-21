@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.26.1",
-  "description": "A powerful open-source AI assistant application.",
+  "description": "A powerful open-source cross-platform desktop AI assistant app.",
   "author": "Soon Wang",
   "license": "MIT",
   "scripts": {

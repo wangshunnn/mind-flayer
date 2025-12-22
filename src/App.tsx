@@ -1,4 +1,5 @@
 import { createRootRoute, createRoute, createRouter, RouterProvider } from "@tanstack/react-router"
+import { ThemeProvider } from "@/components/theme-provider"
 import About from "@/pages/About"
 import Home from "@/pages/Home"
 
@@ -23,7 +24,11 @@ const routeTree = rootRoute.addChildren([indexRoute, aboutRoute])
 const router = createRouter({ routeTree })
 
 function App() {
-  return <RouterProvider router={router} />
+  return (
+    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+      <RouterProvider router={router} />
+    </ThemeProvider>
+  )
 }
 
 export default App

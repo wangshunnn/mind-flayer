@@ -1,20 +1,57 @@
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarHeader
-} from "@/components/ui/sidebar"
+import { BookmarkCheck } from "lucide-react"
+import type * as React from "react"
+import { NavMain } from "@/components/nav-main"
+import { NavChats } from "@/components/nav-projects"
+import { NavUser } from "@/components/nav-user"
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar"
+import { SearchChat } from "./ui/sidebar-search"
 
-export function AppSidebar() {
+const data = {
+  user: {
+    name: "Mind Flayer"
+    // avatar: "/tauri.svg"
+  },
+  navMain: [
+    {
+      title: "Mind Flayer",
+      url: "#",
+      icon: BookmarkCheck
+    },
+    {
+      title: "All Collection",
+      url: "#",
+      icon: BookmarkCheck
+    }
+  ],
+  chats: [
+    {
+      name: "history chat 1",
+      url: "#"
+    },
+    {
+      name: "history chat 2",
+      url: "#"
+    },
+    {
+      name: "history chat 3",
+      url: "#"
+    }
+  ]
+}
+
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar>
-      <SidebarHeader />
+    <Sidebar variant="inset" {...props}>
+      <SidebarHeader>
+        <SearchChat />
+      </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup />
-        <SidebarGroup />
+        <NavMain items={data.navMain} />
+        <NavChats chats={data.chats} />
       </SidebarContent>
-      <SidebarFooter />
+      <SidebarFooter>
+        <NavUser user={data.user} />
+      </SidebarFooter>
     </Sidebar>
   )
 }

@@ -10,11 +10,19 @@
     "devUrl": "http://localhost:1420"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Mind Flayer",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "center": true,
+        "trafficLightPosition": {
+          "x": 25,
+          "y": 30
+        }
       }
     ],
     "security": {

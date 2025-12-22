@@ -29,7 +29,7 @@
       "quoteProperties": "asNeeded",
       "arrowParentheses": "asNeeded",
       "trailingCommas": "none",
-      "bracketSameLine": true,
+      "bracketSameLine": false,
       "attributePosition": "auto",
       "bracketSpacing": true
     }

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { SidebarGroup, SidebarGroupContent, SidebarMenuButton } from "@/components/ui/sidebar"
+import { cn } from "@/lib/utils"
 
 export function SearchChat() {
   return (
@@ -21,7 +22,13 @@ export function SearchChat() {
             <Label htmlFor="search" className="sr-only">
               Search
             </Label>
-            <SidebarMenuButton className="opacity-60 bg-sidebar-search hover:bg-sidebar-accent cursor-pointer">
+            <SidebarMenuButton
+              className={cn(
+                "cursor-pointer bg-sidebar-search hover:bg-sidebar-search-hover",
+                "text-sidebar-search-foreground hover:text-sidebar-search-foreground",
+                "border-[0.5px] border-black/8"
+              )}
+            >
               <Search />
               <span>Search</span>
             </SidebarMenuButton>

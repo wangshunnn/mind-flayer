@@ -13,7 +13,7 @@ export default function Page() {
 
       {/* Top buttons */}
       <div className="z-100 fixed top-4.25 left-25 flex items-center justify-center pointer-events-auto gap-1.25">
-        <SidebarTrigger className="" />
+        <SidebarTrigger />
         <NewChatTrigger />
         <DarkModeToggle />
       </div>

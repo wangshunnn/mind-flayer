@@ -11,6 +11,7 @@
   },
   "app": {
     "withGlobalTauri": true,
+    "macOSPrivateApi": true,
     "windows": [
       {
         "title": "Mind Flayer",
@@ -19,6 +20,7 @@
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "center": true,
+        "transparent": true,
         "trafficLightPosition": {
           "x": 25,
           "y": 30

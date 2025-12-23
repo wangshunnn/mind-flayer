@@ -91,7 +91,7 @@ pnpm build
 ## 💻 截图
 
 <p align="center">
-  <img width="800" height="600" alt="应用截图" src="https://github.com/user-attachments/assets/0bad4f06-7acc-460f-8daf-5336b16fe9f5" />
+  <!-- <img width="800" height="600" alt="应用截图" src="https://github.com/user-attachments/assets/0bad4f06-7acc-460f-8daf-5336b16fe9f5" /> -->
 </p>
 
 <br>

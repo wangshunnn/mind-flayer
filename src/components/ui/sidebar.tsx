@@ -256,7 +256,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
           variant="ghost"
           size="icon"
           className={cn(
-            "size-8",
+            "size-8 cursor-pointer",
             "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
             className
           )}

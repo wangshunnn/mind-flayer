@@ -1,11 +1,10 @@
-import { CirclePlus, Settings, Sparkles, User } from "lucide-react"
+import { CirclePlus, Settings, User } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
@@ -40,19 +39,10 @@ export function NavUser({
 
           <DropdownMenuContent
             className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-            side="bottom"
+            side="top"
             align="end"
-            sideOffset={4}
+            sideOffset={8}
           >
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Sparkles />
-                Upgrade to Pro
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-
-            <DropdownMenuSeparator />
-
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <User />
@@ -70,17 +60,17 @@ export function NavUser({
 
             <DropdownMenuSeparator />
 
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="rounded-full size-6">
+            <DropdownMenuItem className="p-0  font-light cursor-pointer">
+              <div className="flex items-center gap-2 px-1.5 py-1.5 text-left text-sm">
+                <Avatar className="rounded-full size-5">
                   <AvatarImage src={user.avatar} alt={user.name} />
                   <AvatarFallback className="bg-linear-120 from-indigo-300 to-teal-300"></AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{user.name}</span>
+                  <span className="truncate">{user.name}</span>
                 </div>
               </div>
-            </DropdownMenuLabel>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

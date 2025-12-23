@@ -28,7 +28,7 @@ export function NavMain({
                   {item.title === "Mind Flayer" ? (
                     <img src="/tauri.svg" alt="Mind Flayer" className="h-4 w-4" />
                   ) : (
-                    <item.icon className="opacity-65" />
+                    <item.icon className="opacity-70" />
                   )}
                   <span>{item.title}</span>
                 </a>

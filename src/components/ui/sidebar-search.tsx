@@ -26,7 +26,7 @@ export function SearchChat() {
               className={cn(
                 "cursor-pointer bg-sidebar-search hover:bg-sidebar-search-hover",
                 "text-sidebar-search-foreground hover:text-sidebar-search-foreground",
-                "border-[0.5px] border-black/8"
+                "border-[0.5px] border-sidebar-search-border"
               )}
             >
               <Search />

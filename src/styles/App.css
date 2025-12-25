@@ -82,6 +82,10 @@
 
 @theme {
   --breakpoint-sm: 600px;
+  /* --font-family-mf: -apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC,
+    Roboto, Ubuntu, Helvetica Neue, Helvetica, Arial, Hiragino Sans GB,
+    Microsoft YaHei UI, Microsoft YaHei, Source Han Sans CN, sans-serif;
+  --default-font-family: var(--font-family-mf); */
 }
 
 @theme inline {

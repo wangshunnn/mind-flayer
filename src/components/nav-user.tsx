@@ -32,15 +32,15 @@ export function NavUser({
                 <AvatarFallback className="bg-linear-120 from-indigo-300 to-teal-300"></AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
+                <span className="truncate font-normal">{user.name}</span>
               </div>
             </SidebarMenuButton>
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-40 rounded-lg"
             side="top"
-            align="end"
+            align="center"
             sideOffset={8}
           >
             <DropdownMenuGroup>

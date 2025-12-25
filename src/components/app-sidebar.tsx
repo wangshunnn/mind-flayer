@@ -18,7 +18,7 @@ const data = {
       icon: BookmarkCheck
     },
     {
-      title: "All Collection",
+      title: "All Collections",
       url: "#",
       icon: BookmarkCheck
     }

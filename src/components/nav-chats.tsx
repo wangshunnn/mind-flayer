@@ -29,7 +29,7 @@ export function NavChats({
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Chats</SidebarGroupLabel>
+      <SidebarGroupLabel>Chat</SidebarGroupLabel>
       <SidebarMenu>
         {chats.map(item => (
           <SidebarMenuItem key={item.name}>

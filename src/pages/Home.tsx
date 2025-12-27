@@ -1,10 +1,11 @@
 import { AppSidebar } from "@/components/app-sidebar"
+import Example from "@/components/chatbot"
+import { DarkModeToggle, NewChatTrigger } from "@/components/nav-top"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { DarkModeToggle, NewChatTrigger } from "../components/nav-top"
 
 export default function Page() {
   return (
-    <SidebarProvider>
+    <SidebarProvider className="scroll-auto">
       {/* Left sidebar */}
       <AppSidebar />
 
@@ -20,9 +21,7 @@ export default function Page() {
 
       {/* Main content area */}
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2">
-          <div className="flex items-center gap-2 px-4">{/* LLM Model */}</div>
-        </header>
+        <Example />
       </SidebarInset>
     </SidebarProvider>
   )

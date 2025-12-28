@@ -2,10 +2,10 @@
 
 import type { ChatStatus, FileUIPart } from "ai"
 import {
-  CornerDownLeftIcon,
   ImageIcon,
   Loader2Icon,
   MicIcon,
+  Navigation2Icon,
   PaperclipIcon,
   PlusIcon,
   SquareIcon,
@@ -737,7 +737,7 @@ export const PromptInput = ({
         type="file"
       />
       <form className={cn("w-full", className)} onSubmit={handleSubmit} ref={formRef} {...props}>
-        <InputGroup className="overflow-hidden">{children}</InputGroup>
+        <InputGroup className="overflow-hidden rounded-4xl px-4 pt-3 pb-3">{children}</InputGroup>
       </form>
     </>
   )
@@ -752,7 +752,7 @@ export const PromptInput = ({
 export type PromptInputBodyProps = HTMLAttributes<HTMLDivElement>
 
 export const PromptInputBody = ({ className, ...props }: PromptInputBodyProps) => (
-  <div className={cn("contents", className)} {...props} />
+  <div className={cn("contents h-auto", className)} {...props} />
 )
 
 export type PromptInputTextareaProps = ComponentProps<typeof InputGroupTextarea>
@@ -760,12 +760,29 @@ export type PromptInputTextareaProps = ComponentProps<typeof InputGroupTextarea>
 export const PromptInputTextarea = ({
   onChange,
   className,
-  placeholder = "What would you like to know?",
+  placeholder = "Chat with Mind Flayer",
   ...props
 }: PromptInputTextareaProps) => {
   const controller = useOptionalPromptInputController()
   const attachments = usePromptInputAttachments()
   const [isComposing, setIsComposing] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-resize textarea based on content because
+  // `field-sizing-content` is not supported in Tauri :(
+  const adjustHeight = useCallback(() => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    // Reset height to auto to get the correct scrollHeight
+    textarea.style.height = "auto"
+    textarea.style.height = `${textarea.scrollHeight}px`
+  }, [])
+
+  // Adjust height on mount and when value changes
+  useEffect(() => {
+    adjustHeight()
+  }, [adjustHeight])
 
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = e => {
     if (e.key === "Enter") {
@@ -826,16 +843,28 @@ export const PromptInputTextarea = ({
         value: controller.textInput.value,
         onChange: (e: ChangeEvent<HTMLTextAreaElement>) => {
           controller.textInput.setInput(e.currentTarget.value)
+          adjustHeight()
           onChange?.(e)
         }
       }
     : {
-        onChange
+        onChange: (e: ChangeEvent<HTMLTextAreaElement>) => {
+          adjustHeight()
+          onChange?.(e)
+        }
       }
 
   return (
     <InputGroupTextarea
-      className={cn("field-sizing-content max-h-48 min-h-16", className)}
+      ref={textareaRef}
+      rows={1}
+      className={cn(
+        "field-sizing-content min-h-(--chat-input-line-height) max-h-(--chat-input-max-height)",
+        "text-sm leading-(--chat-input-line-height)",
+        "p-0 pr-2.5 font-light placeholder:text-(--chat-input-placeholder-color)",
+        "bg-(--chat-input-bg-color)",
+        className
+      )}
       name="message"
       onCompositionEnd={() => setIsComposing(false)}
       onCompositionStart={() => setIsComposing(true)}
@@ -853,7 +882,7 @@ export type PromptInputHeaderProps = Omit<ComponentProps<typeof InputGroupAddon>
 export const PromptInputHeader = ({ className, ...props }: PromptInputHeaderProps) => (
   <InputGroupAddon
     align="block-end"
-    className={cn("order-first flex-wrap gap-1", className)}
+    className={cn("order-first flex-wrap gap-1 p-0", className)}
     {...props}
   />
 )
@@ -863,7 +892,7 @@ export type PromptInputFooterProps = Omit<ComponentProps<typeof InputGroupAddon>
 export const PromptInputFooter = ({ className, ...props }: PromptInputFooterProps) => (
   <InputGroupAddon
     align="block-end"
-    className={cn("justify-between gap-1", className)}
+    className={cn("justify-between gap-1 p-0 mt-2.5", className)}
     {...props}
   />
 )
@@ -882,11 +911,11 @@ export const PromptInputButton = ({
   size,
   ...props
 }: PromptInputButtonProps) => {
-  const newSize = size ?? (Children.count(props.children) > 1 ? "sm" : "icon-sm")
+  const newSize = size ?? (Children.count(props.children) > 1 ? "xs" : "icon-xs")
 
   return (
     <InputGroupButton
-      className={cn(className)}
+      className={cn("text-xs font-normal", className)}
       size={newSize}
       type="button"
       variant={variant}
@@ -943,7 +972,7 @@ export const PromptInputSubmit = ({
   children,
   ...props
 }: PromptInputSubmitProps) => {
-  let Icon = <CornerDownLeftIcon className="size-4" />
+  let Icon = <Navigation2Icon className="size-4" fill="black" />
 
   if (status === "submitted") {
     Icon = <Loader2Icon className="size-4 animate-spin" />

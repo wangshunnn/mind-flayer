@@ -15,8 +15,7 @@ function NewChatTrigger({ className, ...props }: React.ComponentProps<typeof But
           variant="ghost"
           size="icon"
           className={cn(
-            "size-8 cursor-pointer",
-            "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            "size-8 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
             className
           )}
           {...props}
@@ -44,14 +43,12 @@ function DarkModeToggle({ className, ...props }: React.ComponentProps<typeof But
           variant="ghost"
           size="icon"
           className={cn(
-            "size-8 cursor-pointer",
-            "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            "size-8 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
             className
           )}
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           {...props}
         >
-          {/* <Lightbulb className="cursor-pointer size-4.5" /> */}
           <Sun className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
           <Moon className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
           <span className="sr-only">Toggle theme</span>

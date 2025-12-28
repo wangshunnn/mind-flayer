@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowDownIcon } from "lucide-react"
+import { ChevronDownIcon } from "lucide-react"
 import type { ComponentProps } from "react"
 import { useCallback } from "react"
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom"
@@ -22,7 +22,10 @@ export const Conversation = ({ className, ...props }: ConversationProps) => (
 export type ConversationContentProps = ComponentProps<typeof StickToBottom.Content>
 
 export const ConversationContent = ({ className, ...props }: ConversationContentProps) => (
-  <StickToBottom.Content className={cn("flex flex-col gap-8 p-4", className)} {...props} />
+  <StickToBottom.Content
+    className={cn("flex flex-col gap-8 px-5 py-5 items-center", className)}
+    {...props}
+  />
 )
 
 export type ConversationEmptyStateProps = ComponentProps<"div"> & {
@@ -73,14 +76,21 @@ export const ConversationScrollButton = ({
   return (
     !isAtBottom && (
       <Button
-        className={cn("absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full", className)}
+        className={cn(
+          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full",
+          "bg-(--chat-input-bg-color) hover:bg-(--chat-input-bg-color)",
+          "drop-shadow-[0_4px_15px_rgba(0,0,0,0.12)] hover:drop-shadow-[0_4px_15px_rgba(0,0,0,0.2)]",
+          "dark:bg-(--chat-input-bg-color) dark:hover:bg-[#424242]",
+          "dark:drop-shadow-[0_4px_15px_rgba(255,255,255,0.12)] dark:hover:drop-shadow-[0_4px_15px_rgba(255,255,255,0.2)]",
+          className
+        )}
         onClick={handleScrollToBottom}
-        size="icon"
+        size="icon-sm"
         type="button"
         variant="outline"
         {...props}
       >
-        <ArrowDownIcon className="size-4" />
+        <ChevronDownIcon className="size-5" />
       </Button>
     )
   )

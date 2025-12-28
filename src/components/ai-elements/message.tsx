@@ -146,7 +146,15 @@ export const MessageBranch = ({
 
   return (
     <MessageBranchContext.Provider value={contextValue}>
-      <div className={cn("grid w-full gap-2 [&>div]:pb-0", className)} {...props} />
+      <div
+        className={cn(
+          "flex items-center",
+          "w-(--chat-content-width) max-w-(--chat-content-max-width)",
+          "grid gap-2 [&>div]:pb-0",
+          className
+        )}
+        {...props}
+      />
     </MessageBranchContext.Provider>
   )
 }

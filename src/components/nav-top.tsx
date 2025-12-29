@@ -24,9 +24,7 @@ function NewChatTrigger({ className, ...props }: React.ComponentProps<typeof But
           <span className="sr-only">New Chat</span>
         </Button>
       </TooltipTrigger>
-      <TooltipContent arrow={false} sideOffset={8}>
-        New Chat
-      </TooltipContent>
+      <TooltipContent>New Chat</TooltipContent>
     </Tooltip>
   )
 }
@@ -55,9 +53,7 @@ function DarkModeToggle({ className, ...props }: React.ComponentProps<typeof But
           <span className="sr-only">Toggle Dark Mode</span>
         </Button>
       </TooltipTrigger>
-      <TooltipContent arrow={false} sideOffset={8}>
-        Toggle Dark Mode
-      </TooltipContent>
+      <TooltipContent>Toggle Dark Mode</TooltipContent>
     </Tooltip>
   )
 }

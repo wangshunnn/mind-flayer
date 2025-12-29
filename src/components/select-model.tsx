@@ -21,9 +21,7 @@ function SelectModel({ className, ...props }: React.ComponentProps<typeof Button
           <span className="sr-only">DeepSeek</span>
         </Button>
       </TooltipTrigger>
-      <TooltipContent arrow={false} sideOffset={8}>
-        Switch Model
-      </TooltipContent>
+      <TooltipContent>Switch Model</TooltipContent>
     </Tooltip>
   )
 }

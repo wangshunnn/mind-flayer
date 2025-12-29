@@ -17,7 +17,7 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
         "has-[>textarea]:h-auto",
 
         // Background color.
-        "bg-(--chat-input-bg-color)",
+        "bg-chat-input-bg",
 
         // Border style.
         "border-[0.5px]",
@@ -86,6 +86,11 @@ function InputGroupAddon({
 
 const inputGroupButtonVariants = cva("text-sm shadow-none flex gap-2 items-center", {
   variants: {
+    variant: {
+      default: "",
+      ghost: "text-foreground/80",
+      selected: "text-brand-green hover:bg-brand-green/10"
+    },
     size: {
       xs: "h-6 gap-1 px-2 rounded-[calc(var(--radius)-5px)] [&>svg:not([class*='size-'])]:size-3.5 has-[>svg]:px-2",
       sm: "h-8 px-2.5 gap-1.5 rounded-md has-[>svg]:px-2.5",
@@ -111,7 +116,7 @@ function InputGroupButton({
       type={type}
       data-size={size}
       variant={variant}
-      className={cn(inputGroupButtonVariants({ size }), className)}
+      className={cn(inputGroupButtonVariants({ variant, size }), className)}
       {...props}
     />
   )

@@ -1,5 +1,3 @@
-"use client"
-
 import { ChevronDownIcon } from "lucide-react"
 import type { ComponentProps } from "react"
 import { useCallback } from "react"
@@ -78,9 +76,9 @@ export const ConversationScrollButton = ({
       <Button
         className={cn(
           "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full",
-          "bg-(--chat-input-bg-color) hover:bg-(--chat-input-bg-color)",
+          "bg-chat-input-bg hover:bg-chat-input-bg",
           "drop-shadow-[0_4px_15px_rgba(0,0,0,0.12)] hover:drop-shadow-[0_4px_15px_rgba(0,0,0,0.2)]",
-          "dark:bg-(--chat-input-bg-color) dark:hover:bg-[#424242]",
+          "dark:bg-chat-input-bg dark:hover:bg-[#424242]",
           "dark:drop-shadow-[0_4px_15px_rgba(255,255,255,0.12)] dark:hover:drop-shadow-[0_4px_15px_rgba(255,255,255,0.2)]",
           className
         )}

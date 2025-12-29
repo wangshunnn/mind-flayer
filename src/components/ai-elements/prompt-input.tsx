@@ -1,5 +1,3 @@
-"use client"
-
 import type { ChatStatus, FileUIPart } from "ai"
 import {
   ImageIcon,
@@ -34,6 +32,7 @@ import {
   useRef,
   useState
 } from "react"
+import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -861,8 +860,8 @@ export const PromptInputTextarea = ({
       className={cn(
         "field-sizing-content min-h-(--chat-input-line-height) max-h-(--chat-input-max-height)",
         "text-sm leading-(--chat-input-line-height)",
-        "p-0 pr-2.5 font-light placeholder:text-(--chat-input-placeholder-color)",
-        "bg-(--chat-input-bg-color)",
+        "p-0 pr-2.5 font-light placeholder:text-chat-input-placeholder",
+        "bg-chat-input-bg",
         className
       )}
       name="message"
@@ -938,7 +937,7 @@ export const PromptInputActionMenuTrigger = ({
 }: PromptInputActionMenuTriggerProps) => (
   <DropdownMenuTrigger asChild>
     <PromptInputButton className={className} {...props}>
-      {children ?? <PlusIcon className="size-4" />}
+      {children ?? <PlusIcon className="lucide-stroke-bold mb-px size-4" />}
     </PromptInputButton>
   </DropdownMenuTrigger>
 )
@@ -972,7 +971,10 @@ export const PromptInputSubmit = ({
   children,
   ...props
 }: PromptInputSubmitProps) => {
-  let Icon = <Navigation2Icon className="size-4" fill="black" />
+  const { theme } = useTheme()
+  let Icon = (
+    <Navigation2Icon className="size-3.5 mb-px" fill={theme === "dark" ? "black" : "white"} />
+  )
 
   if (status === "submitted") {
     Icon = <Loader2Icon className="size-4 animate-spin" />
@@ -985,7 +987,7 @@ export const PromptInputSubmit = ({
   return (
     <InputGroupButton
       aria-label="Submit"
-      className={cn(className)}
+      className={cn("rounded-full size-7", className)}
       size={size}
       type="submit"
       variant={variant}

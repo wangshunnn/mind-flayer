@@ -1,7 +1,7 @@
 import type { ToolUIPart } from "ai"
 import { AtomIcon, GlobeIcon } from "lucide-react"
 import { nanoid } from "nanoid"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
   Conversation,
@@ -41,6 +41,7 @@ import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai
 import { SelectModel } from "@/components/select-model"
 import { useSidebar } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
 type MessageType = {
   key: string
@@ -302,6 +303,18 @@ const AppChat = () => {
   const [status, setStatus] = useState<"submitted" | "streaming" | "ready" | "error">("ready")
   const [messages, setMessages] = useState<MessageType[]>(initialMessages)
   const [, setStreamingMessageId] = useState<string | null>(null)
+  const [isCondensed, setIsCondensed] = useState(false)
+  const inputContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = inputContainerRef.current
+    if (!el) return
+    const observer = new ResizeObserver(([entry]) => {
+      setIsCondensed(entry.contentRect.width < 448) // md breakpoint
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   const streamResponse = useCallback(async (messageId: string, content: string) => {
     setStatus("streaming")
@@ -467,43 +480,67 @@ const AppChat = () => {
           />
 
           {/* Chat Input */}
-          <div className="relative w-full max-w-(--chat-content-max-width) pb-6">
+          <div
+            className="relative w-full max-w-(--chat-content-max-width) pb-6"
+            ref={inputContainerRef}
+          >
             <PromptInput globalDrop multiple onSubmit={handleSubmit}>
+              {/* Attachments header */}
               <PromptInputHeader>
                 <PromptInputAttachments>
                   {attachment => <PromptInputAttachment data={attachment} />}
                 </PromptInputAttachments>
               </PromptInputHeader>
+
+              {/* Input box */}
               <PromptInputBody>
                 <PromptInputTextarea onChange={event => setText(event.target.value)} value={text} />
               </PromptInputBody>
+
+              {/* Footer */}
               <PromptInputFooter>
+                {/* Tools in Left */}
                 <PromptInputTools>
+                  <Tooltip open={!isCondensed ? false : undefined}>
+                    <TooltipTrigger asChild>
+                      <PromptInputButton
+                        onClick={() => setUseDeepThink(!useDeepThink)}
+                        variant={useDeepThink ? "selected" : "ghost"}
+                      >
+                        <AtomIcon className="lucide-stroke-bold mb-px" />
+                        {!isCondensed && <span>DeepThink</span>}
+                      </PromptInputButton>
+                    </TooltipTrigger>
+                    <TooltipContent> DeepThink</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip open={!isCondensed ? false : undefined}>
+                    <TooltipTrigger asChild>
+                      <PromptInputButton
+                        onClick={() => setUseWebSearch(!useWebSearch)}
+                        variant={useWebSearch ? "selected" : "ghost"}
+                      >
+                        <GlobeIcon className="lucide-stroke-bold mb-px" />
+                        {!isCondensed && <span>Search</span>}
+                      </PromptInputButton>
+                    </TooltipTrigger>
+                    <TooltipContent> Search</TooltipContent>
+                  </Tooltip>
+                </PromptInputTools>
+
+                {/* Tools in Right */}
+                <PromptInputTools className="gap-3">
                   <PromptInputActionMenu>
                     <PromptInputActionMenuTrigger />
                     <PromptInputActionMenuContent>
                       <PromptInputActionAddAttachments />
                     </PromptInputActionMenuContent>
                   </PromptInputActionMenu>
-                  <PromptInputButton
-                    onClick={() => setUseDeepThink(!useDeepThink)}
-                    variant={useDeepThink ? "default" : "ghost"}
-                  >
-                    <AtomIcon size={16} />
-                    <span>DeepThink</span>
-                  </PromptInputButton>
-                  <PromptInputButton
-                    onClick={() => setUseWebSearch(!useWebSearch)}
-                    variant={useWebSearch ? "default" : "ghost"}
-                  >
-                    <GlobeIcon size={16} />
-                    <span>Search</span>
-                  </PromptInputButton>
+                  <PromptInputSubmit
+                    disabled={!(text.trim() || status) || status === "streaming"}
+                    status={status}
+                  />
                 </PromptInputTools>
-                <PromptInputSubmit
-                  disabled={!(text.trim() || status) || status === "streaming"}
-                  status={status}
-                />
               </PromptInputFooter>
             </PromptInput>
           </div>

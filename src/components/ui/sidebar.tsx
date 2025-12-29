@@ -270,7 +270,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
           <span className="sr-only">Toggle Sidebar</span>
         </Button>
       </TooltipTrigger>
-      <TooltipContent arrow={false} sideOffset={8}>
+      <TooltipContent>
         {open ? "Hide Sidebar" : "Show Sidebar"}{" "}
         <KbdGroup className="opacity-80">
           <Kbd>⌘</Kbd>

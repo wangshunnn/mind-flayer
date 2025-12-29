@@ -1,9 +1,7 @@
-"use client"
-
 import type { FileUIPart, UIMessage } from "ai"
 import { ChevronLeftIcon, ChevronRightIcon, PaperclipIcon, XIcon } from "lucide-react"
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react"
-import { createContext, memo, useContext, useEffect, useState } from "react"
+import { createContext, forwardRef, memo, useContext, useEffect, useState } from "react"
 import { Streamdown } from "streamdown"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group"
@@ -14,16 +12,21 @@ export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"]
 }
 
-export const Message = ({ className, from, ...props }: MessageProps) => (
-  <div
-    className={cn(
-      "group flex w-full max-w-[95%] flex-col gap-2",
-      from === "user" ? "is-user ml-auto justify-end" : "is-assistant",
-      className
-    )}
-    {...props}
-  />
+export const Message = forwardRef<HTMLDivElement, MessageProps>(
+  ({ className, from, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        "group flex w-full max-w-[95%] flex-col gap-2",
+        from === "user" ? "is-user ml-auto justify-end" : "is-assistant",
+        className
+      )}
+      {...props}
+    />
+  )
 )
+
+Message.displayName = "Message"
 
 export type MessageContentProps = HTMLAttributes<HTMLDivElement>
 

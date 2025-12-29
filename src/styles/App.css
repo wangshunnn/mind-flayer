@@ -42,7 +42,7 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   --chat-input-bg-color: oklch(1 0 0);
-  --chat-input-placeholder-color: #838383;
+  --chat-input-placeholder-color: oklch(0.61 0 271.152);
 }
 
 .dark {
@@ -83,7 +83,7 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
   --chat-input-bg-color: oklch(0.309 0 271.152);
-  --chat-input-placeholder-color: #999999;
+  --chat-input-placeholder-color: oklch(0.683 0 271.152);
 }
 
 @theme {
@@ -93,6 +93,7 @@
   --chat-input-font-size: 0.875rem;
   --chat-input-line-height: 1.375rem;
   --chat-input-max-height: 13rem;
+  --brand-green-color: oklch(0.668 0.178 151.586);
   /* --font-family-mf: -apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC,
     Roboto, Ubuntu, Helvetica Neue, Helvetica, Arial, Hiragino Sans GB,
     Microsoft YaHei UI, Microsoft YaHei, Source Han Sans CN, sans-serif;
@@ -142,6 +143,9 @@
   --color-sidebar-search-foreground: var(--sidebar-search-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-chat-input-bg: var(--chat-input-bg-color);
+  --color-chat-input-placeholder: var(--chat-input-placeholder-color);
+  --color-brand-green: var(--brand-green-color);
 }
 
 @layer base {
@@ -168,4 +172,8 @@
 /* Global styling lucide-icon */
 .lucide {
   stroke-width: 1.5px;
+}
+
+.lucide-stroke-bold {
+  stroke-width: 1.8px;
 }

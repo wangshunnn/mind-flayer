@@ -391,7 +391,7 @@ export const PromptInputActionAddAttachments = ({
         attachments.openFileDialog()
       }}
     >
-      <ImageIcon className="mr-2 size-4" /> {label}
+      <ImageIcon className="size-4" /> {label}
     </DropdownMenuItem>
   )
 }
@@ -736,7 +736,7 @@ export const PromptInput = ({
         type="file"
       />
       <form className={cn("w-full", className)} onSubmit={handleSubmit} ref={formRef} {...props}>
-        <InputGroup className="overflow-hidden rounded-4xl px-4 pt-3 pb-3">{children}</InputGroup>
+        <InputGroup className="overflow-hidden rounded-2xl px-4 pt-3 pb-3">{children}</InputGroup>
       </form>
     </>
   )
@@ -947,7 +947,7 @@ export const PromptInputActionMenuContent = ({
   className,
   ...props
 }: PromptInputActionMenuContentProps) => (
-  <DropdownMenuContent align="start" className={cn(className)} {...props} />
+  <DropdownMenuContent side="top" align="end" className={cn(className)} {...props} />
 )
 
 export type PromptInputActionMenuItemProps = ComponentProps<typeof DropdownMenuItem>
@@ -966,28 +966,26 @@ export type PromptInputSubmitProps = ComponentProps<typeof InputGroupButton> & {
 export const PromptInputSubmit = ({
   className,
   variant = "default",
-  size = "icon-sm",
+  size = "icon-xs",
   status,
   children,
   ...props
 }: PromptInputSubmitProps) => {
   const { theme } = useTheme()
-  let Icon = (
-    <Navigation2Icon className="size-3.5 mb-px" fill={theme === "dark" ? "black" : "white"} />
-  )
+  let Icon = <Navigation2Icon className="mb-px fixed" fill={theme === "dark" ? "black" : "white"} />
 
   if (status === "submitted") {
-    Icon = <Loader2Icon className="size-4 animate-spin" />
+    Icon = <Loader2Icon className="animate-spin" />
   } else if (status === "streaming") {
-    Icon = <SquareIcon className="size-4" />
+    Icon = <SquareIcon />
   } else if (status === "error") {
-    Icon = <XIcon className="size-4" />
+    Icon = <XIcon />
   }
 
   return (
     <InputGroupButton
       aria-label="Submit"
-      className={cn("rounded-full size-7", className)}
+      className={cn("disabled:opacity-50", className)}
       size={size}
       type="submit"
       variant={variant}

@@ -47,7 +47,7 @@ export function NavChats({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 className="w-48"
-                side={isMobile ? "bottom" : "right"}
+                side="bottom"
                 align={isMobile ? "end" : "start"}
               >
                 <DropdownMenuItem>

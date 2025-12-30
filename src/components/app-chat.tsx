@@ -506,12 +506,13 @@ const AppChat = () => {
                       <PromptInputButton
                         onClick={() => setUseDeepThink(!useDeepThink)}
                         variant={useDeepThink ? "selected" : "ghost"}
+                        size={isCondensed ? "icon-xs" : "xs"}
                       >
                         <AtomIcon className="lucide-stroke-bold mb-px" />
                         {!isCondensed && <span>DeepThink</span>}
                       </PromptInputButton>
                     </TooltipTrigger>
-                    <TooltipContent> DeepThink</TooltipContent>
+                    <TooltipContent>Deep thinking</TooltipContent>
                   </Tooltip>
 
                   <Tooltip open={!isCondensed ? false : undefined}>
@@ -519,27 +520,41 @@ const AppChat = () => {
                       <PromptInputButton
                         onClick={() => setUseWebSearch(!useWebSearch)}
                         variant={useWebSearch ? "selected" : "ghost"}
+                        size={isCondensed ? "icon-xs" : "xs"}
                       >
                         <GlobeIcon className="lucide-stroke-bold mb-px" />
                         {!isCondensed && <span>Search</span>}
                       </PromptInputButton>
                     </TooltipTrigger>
-                    <TooltipContent> Search</TooltipContent>
+                    <TooltipContent>Web search</TooltipContent>
                   </Tooltip>
                 </PromptInputTools>
 
                 {/* Tools in Right */}
                 <PromptInputTools className="gap-3">
+                  {/* Add attachments */}
                   <PromptInputActionMenu>
-                    <PromptInputActionMenuTrigger />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <PromptInputActionMenuTrigger />
+                      </TooltipTrigger>
+                      <TooltipContent>Add files, photos, and more</TooltipContent>
+                    </Tooltip>
                     <PromptInputActionMenuContent>
                       <PromptInputActionAddAttachments />
                     </PromptInputActionMenuContent>
                   </PromptInputActionMenu>
-                  <PromptInputSubmit
-                    disabled={!(text.trim() || status) || status === "streaming"}
-                    status={status}
-                  />
+
+                  {/* Submit button */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <PromptInputSubmit
+                        disabled={!text.trim() || status === "streaming"}
+                        status={status}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>Submit</TooltipContent>
+                  </Tooltip>
                 </PromptInputTools>
               </PromptInputFooter>
             </PromptInput>

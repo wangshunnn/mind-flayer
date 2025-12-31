@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
+import { cn } from "../lib/utils"
 
 export function NavUser({
   user
@@ -25,11 +26,21 @@ export function NavUser({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className={cn(
+                "data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
+                "px-1"
+              )}
             >
               <Avatar className="rounded-full size-8">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="bg-linear-120 from-indigo-300 to-teal-300"></AvatarFallback>
+                <AvatarFallback className="bg-linear-120 from-indigo-300 to-teal-300 font-medium">
+                  {user.name
+                    .split(" ")
+                    .slice(0, 2)
+                    .map(n => n.charAt(0))
+                    .join("")
+                    .toUpperCase()}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-normal">{user.name}</span>

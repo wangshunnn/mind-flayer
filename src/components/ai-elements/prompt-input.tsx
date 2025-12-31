@@ -772,15 +772,20 @@ export const PromptInputTextarea = ({
   const adjustHeight = useCallback(() => {
     const textarea = textareaRef.current
     if (!textarea) return
-
     // Reset height to auto to get the correct scrollHeight
     textarea.style.height = "auto"
     textarea.style.height = `${textarea.scrollHeight}px`
   }, [])
 
-  // Adjust height on mount and when value changes
+  // Listen for textarea layout/width changes and auto-adjust height
   useEffect(() => {
-    adjustHeight()
+    const textarea = textareaRef.current
+    if (!textarea) return
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(adjustHeight)
+    })
+    observer.observe(textarea)
+    return () => observer.disconnect()
   }, [adjustHeight])
 
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = e => {

@@ -406,6 +406,8 @@ const AppChat = () => {
 
   const { open } = useSidebar()
 
+  const isSubmitDisabled = !text.trim() || status === "streaming"
+
   return (
     <div className="flex h-full flex-col">
       {/* Top */}
@@ -546,12 +548,11 @@ const AppChat = () => {
                   </PromptInputActionMenu>
 
                   {/* Submit button */}
-                  <Tooltip>
+                  <Tooltip open={undefined}>
                     <TooltipTrigger asChild>
-                      <PromptInputSubmit
-                        disabled={!text.trim() || status === "streaming"}
-                        status={status}
-                      />
+                      <div className={cn(isSubmitDisabled && "cursor-not-allowed")}>
+                        <PromptInputSubmit disabled={isSubmitDisabled} status={status} />
+                      </div>
                     </TooltipTrigger>
                     <TooltipContent>Submit</TooltipContent>
                   </Tooltip>

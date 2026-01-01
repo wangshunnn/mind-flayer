@@ -89,7 +89,7 @@ const inputGroupButtonVariants = cva("text-sm shadow-none flex gap-2 items-cente
     variant: {
       default: "",
       ghost: "text-foreground/80",
-      selected: "text-brand-green hover:bg-brand-green/10"
+      selected: "text-brand-green bg-brand-green-1 hover:bg-brand-green/10"
     },
     size: {
       xs: "h-6 gap-1 px-1 rounded-[calc(var(--radius)-5px)] [&>svg:not([class*='size-'])]:size-3.5 has-[>svg]:px-2",

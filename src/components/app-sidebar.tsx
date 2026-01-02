@@ -4,7 +4,7 @@ import { NavChats } from "@/components/nav-chats"
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar"
-import { SearchChat } from "./ui/sidebar-search"
+import { SearchChat } from "@/components/ui/sidebar-search"
 
 const data = {
   user: {

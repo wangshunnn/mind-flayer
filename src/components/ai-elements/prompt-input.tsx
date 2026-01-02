@@ -976,8 +976,10 @@ export const PromptInputSubmit = ({
   children,
   ...props
 }: PromptInputSubmitProps) => {
-  const { theme } = useTheme()
-  let Icon = <Navigation2Icon className="mb-px fixed" fill={theme === "dark" ? "black" : "white"} />
+  const { resolvedTheme } = useTheme()
+  let Icon = (
+    <Navigation2Icon className="mb-px fixed" fill={resolvedTheme === "dark" ? "black" : "white"} />
+  )
 
   if (status === "submitted") {
     Icon = <Loader2Icon className="animate-spin" />

@@ -40,8 +40,8 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-e
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/sources"
 import { SelectModel } from "@/components/select-model"
 import { useSidebar } from "@/components/ui/sidebar"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
 type MessageType = {
   key: string
@@ -415,7 +415,7 @@ const AppChat = () => {
         <div
           className={cn(
             "fixed left-10 flex z-50 items-center justify-center pointer-events-auto gap-1.25",
-            isCompact ? "left-52.75" : open ? "left-63" : "left-52.75",
+            !isCompact && open ? "left-63" : "left-42",
             "transition-left duration-300 ease"
           )}
         >

@@ -1,4 +1,5 @@
 import { CirclePlus, Settings, User } from "lucide-react"
+import { SiderbarDarkModeToggle } from "@/components/nav-top"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -9,7 +10,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
-import { cn } from "../lib/utils"
+import { cn } from "@/lib/utils"
 
 export function NavUser({
   user
@@ -47,6 +48,8 @@ export function NavUser({
               </div>
             </SidebarMenuButton>
           </DropdownMenuTrigger>
+
+          <SiderbarDarkModeToggle />
 
           <DropdownMenuContent
             className="w-(--radix-dropdown-menu-trigger-width) min-w-40 rounded-lg"

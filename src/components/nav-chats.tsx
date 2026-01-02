@@ -42,7 +42,7 @@ export function NavChats({
                   <span className="sr-only">More</span>
                 </SidebarMenuAction>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-48" side="bottom" align="start">
+              <DropdownMenuContent className="w-44" side="bottom" align="start">
                 <DropdownMenuItem>
                   <Folder className="text-muted-foreground" />
                   <span>View Project</span>

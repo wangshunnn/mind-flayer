@@ -13,8 +13,7 @@ import {
   SidebarMenu,
   SidebarMenuAction,
   SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar
+  SidebarMenuItem
 } from "@/components/ui/sidebar"
 
 export function NavChats({
@@ -25,8 +24,6 @@ export function NavChats({
     url: string
   }[]
 }) {
-  const { isMobile } = useSidebar()
-
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Chat</SidebarGroupLabel>
@@ -45,11 +42,7 @@ export function NavChats({
                   <span className="sr-only">More</span>
                 </SidebarMenuAction>
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-48"
-                side="bottom"
-                align={isMobile ? "end" : "start"}
-              >
+              <DropdownMenuContent className="w-48" side="bottom" align="start">
                 <DropdownMenuItem>
                   <Folder className="text-muted-foreground" />
                   <span>View Project</span>

@@ -10,8 +10,6 @@ function NewChatTrigger({ className, ...props }: React.ComponentProps<typeof But
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          data-sidebar="trigger"
-          data-slot="sidebar-trigger"
           variant="ghost"
           size="icon"
           className={cn(
@@ -36,8 +34,6 @@ function DarkModeToggle({ className, ...props }: React.ComponentProps<typeof But
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          data-sidebar="trigger"
-          data-slot="sidebar-trigger"
           variant="ghost"
           size="icon"
           className={cn(

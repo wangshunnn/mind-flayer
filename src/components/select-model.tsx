@@ -7,8 +7,6 @@ function SelectModel({ className, ...props }: React.ComponentProps<typeof Button
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          data-sidebar="trigger"
-          data-slot="sidebar-trigger"
           variant="ghost"
           className={cn(
             "h-8 px-1.25 pl-1.75",

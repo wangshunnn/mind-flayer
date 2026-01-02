@@ -6,32 +6,26 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { Separator } from "@/components/ui/separator"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle
-} from "@/components/ui/sheet"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsCompact } from "@/hooks/use-compact"
 import { cn } from "@/lib/utils"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "224px"
-const SIDEBAR_WIDTH_MOBILE = "288px"
-const SIDEBAR_WIDTH_ICON = "48px"
-const SIDEBAR_KEYBOARD_SHORTCUT = "b"
+export const SIDEBAR_WIDTH = "236px" // 224px + 12px padding
+export const SIDEBAR_WIDTH_COMPACT = "224px"
+export const SIDEBAR_WIDTH_ICON = "48px"
+export const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
   open: boolean
   setOpen: (open: boolean) => void
-  openMobile: boolean
-  setOpenMobile: (open: boolean) => void
-  isMobile: boolean
+  isCompact: boolean
+  openCompact: boolean
+  setOpenCompact: (open: boolean) => void
   toggleSidebar: () => void
 }
 
@@ -59,8 +53,8 @@ function SidebarProvider({
   open?: boolean
   onOpenChange?: (open: boolean) => void
 }) {
-  const isMobile = useIsMobile()
-  const [openMobile, setOpenMobile] = React.useState(false)
+  const isCompact = useIsCompact()
+  const [openCompact, setOpenCompact] = React.useState(false)
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -84,8 +78,8 @@ function SidebarProvider({
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
-    return isMobile ? setOpenMobile(open => !open) : setOpen(open => !open)
-  }, [isMobile, setOpen])
+    return isCompact ? setOpenCompact(open => !open) : setOpen(open => !open)
+  }, [isCompact, setOpen])
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
@@ -102,19 +96,19 @@ function SidebarProvider({
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
-  const state = open ? "expanded" : "collapsed"
+  const state = (isCompact && openCompact) || (!isCompact && open) ? "expanded" : "collapsed"
 
   const contextValue = React.useMemo<SidebarContextProps>(
     () => ({
       state,
       open,
       setOpen,
-      isMobile,
-      openMobile,
-      setOpenMobile,
+      isCompact,
+      openCompact,
+      setOpenCompact,
       toggleSidebar
     }),
-    [state, open, setOpen, isMobile, openMobile, toggleSidebar]
+    [state, open, setOpen, isCompact, openCompact, toggleSidebar]
   )
 
   return (
@@ -129,10 +123,7 @@ function SidebarProvider({
               ...style
             } as React.CSSProperties
           }
-          className={cn(
-            "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full",
-            className
-          )}
+          className={cn("group/sidebar-wrapper bg-sidebar flex min-h-svh w-full", className)}
           {...props}
         >
           {children}
@@ -151,10 +142,10 @@ function Sidebar({
   ...props
 }: React.ComponentProps<"div"> & {
   side?: "left" | "right"
-  variant?: "sidebar" | "inset"
+  variant?: "sidebar" | "floating" | "inset"
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+  const { isCompact, state, openCompact, setOpenCompact } = useSidebar()
 
   if (collapsible === "none") {
     return (
@@ -171,26 +162,36 @@ function Sidebar({
     )
   }
 
-  if (isMobile) {
+  if (isCompact) {
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+      <Sheet open={openCompact} onOpenChange={setOpenCompact}>
         <SheetContent
-          data-sidebar="sidebar"
-          data-slot="sidebar"
-          data-mobile="true"
-          className="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden"
-          style={
-            {
-              "--sidebar-width": SIDEBAR_WIDTH_MOBILE
-            } as React.CSSProperties
-          }
           side={side}
+          showCloseIcon={false}
+          className={cn(
+            "m-1.5 h-auto bg-transparent border-none outline-none shadow-none",
+            className
+          )}
+          style={{
+            width: SIDEBAR_WIDTH_COMPACT
+          }}
+          data-collapsible={state === "collapsed" ? collapsible : ""}
+          data-variant="floating"
+          data-slot="sidebar"
+          data-sidebar="sidebar"
+          overlayClassName={cn("bg-black/10")}
+          {...props}
         >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Sidebar</SheetTitle>
-            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
-          </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          <div
+            data-slot="sidebar-inner"
+            className={cn(
+              "flex h-full w-full flex-col pt-12",
+              "bg-sidebar-impact text-sidebar-foreground",
+              "rounded-sm border-none outline-none shadow-[12px_12px_36px_0_rgba(0,0,0,0.2)]"
+            )}
+          >
+            {children}
+          </div>
         </SheetContent>
       </Sheet>
     )
@@ -226,7 +227,7 @@ function Sidebar({
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
           // Adjust the padding for inset variant.
           variant === "inset"
-            ? "py-2 px-1 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
+            ? "py-2 px-1.5 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
             : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
           "pt-12",
           className
@@ -246,7 +247,9 @@ function Sidebar({
 }
 
 function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<typeof Button>) {
-  const { toggleSidebar, open } = useSidebar()
+  const { toggleSidebar, open, isCompact, openCompact } = useSidebar()
+  const tooltip =
+    (isCompact && openCompact) || (!isCompact && open) ? "Hide Sidebar" : "Show Sidebar"
 
   return (
     <Tooltip>
@@ -271,7 +274,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
         </Button>
       </TooltipTrigger>
       <TooltipContent>
-        {open ? "Hide Sidebar" : "Show Sidebar"}{" "}
+        {tooltip}{" "}
         <KbdGroup className="opacity-80">
           <Kbd>⌘</Kbd>
           <Kbd>B</Kbd>
@@ -312,7 +315,7 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
       data-slot="sidebar-inset"
       className={cn(
         "bg-background relative flex w-full flex-1 flex-col",
-        "sm:peer-data-[variant=inset]:m-1.5 sm:peer-data-[variant=inset]:ml-0 sm:peer-data-[variant=inset]:rounded-sm sm:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-1.5",
+        "m-1.5 rounded-sm sm:peer-data-[variant=inset]:peer-data-[state=expanded]:ml-0",
         className
       )}
       {...props}
@@ -502,7 +505,7 @@ function SidebarMenuButton({
   tooltip?: string | React.ComponentProps<typeof TooltipContent>
 } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const Comp = asChild ? Slot : "button"
-  const { isMobile, state } = useSidebar()
+  const { isCompact, state } = useSidebar()
 
   const button = (
     <Comp
@@ -531,7 +534,7 @@ function SidebarMenuButton({
       <TooltipContent
         side="right"
         align="center"
-        hidden={state !== "collapsed" || isMobile}
+        hidden={state !== "collapsed" || isCompact}
         {...tooltip}
       />
     </Tooltip>

@@ -404,7 +404,7 @@ const AppChat = () => {
     setText("")
   }
 
-  const { open } = useSidebar()
+  const { isCompact, open } = useSidebar()
 
   const isSubmitDisabled = !text.trim() || status === "streaming"
 
@@ -414,8 +414,8 @@ const AppChat = () => {
       <div className="bg-background flex h-13 items-center border-b-[0.5px] pt-0.5">
         <div
           className={cn(
-            "fixed left-10 flex z-90 items-center justify-center pointer-events-auto gap-1.25",
-            open ? "left-60" : "left-51.5",
+            "fixed left-10 flex z-50 items-center justify-center pointer-events-auto gap-1.25",
+            isCompact ? "left-52.75" : open ? "left-63" : "left-52.75",
             "transition-left duration-300 ease"
           )}
         >

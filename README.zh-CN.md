@@ -51,6 +51,10 @@
 - **[Tauri 2.0](https://tauri.app/)** - 使用 Web 技术构建轻量、安全且跨平台的桌面应用
 - **[Rust](https://www.rust-lang.org/)** - 高性能、内存安全的系统编程语言，为 Tauri 后端提供支持
 
+### AI 集成
+
+- **[AI SDK](https://ai-sdk.dev/)** - Vercel AI SDK，用于通过框架 hooks 和统一 API 构建 AI 驱动的流式文本和聊天应用
+
 ### 开发工具
 
 - **[pnpm 10](https://pnpm.io/)** - 快速、节省磁盘空间的包管理器

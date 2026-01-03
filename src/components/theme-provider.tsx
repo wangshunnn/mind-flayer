@@ -51,10 +51,10 @@ export function ThemeProvider({
       }
     }
 
-    // 立即应用主题
+    // Apply theme immediately
     applyTheme()
 
-    // 监听系统主题变化
+    // Listen for system theme changes
     const handleChange = () => {
       if (theme === "system") {
         applyTheme()
@@ -63,7 +63,7 @@ export function ThemeProvider({
 
     mediaQuery.addEventListener("change", handleChange)
 
-    // 清理监听器
+    // Cleanup listener
     return () => mediaQuery.removeEventListener("change", handleChange)
   }, [theme])
 

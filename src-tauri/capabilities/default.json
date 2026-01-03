@@ -35,6 +35,8 @@
     "core:webview:allow-set-webview-position",
     "core:webview:allow-webview-size",
     "core:webview:allow-webview-close",
-    "opener:default"
+    "opener:default",
+    "shell:allow-execute",
+    "shell:allow-open"
   ]
 }

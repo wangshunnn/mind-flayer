@@ -35,6 +35,15 @@ export default defineConfig(async () => ({
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"]
+    },
+
+    // Add proxy configuration to forward API requests to sidecar backend
+    proxy: {
+      "/api": {
+        target: "http://localhost:3737",
+        changeOrigin: true,
+        secure: false
+      }
     }
   }
 }))

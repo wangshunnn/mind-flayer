@@ -15,8 +15,8 @@ function SelectModel({ className, ...props }: React.ComponentProps<typeof Button
           )}
           {...props}
         >
-          DeepSeek
-          <span className="sr-only">DeepSeek</span>
+          Model
+          <span className="sr-only">Select Model</span>
         </Button>
       </TooltipTrigger>
       <TooltipContent>Switch Model</TooltipContent>

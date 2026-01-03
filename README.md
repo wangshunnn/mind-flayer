@@ -51,6 +51,10 @@
 - **[Tauri 2.0](https://tauri.app/)** - Build lightweight, secure, and cross-platform desktop applications with web technologies
 - **[Rust](https://www.rust-lang.org/)** - High-performance, memory-safe systems programming language powering Tauri's backend
 
+### AI Integration
+
+- **[AI SDK](https://ai-sdk.dev/)** - Vercel AI SDK for building AI-powered streaming text and chat applications with Framework hooks and unified API
+
 ### Development Tools
 
 - **[pnpm 10](https://pnpm.io/)** - Fast, disk space efficient package manager

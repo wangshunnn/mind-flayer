@@ -1,3 +1,6 @@
+packages:
+  - "sidecar"
+
 onlyBuiltDependencies:
   - esbuild
   - lefthook

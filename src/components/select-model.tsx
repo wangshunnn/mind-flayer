@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 
 function SelectModel({ className, ...props }: React.ComponentProps<typeof Button>) {
   return (
-    <Tooltip>
+    <Tooltip disableHoverableContent={true}>
       <TooltipTrigger asChild>
         <Button
           variant="ghost"

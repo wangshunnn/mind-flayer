@@ -75,7 +75,7 @@ export const MessageAction = ({
   if (tooltip) {
     return (
       <TooltipProvider>
-        <Tooltip>
+        <Tooltip disableHoverableContent={true}>
           <TooltipTrigger asChild>{button}</TooltipTrigger>
           <TooltipContent>
             <p>{tooltip}</p>

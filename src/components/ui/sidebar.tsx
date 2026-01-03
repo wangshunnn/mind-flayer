@@ -252,7 +252,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
     (isCompact && openCompact) || (!isCompact && open) ? "Hide Sidebar" : "Show Sidebar"
 
   return (
-    <Tooltip>
+    <Tooltip disableHoverableContent={true}>
       <TooltipTrigger asChild>
         <Button
           data-sidebar="trigger"

@@ -18,3 +18,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# envars
+.env
+.env.*
+!.env.example
+compose.env*
+!compose.env.example

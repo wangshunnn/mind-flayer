@@ -14,8 +14,8 @@ import { cn } from "@/lib/utils"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-export const SIDEBAR_WIDTH = "236px" // 224px + 12px padding
-export const SIDEBAR_WIDTH_COMPACT = "224px"
+export const SIDEBAR_WIDTH = "212px" // 200px + 12px padding
+export const SIDEBAR_WIDTH_COMPACT = "200px"
 export const SIDEBAR_WIDTH_ICON = "48px"
 export const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 

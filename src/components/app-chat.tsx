@@ -46,10 +46,10 @@ const AppChat = () => {
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
-      api: "/api/chat",
+      api: `http://localhost:${__SIDECAR_PORT__}/api/chat`,
       headers: {
-        "X-API-Key": import.meta.env.VITE_HUGGINGFACE_API_KEY || "",
-        "X-Model": "zai-org/GLM-4.7:novita"
+        "X-API-Key": import.meta.env.VITE_MINIMAX_API_KEY || "",
+        "X-Model": "MiniMax-M2"
       }
     }),
     onError: error => {

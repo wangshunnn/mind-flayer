@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.26.1",
+  "packageManager": "pnpm@10.27.0",
   "description": "A powerful open-source cross-platform desktop AI assistant app.",
   "author": "Soon Wang",
   "license": "MIT",
   "scripts": {
     "dev": "tauri dev",
-    "dev:sidecar": "cd sidecar && pnpm dev",
+    "debug": "RUST_LOG=debug tauri dev",
     "build:sidecar": "bash scripts/build-sidecar.sh",
     "build": "tauri build",
     "dev:frontend": "vite",
@@ -63,7 +63,8 @@
     "streamdown": "^1.6.10",
     "tailwind-merge": "^3.4.0",
     "undici": "^7.16.0",
-    "use-stick-to-bottom": "^1.1.1"
+    "use-stick-to-bottom": "^1.1.1",
+    "vercel-minimax-ai-provider": "^0.0.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",

@@ -1,4 +1,7 @@
+use log::{debug, error, info};
+use std::sync::{Arc, Mutex};
 use tauri::{App, Manager};
+use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
 #[cfg(target_os = "macos")]
@@ -6,6 +9,14 @@ use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
 
 #[cfg(target_os = "windows")]
 use window_vibrancy::apply_blur;
+
+/// Sidecar server port
+const SIDECAR_PORT: u16 = 3737;
+
+/// State to hold the sidecar process handle
+pub struct SidecarState {
+    pub child: Arc<Mutex<Option<CommandChild>>>,
+}
 
 /// setup window vibrancy effects and start sidecar
 pub fn init(app: &mut App) -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -19,12 +30,29 @@ pub fn init(app: &mut App) -> std::result::Result<(), Box<dyn std::error::Error>
     apply_blur(&window, Some((18, 18, 18, 125)))
         .expect("Unsupported platform! 'apply_blur' is only supported on Windows");
 
+    // Initialize sidecar state
+    let sidecar_state = SidecarState {
+        child: Arc::new(Mutex::new(None)),
+    };
+
+    let child_ref = Arc::clone(&sidecar_state.child);
+    app.manage(sidecar_state);
+
+    // Handle application exit
+    let app_handle_for_cleanup = app.handle().clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::Destroyed = event {
+            info!("Main window destroyed, cleaning up sidecar...");
+            tauri::async_runtime::block_on(cleanup_sidecar(app_handle_for_cleanup.clone()));
+        }
+    });
+
     // Start sidecar service
     let app_handle = app.handle().clone();
     tauri::async_runtime::spawn(async move {
-        match start_sidecar_internal(app_handle).await {
-            Ok(port) => println!("✅ Sidecar started successfully on port {}", port),
-            Err(e) => eprintln!("❌ Failed to start sidecar: {}", e),
+        match start_sidecar_internal(app_handle, child_ref).await {
+            Ok(port) => info!("Sidecar started successfully on port {}", port),
+            Err(e) => error!("Failed to start sidecar: {}", e),
         }
     });
 
@@ -32,38 +60,47 @@ pub fn init(app: &mut App) -> std::result::Result<(), Box<dyn std::error::Error>
 }
 
 /// Internal function: start sidecar
-async fn start_sidecar_internal(app: tauri::AppHandle) -> Result<u16, String> {
-    let port = 3737u16;
+async fn start_sidecar_internal(
+    app: tauri::AppHandle,
+    child_ref: Arc<Mutex<Option<CommandChild>>>,
+) -> Result<u16, String> {
+    let port = SIDECAR_PORT;
 
-    println!("🔄 Starting sidecar on port {}...", port);
+    info!("Starting sidecar on port {}...", port);
 
     // Use shell plugin to start sidecar
     let sidecar_command = app.shell().sidecar("mind-flayer-sidecar").map_err(|e| {
         let err_msg = format!("Failed to create sidecar command: {}", e);
-        eprintln!("❌ {}", err_msg);
+        error!("{}", err_msg);
         err_msg
     })?;
 
-    println!("✓ Sidecar command created");
+    debug!("Sidecar command created");
 
     // Start process
-    let (mut rx, _child) = sidecar_command.spawn().map_err(|e| {
+    let (mut rx, child) = sidecar_command.spawn().map_err(|e| {
         let err_msg = format!("Failed to spawn sidecar: {}", e);
-        eprintln!("❌ {}", err_msg);
+        error!("{}", err_msg);
         err_msg
     })?;
 
-    println!("✓ Sidecar process spawned");
+    // Store the child process handle
+    if let Ok(mut guard) = child_ref.lock() {
+        *guard = Some(child);
+        debug!("Sidecar process spawned and stored");
+    } else {
+        error!("Failed to store sidecar child process");
+    }
 
     // Listen to output
     tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
                 tauri_plugin_shell::process::CommandEvent::Stdout(line) => {
-                    println!("[Sidecar] {}", String::from_utf8_lossy(&line));
+                    debug!("[Sidecar] {}", String::from_utf8_lossy(&line));
                 }
                 tauri_plugin_shell::process::CommandEvent::Stderr(line) => {
-                    eprintln!("[Sidecar Error] {}", String::from_utf8_lossy(&line));
+                    error!("[Sidecar Error] {}", String::from_utf8_lossy(&line));
                 }
                 _ => {}
             }
@@ -76,7 +113,7 @@ async fn start_sidecar_internal(app: tauri::AppHandle) -> Result<u16, String> {
     // Verify if service started successfully
     match reqwest::get(format!("http://localhost:{}/health", port)).await {
         Ok(resp) if resp.status().is_success() => {
-            println!("✓ Sidecar health check passed");
+            info!("Sidecar health check passed");
             Ok(port)
         }
         Ok(resp) => Err(format!(
@@ -85,4 +122,46 @@ async fn start_sidecar_internal(app: tauri::AppHandle) -> Result<u16, String> {
         )),
         Err(e) => Err(format!("Failed to connect to sidecar: {}", e)),
     }
+}
+
+/// Cleanup function: gracefully shutdown sidecar
+pub async fn cleanup_sidecar(app: tauri::AppHandle) {
+    info!("Cleaning up sidecar...");
+
+    let state = app.state::<SidecarState>();
+
+    // Kill the sidecar process (sends SIGTERM, which triggers graceful shutdown)
+    if let Ok(mut guard) = state.child.lock() {
+        if let Some(child) = guard.take() {
+            match child.kill() {
+                Ok(_) => {
+                    info!("Sidecar process termination signal sent");
+                    // Give it a moment to shutdown gracefully
+                    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+                }
+                Err(e) => error!("Failed to kill sidecar process: {}", e),
+            }
+        }
+    }
+
+    // Additional cleanup for port (macOS/Linux) - fallback to ensure port is freed
+    #[cfg(not(target_os = "windows"))]
+    {
+        use std::process::Command;
+
+        let port_cleanup = Command::new("sh")
+            .arg("-c")
+            .arg(format!(
+                "lsof -ti:{} | xargs kill -9 2>/dev/null || true",
+                SIDECAR_PORT
+            ))
+            .output();
+
+        match port_cleanup {
+            Ok(_) => debug!("Port cleanup completed"),
+            Err(e) => debug!("Port cleanup failed: {}", e),
+        }
+    }
+
+    info!("Sidecar cleanup completed");
 }

@@ -153,7 +153,7 @@ export const MessageBranch = ({
         className={cn(
           "flex items-center",
           "w-(--chat-content-width) max-w-(--chat-content-max-width)",
-          "grid gap-2 [&>div]:pb-0",
+          "grid gap-2 [&>div]:pb-2",
           className
         )}
         {...props}

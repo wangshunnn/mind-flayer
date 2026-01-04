@@ -32,6 +32,7 @@ import {
   PromptInputTextarea,
   PromptInputTools
 } from "@/components/ai-elements/prompt-input"
+import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning"
 import { SelectModel } from "@/components/select-model"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -58,6 +59,13 @@ const AppChat = () => {
       })
     }
   })
+
+  console.log(
+    "---> debug useChat messages=",
+    JSON.stringify(messages.at(-1)?.parts.at(-1)?.type, null, 2),
+    // @ts-expect-error aaa
+    JSON.stringify(messages.at(-1)?.parts.at(-1)?.text?.length, null, 2)
+  )
 
   const { isCompact, open } = useSidebar()
 
@@ -112,22 +120,34 @@ const AppChat = () => {
       <div className="flex-1 min-h-0">
         <Conversation className="h-full">
           <ConversationContent>
-            {messages.map(message => (
-              <MessageBranch defaultBranch={0} key={message.id}>
-                <MessageBranchContent>
-                  <Message from={message.role} key={message.id}>
-                    <MessageContent>
-                      <MessageResponse>
-                        {message.parts
-                          .filter(part => part.type === "text")
-                          .map(part => (part.type === "text" ? part.text : ""))
-                          .join("")}
-                      </MessageResponse>
-                    </MessageContent>
-                  </Message>
-                </MessageBranchContent>
-              </MessageBranch>
-            ))}
+            {messages.map(message => {
+              const reasoningText = message.parts
+                .filter(part => part.type === "reasoning")
+                .map(part => part.text)
+                .join("")
+              const messageText = message.parts
+                .filter(part => part.type === "text")
+                .map(part => part.text)
+                .join("")
+
+              return (
+                <MessageBranch defaultBranch={0} key={message.id}>
+                  <MessageBranchContent>
+                    <Message from={message.role} key={message.id}>
+                      {reasoningText && (
+                        <Reasoning isStreaming={status === "streaming"}>
+                          <ReasoningTrigger />
+                          <ReasoningContent>{reasoningText}</ReasoningContent>
+                        </Reasoning>
+                      )}
+                      <MessageContent>
+                        <MessageResponse>{messageText}</MessageResponse>
+                      </MessageContent>
+                    </Message>
+                  </MessageBranchContent>
+                </MessageBranch>
+              )
+            })}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>

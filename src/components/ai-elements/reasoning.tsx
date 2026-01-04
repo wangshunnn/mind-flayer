@@ -91,7 +91,7 @@ export const Reasoning = memo(
     return (
       <ReasoningContext.Provider value={{ isStreaming, isOpen, setIsOpen, duration }}>
         <Collapsible
-          className={cn("not-prose mb-4", className)}
+          className={cn("not-prose mb-1", className)}
           onOpenChange={handleOpenChange}
           open={isOpen}
           {...props}
@@ -114,7 +114,7 @@ const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
   if (duration === undefined) {
     return <p>Thought for a few seconds</p>
   }
-  return <p>Thought for {duration} seconds</p>
+  return <p>Thought for {duration}s</p>
 }
 
 export const ReasoningTrigger = memo(
@@ -139,7 +139,7 @@ export const ReasoningTrigger = memo(
             <BrainIcon className="size-4" />
             {getThinkingMessage(isStreaming, duration)}
             <ChevronDownIcon
-              className={cn("size-4 transition-transform", isOpen ? "rotate-180" : "rotate-0")}
+              className={cn("size-4 transition-transform", isOpen ? "-rotate-180" : "rotate-0")}
             />
           </>
         )}

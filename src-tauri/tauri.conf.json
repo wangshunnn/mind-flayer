@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "identifier": "com.soonwang.mindflayer",
   "build": {
-    "beforeDevCommand": "pnpm dev:frontend",
-    "beforeBuildCommand": "pnpm build:frontend",
+    "beforeDevCommand": "pnpm dev:sidecar && pnpm dev:frontend",
+    "beforeBuildCommand": "pnpm build:sidecar && pnpm build:frontend",
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420"
   },

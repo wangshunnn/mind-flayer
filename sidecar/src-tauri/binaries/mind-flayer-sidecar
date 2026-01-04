@@ -1,4 +1,0 @@
-#!/bin/bash
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-NODE_PATH="${NODE_PATH:-$(which node)}"
-exec "$NODE_PATH" "$DIR/../../sidecar/dist/index.js"

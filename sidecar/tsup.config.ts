@@ -11,7 +11,7 @@ export default defineConfig({
   noExternal: [/(.*)/],
   platform: "node",
   minify: false,
-  sourcemap: true,
+  sourcemap: false,
   shims: true,
   banner: {
     js: "import { createRequire } from 'module';const require = createRequire(import.meta.url);"

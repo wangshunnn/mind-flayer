@@ -1,0 +1,15 @@
+#!/bin/bash
+# Get the directory where the script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Calculate project root directory
+# If in src-tauri/binaries, root is ../../
+# If in src-tauri/target/debug, root is ../../../
+if [[ "$SCRIPT_DIR" == */target/debug ]]; then
+    PROJECT_ROOT="$SCRIPT_DIR/../../.."
+else
+    PROJECT_ROOT="$SCRIPT_DIR/../.."
+fi
+
+NODE_BIN="${NODE_BIN:-$(which node)}"
+exec "$NODE_BIN" "$PROJECT_ROOT/sidecar/dist/index.js"

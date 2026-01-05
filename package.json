@@ -83,5 +83,13 @@
     "typescript": "~5.9.3",
     "vite": "^7.3.0",
     "vitest": "^4.0.16"
+  },
+  "pnpm": {
+    "overrides": {
+      "@ai-sdk/anthropic": "^3.0.2",
+      "@ai-sdk/openai": "^3.0.2",
+      "@ai-sdk/provider": "^3.0.1",
+      "@ai-sdk/provider-utils": "^4.0.2"
+    }
   }
 }

@@ -45,7 +45,6 @@ app.post("/api/chat", async (req, res) => {
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: "Messages array is required" })
     }
-
     console.log("[sidecar] /api/chat", model, messages)
 
     const minimax = createMinimax({
@@ -54,12 +53,25 @@ app.post("/api/chat", async (req, res) => {
     })
 
     const result = streamText({
-      // @ts-expect-error
       model: minimax(model),
       messages: await convertToModelMessages(messages as UIMessage[])
     })
 
-    const response = result.toUIMessageStreamResponse()
+    const response = result.toUIMessageStreamResponse({
+      sendSources: true,
+      messageMetadata: ({ part }) => {
+        if (part.type === "start") {
+          return {
+            createdAt: Date.now()
+          }
+        }
+        if (part.type === "finish") {
+          return {
+            totalUsage: part.totalUsage
+          }
+        }
+      }
+    })
 
     response.headers.forEach((value, key) => {
       res.setHeader(key, value)

@@ -60,12 +60,7 @@ const AppChat = () => {
     }
   })
 
-  console.log(
-    "---> debug useChat messages=",
-    JSON.stringify(messages.at(-1)?.parts.at(-1)?.type, null, 2),
-    // @ts-expect-error aaa
-    JSON.stringify(messages.at(-1)?.parts.at(-1)?.text?.length, null, 2)
-  )
+  console.log("---> debug useChat messages=", JSON.stringify(messages.at(-1), null, 2))
 
   const { isCompact, open } = useSidebar()
 
@@ -130,6 +125,17 @@ const AppChat = () => {
                 .map(part => part.text)
                 .join("")
 
+              // Ensure metadata is typed as an object with optional totalTokens
+              const metadata = message.metadata as
+                | {
+                    totalUsage?: {
+                      inputTokens: number
+                      outputTokens: number
+                      totalTokens: number
+                    }
+                  }
+                | undefined
+
               return (
                 <MessageBranch defaultBranch={0} key={message.id}>
                   <MessageBranchContent>
@@ -142,6 +148,13 @@ const AppChat = () => {
                       )}
                       <MessageContent>
                         <MessageResponse>{messageText}</MessageResponse>
+                        {/* Show token count if available */}
+                        {metadata?.totalUsage && (
+                          <div className="text-xs text-gray-400">
+                            {metadata.totalUsage.inputTokens}/{metadata.totalUsage.outputTokens}{" "}
+                            tokens
+                          </div>
+                        )}
                       </MessageContent>
                     </Message>
                   </MessageBranchContent>

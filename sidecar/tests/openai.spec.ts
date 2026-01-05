@@ -1,6 +1,6 @@
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
-import { generateText, streamText } from "ai"
+import { streamText } from "ai"
 import dotenv from "dotenv"
 import { createMinimax } from "vercel-minimax-ai-provider"
 
@@ -14,26 +14,26 @@ const minimax = createMinimax({
 const model = minimax("MiniMax-M2")
 const prompt = "What is the capital of Singapore?"
 
-const result_text = await generateText({
-  model,
-  prompt,
-  onFinish(res) {
-    console.log("---> debug generateText", res.usage, res.totalUsage)
-  }
-})
+// const result_text = await generateText({
+//   model,
+//   prompt,
+//   onFinish(res) {
+//     console.log("generateText", res.usage, res.totalUsage)
+//   }
+// })
 // console.dir(result_text, { depth: null })
 
 const result = await streamText({
   model,
   prompt,
   onFinish(res) {
-    console.log("---> debug streamText", res.usage, res.totalUsage)
+    console.log("streamText", res.usage, res.totalUsage)
   }
 })
 
-// result.reasoningText.then(reasoning => {
-//   console.log("Reasoning:", reasoning)
-// })
+result.reasoningText.then(reasoning => {
+  console.log("Reasoning:", reasoning)
+})
 
 for await (const chunk of result.textStream) {
   console.log(chunk)

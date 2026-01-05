@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react"
 
+// import { useFontFamily } from "@/hooks/use-font-family"
+
 type Theme = "dark" | "light" | "system"
 type ResolvedTheme = "dark" | "light"
 
@@ -33,6 +35,9 @@ export function ThemeProvider({
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
   )
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light")
+
+  // Initialize font configuration
+  // useFontFamily()
 
   useEffect(() => {
     const root = window.document.documentElement

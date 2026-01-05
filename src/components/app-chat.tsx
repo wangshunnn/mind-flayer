@@ -1,6 +1,6 @@
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport } from "ai"
-import { AtomIcon, GlobeIcon } from "lucide-react"
+import { AtomIcon, GaugeIcon, GlobeIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
@@ -59,8 +59,6 @@ const AppChat = () => {
       })
     }
   })
-
-  console.log("---> debug useChat messages=", JSON.stringify(messages.at(-1), null, 2))
 
   const { isCompact, open } = useSidebar()
 
@@ -140,22 +138,26 @@ const AppChat = () => {
                 <MessageBranch defaultBranch={0} key={message.id}>
                   <MessageBranchContent>
                     <Message from={message.role} key={message.id}>
+                      {/* Reasoning */}
                       {reasoningText && (
                         <Reasoning isStreaming={status === "streaming"}>
                           <ReasoningTrigger />
                           <ReasoningContent>{reasoningText}</ReasoningContent>
                         </Reasoning>
                       )}
+                      {/* Message content */}
                       <MessageContent>
                         <MessageResponse>{messageText}</MessageResponse>
                         {/* Show token count if available */}
-                        {metadata?.totalUsage && (
-                          <div className="text-xs text-gray-400">
-                            {metadata.totalUsage.inputTokens}/{metadata.totalUsage.outputTokens}{" "}
-                            tokens
-                          </div>
-                        )}
                       </MessageContent>
+                      {/* Message footer */}
+                      {metadata?.totalUsage && (
+                        <div className="text-xs text-gray-400 flex items-start gap-1">
+                          <GaugeIcon className="size-3.5" />
+                          {metadata.totalUsage.inputTokens}/{metadata.totalUsage.outputTokens}{" "}
+                          tokens
+                        </div>
+                      )}
                     </Message>
                   </MessageBranchContent>
                 </MessageBranch>
@@ -201,7 +203,7 @@ const AppChat = () => {
               {/* Footer */}
               <PromptInputFooter>
                 {/* Tools in Left */}
-                <PromptInputTools>
+                <PromptInputTools className="-ml-1.5">
                   <Tooltip open={!isCondensed ? false : undefined}>
                     <TooltipTrigger asChild>
                       <PromptInputButton
@@ -235,12 +237,7 @@ const AppChat = () => {
                 <PromptInputTools className="gap-3">
                   {/* Add attachments */}
                   <PromptInputActionMenu>
-                    {/* <Tooltip disableHoverableContent={true}>
-                      <TooltipTrigger asChild> */}
                     <PromptInputActionMenuTrigger />
-                    {/* </TooltipTrigger>
-                      <TooltipContent>Add files, photos, and more</TooltipContent>
-                    </Tooltip> */}
                     <PromptInputActionMenuContent>
                       <PromptInputActionAddAttachments />
                     </PromptInputActionMenuContent>
@@ -260,6 +257,17 @@ const AppChat = () => {
             </PromptInput>
           </div>
         </div>
+      </div>
+
+      {/* Copyright */}
+      <div
+        className={cn(
+          "absolute bottom-1 flex w-full max-h-6 items-center justify-center",
+          "w-(--chat-content-width) max-w-(--chat-content-max-width)",
+          "text-[10px] text-muted-foreground/50 shadow-none"
+        )}
+      >
+        AI-generated content, for reference only
       </div>
     </div>
   )

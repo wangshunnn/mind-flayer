@@ -759,7 +759,7 @@ export type PromptInputTextareaProps = ComponentProps<typeof InputGroupTextarea>
 export const PromptInputTextarea = ({
   onChange,
   className,
-  placeholder = "Chat with Mind Flayer",
+  placeholder = "Chat with mind flayer",
   ...props
 }: PromptInputTextareaProps) => {
   const controller = useOptionalPromptInputController()
@@ -992,7 +992,7 @@ export const PromptInputSubmit = ({
   return (
     <InputGroupButton
       aria-label="Submit"
-      className={cn("disabled:opacity-50", className)}
+      className={cn("disabled:opacity-50 rounded-full", className)}
       size={size}
       type="submit"
       variant={variant}

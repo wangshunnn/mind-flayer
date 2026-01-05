@@ -1,0 +1,212 @@
+# Cursor/Claude AI Rules for Mind Flayer Project
+
+## Core Requirements
+
+### English-Only Comments and Documentation
+- Write ALL code comments in English
+- Use English for variable names, function names, and identifiers
+- Documentation, README files, and commit messages must be in English
+- Error messages and user-facing text can be localized, but code comments stay in English
+
+### TypeScript Best Practices
+- Enable and respect TypeScript strict mode
+- Avoid using `any`; prefer `unknown` for truly dynamic types
+- Define explicit return types for functions
+- Use type inference where it improves readability
+- Create discriminated unions for complex state
+- Use const assertions for literal types
+
+### React Patterns (React 19)
+- Use functional components exclusively
+- Prefer hooks over render props or HOCs
+- Custom hooks should start with `use` prefix
+- Keep hooks at the top level (no conditionals)
+- Use `useCallback` to prevent unnecessary re-renders
+- Use `useMemo` for expensive computations only
+- Implement proper cleanup in `useEffect`
+
+### Component Architecture
+- Single Responsibility Principle: one component, one job
+- Props should be explicit and well-typed
+- Extract complex logic into custom hooks
+- Keep JSX readable; extract complex expressions
+- Maximum 300 lines per component (split if larger)
+- Co-locate component-specific utilities
+
+### Code Organization
+```
+Import order:
+1. React and React-related
+2. External libraries
+3. Internal components
+4. Hooks
+5. Utilities
+6. Types
+7. Styles
+```
+
+### Styling Guidelines
+- Use Tailwind CSS utility classes
+- Follow mobile-first responsive design
+- Use the `cn()` utility for conditional classes
+- Leverage Radix UI primitives for accessible components
+- Keep inline styles minimal
+- Use CSS variables for theming
+
+### State Management
+- Keep state as close to where it's used as possible
+- Use `useReducer` for complex interdependent state
+- Context is for truly global state only
+- Avoid prop drilling beyond 2-3 levels
+- Consider composition over props
+
+### Error Handling
+- Always handle Promise rejections
+- Use try-catch for async operations
+- Provide user-friendly error messages
+- Log errors with context for debugging
+- Handle edge cases explicitly
+
+### Performance Optimization
+- Lazy load routes with React.lazy
+- Virtualize long lists
+- Optimize images and assets
+- Monitor bundle size
+- Avoid premature optimization
+- Use React DevTools Profiler to identify bottlenecks
+
+### Testing Standards
+- Write tests in English
+- Test user behavior, not implementation
+- Cover edge cases and error states
+- Mock external dependencies
+- Use descriptive test names
+- Aim for meaningful coverage, not 100%
+
+### Accessibility (a11y)
+- Use semantic HTML
+- Provide ARIA labels where needed
+- Ensure keyboard navigation works
+- Test with screen readers
+- Maintain proper heading hierarchy
+- Color contrast ratios meet WCAG AA
+
+### Tauri-Specific Guidelines
+- Use Tauri commands for system operations
+- Type all IPC communication
+- Handle Tauri command errors gracefully
+- Test platform-specific code on all targets
+- Minimize serialization overhead
+- Use events for push notifications from backend
+
+### Rust Backend Standards
+- Follow Rust naming conventions
+- Use `cargo fmt` for formatting
+- Add doc comments for public items
+- Return `Result` for operations that can fail
+- Use `async` for I/O operations
+- Handle all error cases explicitly
+
+### Sidecar Process Management
+- Ensure proper process lifecycle
+- Implement health checks
+- Handle process crashes gracefully
+- Use structured logging
+- Clean up resources on shutdown
+
+### Git Commit Convention
+Format: `type(scope): description`
+
+Types:
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, etc.)
+- `refactor`: Code refactoring
+- `perf`: Performance improvements
+- `test`: Adding or updating tests
+- `chore`: Maintenance tasks
+- `ci`: CI/CD changes
+
+Example: `feat(chat): add streaming response support`
+
+### Code Comments
+- Explain WHY, not WHAT
+- Document non-obvious decisions
+- Add TODO comments for future improvements
+- Reference issue numbers when relevant
+- Keep comments up-to-date with code changes
+
+### Security Practices
+- Validate all user inputs
+- Sanitize data before rendering
+- Don't expose sensitive data in logs
+- Use environment variables for secrets
+- Follow principle of least privilege
+- Keep dependencies updated
+
+### File Naming Conventions
+- Components: `PascalCase.tsx` (e.g., `AppChat.tsx`)
+- Hooks: `use-kebab-case.ts` (e.g., `use-compact.ts`)
+- Utilities: `kebab-case.ts` (e.g., `utils.ts`)
+- Types: `PascalCase.types.ts` (if separate file)
+- Constants: `UPPER_SNAKE_CASE` in `constants.ts`
+
+### Code Review Focus Areas
+1. Are all comments in English?
+2. Is the code type-safe?
+3. Are edge cases handled?
+4. Is the component accessible?
+5. Are there performance concerns?
+6. Is error handling adequate?
+7. Are tests included/updated?
+8. Is documentation current?
+
+### AI SDK Integration
+- Use streaming for better UX
+- Handle token limits gracefully
+- Implement retry logic for failures
+- Cache responses when appropriate
+- Provide loading states
+- Allow users to cancel requests
+
+### Don'ts
+- Don't use `var`; use `const` or `let`
+- Don't mutate props
+- Don't use inline styles unless absolutely necessary
+- Don't ignore TypeScript errors
+- Don't commit console.log statements
+- Don't use deprecated APIs
+- Don't hardcode configuration values
+- Don't mix Chinese and English in code comments
+
+### Do's
+- Do use semantic HTML elements
+- Do handle loading and error states
+- Do write self-documenting code
+- Do follow the principle of least surprise
+- Do keep functions small and focused
+- Do use meaningful variable names
+- Do test across different platforms
+- Do update documentation when changing behavior
+
+## Project Tech Stack Reference
+- **Frontend**: React 19, TypeScript, Tailwind CSS, Radix UI
+- **Routing**: TanStack Router
+- **AI Integration**: Vercel AI SDK
+- **Desktop**: Tauri v2
+- **Build Tool**: Vite
+- **Package Manager**: pnpm
+- **Linting**: Biome
+- **Testing**: Vitest
+- **Backend**: Rust
+
+## When Making Changes
+1. Read existing code to understand patterns
+2. Follow established conventions
+3. Write comments in English explaining complex logic
+4. Add tests for new functionality
+5. Update relevant documentation
+6. Ensure TypeScript types are correct
+7. Test on multiple platforms if relevant
+8. Run linter and formatter before committing

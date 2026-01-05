@@ -6,6 +6,7 @@ settings:
 
 overrides:
   '@ai-sdk/anthropic': ^3.0.2
+  '@ai-sdk/openai': ^3.0.2
   '@ai-sdk/provider': ^3.0.1
   '@ai-sdk/provider-utils': ^4.0.2
 
@@ -13,12 +14,12 @@ importers:
 
   .:
     dependencies:
-      '@ai-sdk/anthropic':
-        specifier: ^3.0.2
-        version: 3.0.2(zod@4.2.1)
       '@ai-sdk/react':
         specifier: ^3.0.6
         version: 3.0.6(react@19.2.3)(zod@4.2.1)
+      '@lucide/lab':
+        specifier: ^0.1.2
+        version: 0.1.2
       '@radix-ui/react-avatar':
         specifier: ^1.1.11
         version: 1.1.11(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -868,6 +869,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@lucide/lab@0.1.2':
+    resolution: {integrity: sha512-VprF2BJa7ZuTGOhUd5cf8tHJXyL63wdxcGieAiVVoR9hO0YmPsnZO0AGqDiX2/br+/MC6n8BoJcmPilltOXIJA==}
 
   '@mermaid-js/parser@0.6.3':
     resolution: {integrity: sha512-lnjOhe7zyHjc+If7yT4zoedx2vo4sHaTmtkl1+or8BRTnCtDmcTpAjpzDSfCZrshM5bCoz0GyidzadJAH1xobA==}
@@ -5744,6 +5748,8 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@lucide/lab@0.1.2': {}
 
   '@mermaid-js/parser@0.6.3':
     dependencies:

@@ -155,13 +155,17 @@ export type ReasoningContentProps = ComponentProps<typeof CollapsibleContent> & 
 export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => (
   <CollapsibleContent
     className={cn(
-      "mt-4 text-sm",
+      "relative mt-4 text-sm leading-normal pl-4",
+      "before:absolute before:left-0 before:top-0 before:h-full before:w-0.5 before:rounded-full",
+      "before:bg-linear-to-b before:from-muted-foreground/35 before:to-muted-foreground/15",
       "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
       className
     )}
     {...props}
   >
-    <Streamdown {...props}>{children}</Streamdown>
+    <Streamdown className="space-y-2.5" {...props}>
+      {children}
+    </Streamdown>
   </CollapsibleContent>
 ))
 

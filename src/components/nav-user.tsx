@@ -74,7 +74,7 @@ export function NavUser({
 
             <DropdownMenuSeparator />
 
-            <DropdownMenuItem className="p-0 font-light cursor-pointer">
+            <DropdownMenuItem className="p-0 cursor-pointer">
               <div className="flex items-center gap-2 px-1.5 py-1.5 text-left text-sm">
                 <Avatar className="rounded-full size-5">
                   <AvatarImage src={user.avatar} alt={user.name} />

@@ -33,10 +33,11 @@ app.post("/api/chat", async (req, res) => {
   try {
     // Read configuration from headers or body
     const apiKey = (req.headers["x-api-key"] as string) || req.body.apiKey
-    const model = (req.headers["x-model"] as string) || req.body.model
+    // const modelProvider = (req.headers["x-model-provider"] as string) || req.body.provider
+    const modelId = (req.headers["x-model-id"] as string) || req.body.model
     const { messages } = req.body
 
-    if (!model) {
+    if (!modelId) {
       return res.status(400).json({ error: "Model is required" })
     }
     if (!apiKey) {
@@ -45,7 +46,7 @@ app.post("/api/chat", async (req, res) => {
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: "Messages array is required" })
     }
-    console.log("[sidecar] /api/chat", model, messages)
+    console.log("[sidecar] /api/chat", modelId, messages)
 
     const minimax = createMinimax({
       baseURL: "https://api.minimaxi.com/anthropic/v1",
@@ -53,7 +54,7 @@ app.post("/api/chat", async (req, res) => {
     })
 
     const result = streamText({
-      model: minimax(model),
+      model: minimax(modelId),
       messages: await convertToModelMessages(messages as UIMessage[])
     })
 

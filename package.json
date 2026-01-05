@@ -8,7 +8,8 @@
   "author": "Soon Wang",
   "license": "MIT",
   "scripts": {
-    "dev": "RUST_LOG=debug tauri dev",
+    "dev:debug": "RUST_LOG=debug tauri dev",
+    "dev": "tauri dev",
     "build": "tauri build",
     "dev:frontend": "vite",
     "build:frontend": "vite build",

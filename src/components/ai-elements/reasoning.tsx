@@ -66,7 +66,7 @@ export const Reasoning = memo(
           setStartTime(Date.now())
         }
       } else if (startTime !== null) {
-        setDuration(Math.ceil((Date.now() - startTime) / MS_IN_S))
+        setDuration(Math.round(((Date.now() - startTime) / MS_IN_S) * 10) / 10)
         setStartTime(null)
       }
     }, [isStreaming, startTime, setDuration])

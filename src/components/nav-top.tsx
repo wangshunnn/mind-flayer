@@ -1,4 +1,4 @@
-import { Circle, MessageSquarePlus, Moon, Sun, SunMoonIcon } from "lucide-react"
+import { CircleIcon, MessageSquarePlus, Moon, Sun, SunMoonIcon } from "lucide-react"
 import type * as React from "react"
 import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
@@ -105,25 +105,25 @@ function SiderbarDarkModeToggle({ className, ...props }: React.ComponentProps<ty
             <DropdownMenuItem onClick={() => setTheme("light")}>
               <Sun className="text-muted-foreground" />
               <span>Light</span>
-              <Circle
+              <CircleIcon
                 data-theme={theme}
-                className="ml-auto size-1 fill-current hidden data-[theme=light]:block"
+                className="ml-auto size-2 fill-current hidden data-[theme=light]:block text-brand-green"
               />
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setTheme("dark")}>
               <Moon className="text-muted-foreground" />
               <span>Dark</span>
-              <Circle
+              <CircleIcon
                 data-theme={theme}
-                className="ml-auto size-1 fill-current hidden data-[theme=dark]:block"
+                className="ml-auto size-2 fill-current hidden data-[theme=dark]:block text-brand-green"
               />
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setTheme("system")}>
               <SunMoonIcon className="text-muted-foreground" />
               <span>Device</span>
-              <Circle
+              <CircleIcon
                 data-theme={theme}
-                className="ml-auto size-1 fill-current hidden data-[theme=system]:block"
+                className="ml-auto size-2 fill-current hidden data-[theme=system]:block text-brand-green"
               />
             </DropdownMenuItem>
           </DropdownMenuContent>

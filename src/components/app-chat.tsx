@@ -33,7 +33,7 @@ import {
   PromptInputTools
 } from "@/components/ai-elements/prompt-input"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning"
-import { SelectModel } from "@/components/select-model"
+import { MODEL_OPTIONS, type ModelOption, SelectModel } from "@/components/select-model"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
@@ -43,15 +43,12 @@ const AppChat = () => {
   const [useDeepThink, setUseDeepThink] = useState<boolean>(false)
   const [isCondensed, setIsCondensed] = useState(false)
   const [input, setInput] = useState("")
+  const [selectedModel, setSelectedModel] = useState<ModelOption>(MODEL_OPTIONS[0])
   const inputContainerRef = useRef<HTMLDivElement>(null)
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
-      api: `http://localhost:${__SIDECAR_PORT__}/api/chat`,
-      headers: {
-        "X-API-Key": import.meta.env.VITE_MINIMAX_API_KEY || "",
-        "X-Model": "MiniMax-M2"
-      }
+      api: `http://localhost:${__SIDECAR_PORT__}/api/chat`
     }),
     onError: error => {
       toast.error("Error", {
@@ -87,7 +84,17 @@ const AppChat = () => {
     }
 
     if (message.text) {
-      sendMessage({ text: message.text })
+      // Pass dynamic headers at send time to avoid closure issues
+      sendMessage(
+        { text: message.text },
+        {
+          headers: {
+            "X-API-Key": import.meta.env.VITE_MINIMAX_API_KEY || "",
+            "X-Model-Provider": selectedModel.provider,
+            "X-Model-Id": selectedModel.api_id
+          }
+        }
+      )
       setInput("")
     }
   }
@@ -101,11 +108,11 @@ const AppChat = () => {
         <div
           className={cn(
             "fixed left-10 flex z-50 items-center justify-center pointer-events-auto gap-1.25",
-            !isCompact && open ? "left-63" : "left-42",
+            !isCompact && open ? "left-58" : "left-42",
             "transition-left duration-300 ease"
           )}
         >
-          <SelectModel />
+          <SelectModel value={selectedModel} onChange={setSelectedModel} />
         </div>
       </div>
 

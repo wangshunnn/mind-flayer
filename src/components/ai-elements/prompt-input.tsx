@@ -865,7 +865,7 @@ export const PromptInputTextarea = ({
       className={cn(
         "field-sizing-content min-h-(--chat-input-line-height) max-h-(--chat-input-max-height)",
         "text-sm leading-(--chat-input-line-height)",
-        "p-0 pr-2.5 font-light placeholder:text-chat-input-placeholder",
+        "p-0 pr-2.5 placeholder:text-chat-input-placeholder",
         "bg-chat-input-bg",
         className
       )}
@@ -992,7 +992,7 @@ export const PromptInputSubmit = ({
   return (
     <InputGroupButton
       aria-label="Submit"
-      className={cn("disabled:opacity-50 rounded-full", className)}
+      className={cn("rounded-full", className)}
       size={size}
       type="submit"
       variant={variant}

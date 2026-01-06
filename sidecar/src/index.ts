@@ -1,7 +1,15 @@
-import { convertToModelMessages, streamText, type UIMessage } from "ai"
+import {
+  convertToModelMessages,
+  InvalidToolInputError,
+  NoSuchToolError,
+  stepCountIs,
+  streamText,
+  type UIMessage
+} from "ai"
 import cors from "cors"
 import express from "express"
 import { createMinimax } from "vercel-minimax-ai-provider"
+import { webSearchTool } from "./tools"
 
 // if you need to use a proxy, uncomment the following lines
 // import { ProxyAgent, setGlobalDispatcher } from "undici"
@@ -31,10 +39,10 @@ app.get("/health", (_req, res) => {
 // AI streaming chat endpoint
 app.post("/api/chat", async (req, res) => {
   try {
-    // Read configuration from headers or body
     const apiKey = (req.headers["x-api-key"] as string) || req.body.apiKey
     // const modelProvider = (req.headers["x-model-provider"] as string) || req.body.provider
     const modelId = (req.headers["x-model-id"] as string) || req.body.model
+    const useWebSearch = req.headers["x-use-web-search"] === "true" || req.body.useWebSearch
     const { messages } = req.body
 
     if (!modelId) {
@@ -46,16 +54,24 @@ app.post("/api/chat", async (req, res) => {
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: "Messages array is required" })
     }
-    console.log("[sidecar] /api/chat", modelId, messages)
+    console.log("[sidecar] /api/chat", modelId, messages, { useWebSearch })
 
     const minimax = createMinimax({
       baseURL: "https://api.minimaxi.com/anthropic/v1",
       apiKey
     })
 
+    // Build tools object based on user preferences
+    const tools: Record<string, typeof webSearchTool> = {}
+    if (useWebSearch) {
+      tools.webSearch = webSearchTool
+    }
+
     const result = streamText({
       model: minimax(modelId),
-      messages: await convertToModelMessages(messages as UIMessage[])
+      messages: await convertToModelMessages(messages as UIMessage[]),
+      tools,
+      stopWhen: stepCountIs(5)
     })
 
     const response = result.toUIMessageStreamResponse({
@@ -71,13 +87,21 @@ app.post("/api/chat", async (req, res) => {
             totalUsage: part.totalUsage
           }
         }
+      },
+      onError: error => {
+        if (NoSuchToolError.isInstance(error)) {
+          return "Error: The model tried to call a unknown tool."
+        } else if (InvalidToolInputError.isInstance(error)) {
+          return "Error: The model called a tool with invalid inputs."
+        } else {
+          return "Error: An unknown error occurred."
+        }
       }
     })
 
     response.headers.forEach((value, key) => {
       res.setHeader(key, value)
     })
-
     res.setHeader("Access-Control-Allow-Origin", "*")
 
     const reader = response.body?.getReader()

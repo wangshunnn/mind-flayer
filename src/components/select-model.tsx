@@ -1,19 +1,39 @@
-import { ChevronDown, CircleIcon } from "lucide-react"
+import { ArrowRightIcon, BotIcon, ChevronDown, CircleIcon } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useDropdownTooltip } from "@/hooks/use-dropdown-tooltip"
 import { cn } from "@/lib/utils"
 
 interface ModelOption {
   provider: string
   label: string
   api_id: string
+}
+
+// Provider logo components - can be replaced with actual SVG logos
+const ProviderIcons: Record<string, React.ReactNode> = {
+  Minimax: <span className="flex size-5 items-center justify-center text-[10px] font-bold">M</span>,
+  Anthropic: (
+    <span className="flex size-5 items-center justify-center text-[10px] font-bold">A</span>
+  )
+}
+
+// Default fallback icon for unknown providers
+function DefaultProviderIcon() {
+  return <BotIcon className="size-5 text-muted-foreground" />
+}
+
+function getProviderIcon(provider: string) {
+  return ProviderIcons[provider] ?? <DefaultProviderIcon />
 }
 
 const MODEL_OPTIONS: ModelOption[] = [
@@ -55,10 +75,11 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
   const [internalModel, setInternalModel] = useState(MODEL_OPTIONS[0])
   const selectedModel = value ?? internalModel
   const setSelectedModel = onChange ?? setInternalModel
+  const [openTooltip] = useDropdownTooltip(open)
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <Tooltip disableHoverableContent={true}>
+      <Tooltip disableHoverableContent={true} open={openTooltip}>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
             <Button
@@ -78,18 +99,33 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
       </Tooltip>
 
       <DropdownMenuContent align="start" sideOffset={6}>
-        {MODEL_OPTIONS.map(model => (
+        <DropdownMenuGroup>
+          {MODEL_OPTIONS.map(model => (
+            <DropdownMenuItem
+              key={model.label}
+              onClick={() => setSelectedModel(model)}
+              className={cn("flex items-center gap-2 px-1")}
+            >
+              {getProviderIcon(model.provider)}
+              <span className="flex-1 text-left">{model.label}</span>
+              <span className="ml-8 w-4 shrink-0">
+                {selectedModel.label === model.label && (
+                  <CircleIcon className="size-2 fill-current text-brand-green" />
+                )}
+              </span>
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
           <DropdownMenuItem
-            key={model.label}
-            onClick={() => setSelectedModel(model)}
-            className={cn("w-55 flex items-center")}
+            className="flex items-center justify-between gap-2 text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => {
+              // TODO: Navigate to model configuration page
+            }}
           >
-            {model.label}
-            {selectedModel.label === model.label && (
-              <CircleIcon className="ml-auto size-2 fill-current text-brand-green" />
-            )}
+            <span>More Models</span>
+            <ArrowRightIcon className="size-4" />
           </DropdownMenuItem>
-        ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

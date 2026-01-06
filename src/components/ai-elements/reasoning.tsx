@@ -1,5 +1,5 @@
 import { useControllableState } from "@radix-ui/react-use-controllable-state"
-import { BrainIcon, ChevronDownIcon } from "lucide-react"
+import { BrainIcon, ChevronRightIcon } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useContext, useEffect, useState } from "react"
 import { Streamdown } from "streamdown"
@@ -138,8 +138,8 @@ export const ReasoningTrigger = memo(
           <>
             <BrainIcon className="size-4" />
             {getThinkingMessage(isStreaming, duration)}
-            <ChevronDownIcon
-              className={cn("size-4 transition-transform", isOpen ? "-rotate-180" : "rotate-0")}
+            <ChevronRightIcon
+              className={cn("size-4 transition-transform", isOpen ? "rotate-90" : "rotate-0")}
             />
           </>
         )}
@@ -155,15 +155,16 @@ export type ReasoningContentProps = ComponentProps<typeof CollapsibleContent> & 
 export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => (
   <CollapsibleContent
     className={cn(
-      "relative mt-4 text-sm leading-normal pl-4",
-      "before:absolute before:left-0 before:top-0 before:h-full before:w-0.5 before:rounded-full",
-      "before:bg-linear-to-b before:from-muted-foreground/35 before:to-muted-foreground/15",
-      "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
+      "relative mt-4 text-sm leading-normal pl-6",
+      "before:absolute before:left-1.75 before:top-0 before:h-full before:w-0.5 before:rounded-full",
+      "before:bg-muted-foreground/20",
+      "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2",
+      "text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
       className
     )}
     {...props}
   >
-    <Streamdown className="space-y-2.5" {...props}>
+    <Streamdown className="space-y-2.5 pr-4" {...props}>
       {children}
     </Streamdown>
   </CollapsibleContent>

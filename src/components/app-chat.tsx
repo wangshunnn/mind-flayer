@@ -1,6 +1,6 @@
 import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport } from "ai"
-import { AtomIcon, GaugeIcon, GlobeIcon } from "lucide-react"
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses } from "ai"
+import { AtomIcon, GlobeIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
@@ -15,6 +15,10 @@ import {
   MessageContent,
   MessageResponse
 } from "@/components/ai-elements/message"
+import {
+  AssistantMessageActionsBar,
+  UserMessageActionsBar
+} from "@/components/ai-elements/message-actions-bar"
 import {
   PromptInput,
   PromptInputActionAddAttachments,
@@ -33,6 +37,16 @@ import {
   PromptInputTools
 } from "@/components/ai-elements/prompt-input"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning"
+import {
+  ToolCall,
+  ToolCallApprovalRequested,
+  ToolCallContent,
+  ToolCallInputStreaming,
+  ToolCallOutputDenied,
+  ToolCallOutputError,
+  ToolCallTrigger,
+  ToolCallWebSearchResults
+} from "@/components/ai-elements/tool-call"
 import { MODEL_OPTIONS, type ModelOption, SelectModel } from "@/components/select-model"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -46,16 +60,38 @@ const AppChat = () => {
   const [selectedModel, setSelectedModel] = useState<ModelOption>(MODEL_OPTIONS[0])
   const inputContainerRef = useRef<HTMLDivElement>(null)
 
-  const { messages, sendMessage, status } = useChat({
+  // Use refs to keep latest values accessible in headers function
+  const selectedModelRef = useRef(selectedModel)
+  const useWebSearchRef = useRef(useWebSearch)
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    selectedModelRef.current = selectedModel
+  }, [selectedModel])
+
+  useEffect(() => {
+    useWebSearchRef.current = useWebSearch
+  }, [useWebSearch])
+
+  const { status, messages, sendMessage, addToolApprovalResponse } = useChat({
     transport: new DefaultChatTransport({
-      api: `http://localhost:${__SIDECAR_PORT__}/api/chat`
+      api: `http://localhost:${__SIDECAR_PORT__}/api/chat`,
+      headers: () => ({
+        "X-API-Key": import.meta.env.VITE_MINIMAX_API_KEY || "",
+        "X-Model-Provider": selectedModelRef.current.provider,
+        "X-Model-Id": selectedModelRef.current.api_id,
+        "X-Use-Web-Search": useWebSearchRef.current.toString()
+      })
     }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
     onError: error => {
       toast.error("Error", {
         description: error.message
       })
     }
   })
+
+  console.dir(messages.at(-1)?.parts, { depth: null })
 
   const { isCompact, open } = useSidebar()
 
@@ -84,17 +120,7 @@ const AppChat = () => {
     }
 
     if (message.text) {
-      // Pass dynamic headers at send time to avoid closure issues
-      sendMessage(
-        { text: message.text },
-        {
-          headers: {
-            "X-API-Key": import.meta.env.VITE_MINIMAX_API_KEY || "",
-            "X-Model-Provider": selectedModel.provider,
-            "X-Model-Id": selectedModel.api_id
-          }
-        }
-      )
+      sendMessage({ text: message.text })
       setInput("")
     }
   }
@@ -120,7 +146,7 @@ const AppChat = () => {
       <div className="flex-1 min-h-0">
         <Conversation className="h-full">
           <ConversationContent>
-            {messages.map(message => {
+            {messages.map((message, index) => {
               const reasoningText = message.parts
                 .filter(part => part.type === "reasoning")
                 .map(part => part.text)
@@ -141,30 +167,140 @@ const AppChat = () => {
                   }
                 | undefined
 
+              // Check if this is the last message and currently streaming
+              const isLastMessage = index === messages.length - 1
+              const isCurrentlyStreaming = status === "streaming" && isLastMessage
+
               return (
                 <MessageBranch defaultBranch={0} key={message.id}>
                   <MessageBranchContent>
                     <Message from={message.role} key={message.id}>
                       {/* Reasoning */}
                       {reasoningText && (
-                        <Reasoning isStreaming={status === "streaming"}>
+                        <Reasoning isStreaming={isCurrentlyStreaming}>
                           <ReasoningTrigger />
                           <ReasoningContent>{reasoningText}</ReasoningContent>
                         </Reasoning>
                       )}
+
+                      {/* Render tool parts for assistant messages */}
+                      {message.role === "assistant" &&
+                        message.parts.map(part => {
+                          // Handle webSearch tool with approval
+                          if (part.type === "tool-webSearch") {
+                            const callId = part.toolCallId
+                            // Type assertion for input
+                            const input = part.input as { query: string; maxResults?: number }
+                            const isToolStreaming =
+                              part.state === "input-streaming" || part.state === "input-available"
+
+                            // Get result count for output-available state
+                            const output =
+                              part.state === "output-available"
+                                ? (part.output as {
+                                    query: string
+                                    results: Array<{
+                                      title: string
+                                      url: string
+                                      snippet: string
+                                    }>
+                                    totalResults: number
+                                  })
+                                : null
+
+                            return (
+                              <ToolCall
+                                key={callId}
+                                toolName="webSearch"
+                                state={part.state}
+                                resultCount={output?.totalResults}
+                              >
+                                <ToolCallTrigger />
+                                <ToolCallContent>
+                                  {part.state === "input-streaming" && (
+                                    <ToolCallInputStreaming message="Preparing web search..." />
+                                  )}
+                                  {part.state === "input-available" && (
+                                    <ToolCallInputStreaming
+                                      message={`Searching: "${input.query}"`}
+                                    />
+                                  )}
+                                  {part.state === "approval-requested" && (
+                                    <ToolCallApprovalRequested
+                                      description={
+                                        <>
+                                          The AI wants to search the web for:{" "}
+                                          <strong>"{input.query}"</strong>
+                                        </>
+                                      }
+                                      onApprove={() =>
+                                        addToolApprovalResponse({
+                                          id: part.approval.id,
+                                          approved: true
+                                        })
+                                      }
+                                      onDeny={() =>
+                                        addToolApprovalResponse({
+                                          id: part.approval.id,
+                                          approved: false
+                                        })
+                                      }
+                                    />
+                                  )}
+                                  {part.state === "output-available" && output && (
+                                    <ToolCallWebSearchResults results={output.results} />
+                                  )}
+                                  {part.state === "output-error" && (
+                                    <ToolCallOutputError errorText={part.errorText} />
+                                  )}
+                                  {part.state === "output-denied" && (
+                                    <ToolCallOutputDenied message={part.errorText} />
+                                  )}
+                                </ToolCallContent>
+                              </ToolCall>
+                            )
+                          }
+                          return null
+                        })}
+
                       {/* Message content */}
                       <MessageContent>
                         <MessageResponse>{messageText}</MessageResponse>
-                        {/* Show token count if available */}
                       </MessageContent>
-                      {/* Message footer */}
-                      {metadata?.totalUsage && (
-                        <div className="text-xs text-gray-400 flex items-start gap-1">
-                          <GaugeIcon className="size-3.5" />
-                          {metadata.totalUsage.inputTokens}/{metadata.totalUsage.outputTokens}{" "}
-                          tokens
-                        </div>
+                      {/* Action bar for user messages (hover to show) */}
+                      {message.role === "user" && (
+                        <UserMessageActionsBar
+                          messageText={messageText}
+                          onEdit={() => {
+                            // TODO: Implement edit functionality
+                          }}
+                        />
                       )}
+                      {/* Action bar for assistant messages (show only after streaming is complete and no pending approvals) */}
+                      {message.role === "assistant" &&
+                        !isCurrentlyStreaming &&
+                        !message.parts.some(
+                          part =>
+                            part.type.startsWith("tool-") &&
+                            (part as { state?: string }).state === "approval-requested"
+                        ) && (
+                          <AssistantMessageActionsBar
+                            messageText={messageText}
+                            tokenInfo={metadata?.totalUsage}
+                            onLike={() => {
+                              // TODO: Implement like functionality
+                            }}
+                            onDislike={() => {
+                              // TODO: Implement dislike functionality
+                            }}
+                            onShare={() => {
+                              // TODO: Implement share functionality
+                            }}
+                            onRefresh={() => {
+                              // TODO: Implement regenerate functionality
+                            }}
+                          />
+                        )}
                     </Message>
                   </MessageBranchContent>
                 </MessageBranch>

@@ -13,7 +13,7 @@ export default function Page() {
       <div data-tauri-drag-region className="z-50 fixed top-0 left-0 right-0 h-14.5"></div>
 
       {/* Top buttons */}
-      <div className="z-50 fixed top-4.25 left-24 flex items-center justify-center pointer-events-auto gap-1">
+      <div className="z-50 fixed top-4 left-24 flex items-center justify-center pointer-events-auto gap-1">
         <SidebarTrigger />
         <NewChatTrigger />
       </div>

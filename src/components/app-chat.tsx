@@ -134,7 +134,7 @@ const AppChat = () => {
   return (
     <div className="flex h-full flex-col">
       {/* Top */}
-      <div className="bg-background flex h-13 items-center border-b-[0.5px] pt-0.5">
+      <div className="bg-background flex h-13 items-center border-b-[0.5px] pt-0">
         <div
           className={cn(
             "fixed left-10 flex z-50 items-center justify-center pointer-events-auto gap-1.25",

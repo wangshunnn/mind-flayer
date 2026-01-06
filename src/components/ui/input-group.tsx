@@ -88,14 +88,16 @@ const inputGroupButtonVariants = cva("text-sm shadow-none flex gap-2 items-cente
   variants: {
     variant: {
       default: "",
-      ghost: "text-foreground/80",
-      selected: "text-brand-green bg-brand-green-1 hover:bg-brand-green/10"
+      ghost: "text-accent-foreground",
+      selected: cn(
+        "text-brand-green/90 hover:text-brand-green bg-brand-green-light/60 hover:bg-brand-green-light/85",
+        "dark:bg-brand-green-light/30 hover:dark:bg-brand-green-light/55"
+      )
     },
     size: {
-      xs: "h-6 gap-1 px-1 rounded-[calc(var(--radius)-5px)] [&>svg:not([class*='size-'])]:size-3.5 has-[>svg]:px-2",
-      sm: "h-8 px-2.5 gap-1.5 rounded-md has-[>svg]:px-2.5",
-      "icon-xs":
-        "size-6 rounded-[calc(var(--radius)-5px)] [&>svg:not([class*='size-'])]:size-3.5 p-0 has-[>svg]:p-0",
+      xs: "h-7 gap-1 px-1 [&>svg:not([class*='size-'])]:size-3.5 has-[>svg]:px-2",
+      sm: "h-8 px-2.5 gap-1.5 has-[>svg]:px-2.5",
+      "icon-xs": "size-6 [&>svg:not([class*='size-'])]:size-3.5 p-0 has-[>svg]:p-0",
       "icon-sm": "size-8 p-0 has-[>svg]:p-0"
     }
   },

@@ -44,8 +44,8 @@
   --sidebar-ring: oklch(0.708 0 0);
   --chat-input-bg-color: oklch(1 0 0);
   --chat-input-placeholder-color: oklch(0.61 0 271.152);
-  --brand-green-color: oklch(0.668 0.178 151.586);
-  --brand-green-color-1: oklch(0.681 0.208 146.096 / 0.05);
+  --brand-green-color: oklch(0.683 0.195 148.32);
+  --brand-green-color-light: oklch(0.943 0.03539 159.839);
 }
 
 .dark {
@@ -88,8 +88,8 @@
   --sidebar-ring: oklch(0.556 0 0);
   --chat-input-bg-color: oklch(0.309 0 271.152);
   --chat-input-placeholder-color: oklch(0.683 0 271.152);
-  --brand-green-color: oklch(0.668 0.178 151.586);
-  --brand-green-color-1: oklch(0.681 0.208 146.096 / 0.05);
+  --brand-green-color: oklch(0.62117 0.17972 148.03);
+  --brand-green-color-light: oklch(0.45467 0.1285 148.952);
 }
 
 @theme {
@@ -164,7 +164,7 @@
   --color-chat-input-bg: var(--chat-input-bg-color);
   --color-chat-input-placeholder: var(--chat-input-placeholder-color);
   --color-brand-green: var(--brand-green-color);
-  --color-brand-green-1: var(--brand-green-color-1);
+  --color-brand-green-light: var(--brand-green-color-light);
 }
 
 @layer base {

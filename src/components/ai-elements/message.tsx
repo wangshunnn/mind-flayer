@@ -18,7 +18,7 @@ export const Message = forwardRef<HTMLDivElement, MessageProps>(
       ref={ref}
       className={cn(
         "group flex w-full max-w-[95%] flex-col gap-2",
-        from === "user" ? "is-user ml-auto justify-end" : "is-assistant",
+        from === "user" ? "is-user ml-auto justify-end pt-6 pb-1" : "is-assistant",
         className
       )}
       {...props}
@@ -37,6 +37,7 @@ export const MessageContent = ({ children, className, ...props }: MessageContent
       "text-[15px] leading-[1.6]",
       "group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
       "group-[.is-assistant]:text-foreground",
+      "group-[.is-user]:bg-brand-green-light",
       className
     )}
     {...props}

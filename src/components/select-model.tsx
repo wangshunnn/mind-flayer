@@ -104,7 +104,7 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
             <DropdownMenuItem
               key={model.label}
               onClick={() => setSelectedModel(model)}
-              className={cn("flex items-center gap-2 px-1")}
+              className={cn("flex items-center gap-2 px-1 font-medium")}
             >
               {getProviderIcon(model.provider)}
               <span className="flex-1 text-left">{model.label}</span>

@@ -20,6 +20,7 @@ import {
   type FormEvent,
   type FormEventHandler,
   Fragment,
+  forwardRef,
   type HTMLAttributes,
   type KeyboardEventHandler,
   type PropsWithChildren,
@@ -28,11 +29,11 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState
 } from "react"
-import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -756,130 +757,148 @@ export const PromptInputBody = ({ className, ...props }: PromptInputBodyProps) =
 
 export type PromptInputTextareaProps = ComponentProps<typeof InputGroupTextarea>
 
-export const PromptInputTextarea = ({
-  onChange,
-  className,
-  placeholder = "Chat with mind flayer",
-  ...props
-}: PromptInputTextareaProps) => {
-  const controller = useOptionalPromptInputController()
-  const attachments = usePromptInputAttachments()
-  const [isComposing, setIsComposing] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  // Auto-resize textarea based on content because
-  // `field-sizing-content` is not supported in Tauri :(
-  const adjustHeight = useCallback(() => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-    // Reset height to auto to get the correct scrollHeight
-    textarea.style.height = "auto"
-    textarea.style.height = `${textarea.scrollHeight}px`
-  }, [])
-
-  // Listen for textarea layout/width changes and auto-adjust height
-  useEffect(() => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-    const observer = new ResizeObserver(() => {
-      requestAnimationFrame(adjustHeight)
-    })
-    observer.observe(textarea)
-    return () => observer.disconnect()
-  }, [adjustHeight])
-
-  const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = e => {
-    if (e.key === "Enter") {
-      if (isComposing || e.nativeEvent.isComposing) {
-        return
-      }
-      if (e.shiftKey) {
-        return
-      }
-      e.preventDefault()
-
-      // Check if the submit button is disabled before submitting
-      const form = e.currentTarget.form
-      const submitButton = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null
-      if (submitButton?.disabled) {
-        return
-      }
-
-      form?.requestSubmit()
-    }
-
-    // Remove last attachment when Backspace is pressed and textarea is empty
-    if (e.key === "Backspace" && e.currentTarget.value === "" && attachments.files.length > 0) {
-      e.preventDefault()
-      const lastAttachment = attachments.files.at(-1)
-      if (lastAttachment) {
-        attachments.remove(lastAttachment.id)
-      }
-    }
-  }
-
-  const handlePaste: ClipboardEventHandler<HTMLTextAreaElement> = event => {
-    const items = event.clipboardData?.items
-
-    if (!items) {
-      return
-    }
-
-    const files: File[] = []
-
-    for (const item of items) {
-      if (item.kind === "file") {
-        const file = item.getAsFile()
-        if (file) {
-          files.push(file)
-        }
-      }
-    }
-
-    if (files.length > 0) {
-      event.preventDefault()
-      attachments.add(files)
-    }
-  }
-
-  const controlledProps = controller
-    ? {
-        value: controller.textInput.value,
-        onChange: (e: ChangeEvent<HTMLTextAreaElement>) => {
-          controller.textInput.setInput(e.currentTarget.value)
-          adjustHeight()
-          onChange?.(e)
-        }
-      }
-    : {
-        onChange: (e: ChangeEvent<HTMLTextAreaElement>) => {
-          adjustHeight()
-          onChange?.(e)
-        }
-      }
-
-  return (
-    <InputGroupTextarea
-      ref={textareaRef}
-      rows={1}
-      className={cn(
-        "field-sizing-content min-h-(--chat-input-line-height) max-h-(--chat-input-max-height)",
-        "text-sm leading-(--chat-input-line-height)",
-        "p-0 pr-2.5 placeholder:text-chat-input-placeholder",
-        "bg-chat-input-bg",
-        className
-      )}
-      name="message"
-      onCompositionEnd={() => setIsComposing(false)}
-      onCompositionStart={() => setIsComposing(true)}
-      onKeyDown={handleKeyDown}
-      onPaste={handlePaste}
-      placeholder={placeholder}
-      {...props}
-      {...controlledProps}
-    />
-  )
+export type PromptInputTextareaHandle = {
+  resetHeight: () => void
 }
+
+export const PromptInputTextarea = forwardRef<PromptInputTextareaHandle, PromptInputTextareaProps>(
+  ({ onChange, className, placeholder = "Chat with mind flayer", ...props }, ref) => {
+    const controller = useOptionalPromptInputController()
+    const attachments = usePromptInputAttachments()
+    const [isComposing, setIsComposing] = useState(false)
+    const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+    // Auto-resize textarea based on content because
+    // `field-sizing-content` is not supported in Tauri :(
+    const adjustHeight = useCallback(() => {
+      const textarea = textareaRef.current
+      if (!textarea) return
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = "auto"
+      textarea.style.height = `${textarea.scrollHeight}px`
+    }, [])
+
+    // Listen for textarea layout/width changes and auto-adjust height
+    useEffect(() => {
+      const textarea = textareaRef.current
+      if (!textarea) return
+      const observer = new ResizeObserver(() => {
+        requestAnimationFrame(adjustHeight)
+      })
+      observer.observe(textarea)
+      return () => observer.disconnect()
+    }, [adjustHeight])
+
+    const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = e => {
+      if (e.key === "Enter") {
+        if (isComposing || e.nativeEvent.isComposing) {
+          return
+        }
+        if (e.shiftKey) {
+          return
+        }
+        e.preventDefault()
+
+        // Check if the submit button is disabled before submitting
+        const form = e.currentTarget.form
+        const submitButton = form?.querySelector(
+          'button[type="submit"]'
+        ) as HTMLButtonElement | null
+        if (submitButton?.disabled) {
+          return
+        }
+
+        form?.requestSubmit()
+      }
+
+      // Remove last attachment when Backspace is pressed and textarea is empty
+      if (e.key === "Backspace" && e.currentTarget.value === "" && attachments.files.length > 0) {
+        e.preventDefault()
+        const lastAttachment = attachments.files.at(-1)
+        if (lastAttachment) {
+          attachments.remove(lastAttachment.id)
+        }
+      }
+    }
+
+    const handlePaste: ClipboardEventHandler<HTMLTextAreaElement> = event => {
+      const items = event.clipboardData?.items
+
+      if (!items) {
+        return
+      }
+
+      const files: File[] = []
+
+      for (const item of items) {
+        if (item.kind === "file") {
+          const file = item.getAsFile()
+          if (file) {
+            files.push(file)
+          }
+        }
+      }
+
+      if (files.length > 0) {
+        event.preventDefault()
+        attachments.add(files)
+      }
+    }
+
+    const controlledProps = controller
+      ? {
+          value: controller.textInput.value,
+          onChange: (e: ChangeEvent<HTMLTextAreaElement>) => {
+            controller.textInput.setInput(e.currentTarget.value)
+            adjustHeight()
+            onChange?.(e)
+          }
+        }
+      : {
+          onChange: (e: ChangeEvent<HTMLTextAreaElement>) => {
+            adjustHeight()
+            onChange?.(e)
+          }
+        }
+
+    // Expose resetHeight method to parent
+    useImperativeHandle(
+      ref,
+      () => ({
+        resetHeight: () => {
+          if (textareaRef.current) {
+            textareaRef.current.style.height = "auto"
+          }
+        }
+      }),
+      []
+    )
+
+    return (
+      <InputGroupTextarea
+        ref={textareaRef}
+        rows={1}
+        className={cn(
+          "field-sizing-content min-h-(--chat-input-line-height) max-h-(--chat-input-max-height)",
+          "text-sm leading-(--chat-input-line-height)",
+          "p-0 pr-2.5 placeholder:text-chat-input-placeholder",
+          "bg-chat-input-bg",
+          className
+        )}
+        name="message"
+        onCompositionEnd={() => setIsComposing(false)}
+        onCompositionStart={() => setIsComposing(true)}
+        onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
+        placeholder={placeholder}
+        {...props}
+        {...controlledProps}
+      />
+    )
+  }
+)
+
+PromptInputTextarea.displayName = "PromptInputTextarea"
 
 export type PromptInputHeaderProps = Omit<ComponentProps<typeof InputGroupAddon>, "align">
 
@@ -896,7 +915,7 @@ export type PromptInputFooterProps = Omit<ComponentProps<typeof InputGroupAddon>
 export const PromptInputFooter = ({ className, ...props }: PromptInputFooterProps) => (
   <InputGroupAddon
     align="block-end"
-    className={cn("justify-between gap-1 p-0 mt-2.5", className)}
+    className={cn("justify-between gap-1 p-0 mt-3", className)}
     {...props}
   />
 )
@@ -907,19 +926,22 @@ export const PromptInputTools = ({ className, ...props }: PromptInputToolsProps)
   <div className={cn("flex items-center gap-1", className)} {...props} />
 )
 
-export type PromptInputButtonProps = ComponentProps<typeof InputGroupButton>
+export type PromptInputButtonProps = ComponentProps<typeof InputGroupButton> & {
+  collapsed?: boolean
+}
 
 export const PromptInputButton = ({
   variant = "ghost",
   className,
   size,
+  collapsed = false,
   ...props
 }: PromptInputButtonProps) => {
-  const newSize = size ?? (Children.count(props.children) > 1 ? "xs" : "icon-xs")
+  const newSize = collapsed || Children.count(props.children) <= 1 ? "icon-xs" : "xs"
 
   return (
     <InputGroupButton
-      className={cn("text-xs font-normal", className)}
+      className={cn("text-xs font-medium rounded-full", className)}
       size={newSize}
       type="button"
       variant={variant}
@@ -976,15 +998,12 @@ export const PromptInputSubmit = ({
   children,
   ...props
 }: PromptInputSubmitProps) => {
-  const { resolvedTheme } = useTheme()
-  let Icon = (
-    <Navigation2Icon className="mb-px fixed" fill={resolvedTheme === "dark" ? "black" : "white"} />
-  )
+  let Icon = <Navigation2Icon className="mb-px fixed fill-current" />
 
   if (status === "submitted") {
     Icon = <Loader2Icon className="animate-spin" />
   } else if (status === "streaming") {
-    Icon = <SquareIcon />
+    Icon = <SquareIcon className="size-3" />
   } else if (status === "error") {
     Icon = <XIcon />
   }
@@ -992,7 +1011,7 @@ export const PromptInputSubmit = ({
   return (
     <InputGroupButton
       aria-label="Submit"
-      className={cn("rounded-full", className)}
+      className={cn("rounded-full bg-brand-green", className)}
       size={size}
       type="submit"
       variant={variant}

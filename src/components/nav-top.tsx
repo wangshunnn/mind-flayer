@@ -1,4 +1,4 @@
-import { CircleIcon, MessageSquarePlus, Moon, Sun, SunMoonIcon } from "lucide-react"
+import { CircleIcon, MessageSquarePlus, Monitor, MoonStar, Sun } from "lucide-react"
 import type * as React from "react"
 import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
@@ -51,7 +51,7 @@ function DarkModeToggle({ className, ...props }: React.ComponentProps<typeof But
           {...props}
         >
           <Sun className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-          <Moon className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+          <MoonStar className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
           <span className="sr-only">Toggle theme</span>
           <span className="sr-only">Toggle Dark Mode</span>
         </Button>
@@ -83,14 +83,14 @@ function SiderbarDarkModeToggle({ className, ...props }: React.ComponentProps<ty
                   "data-[theme=light]:scale-100 data-[theme=light]:rotate-90"
                 )}
               />
-              <Moon
+              <MoonStar
                 data-theme={theme}
                 className={cn(
                   "absolute transition-all duration-300 scale-0 rotate-90",
                   "data-[theme=dark]:scale-100 data-[theme=dark]:rotate-0"
                 )}
               />
-              <SunMoonIcon
+              <Monitor
                 data-theme={theme}
                 className={cn(
                   "absolute transition-all duration-300 scale-0 rotate-90",
@@ -111,7 +111,7 @@ function SiderbarDarkModeToggle({ className, ...props }: React.ComponentProps<ty
               />
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setTheme("dark")}>
-              <Moon className="text-muted-foreground" />
+              <MoonStar className="text-muted-foreground" />
               <span>Dark</span>
               <CircleIcon
                 data-theme={theme}
@@ -119,7 +119,7 @@ function SiderbarDarkModeToggle({ className, ...props }: React.ComponentProps<ty
               />
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setTheme("system")}>
-              <SunMoonIcon className="text-muted-foreground" />
+              <Monitor className="text-muted-foreground" />
               <span>Device</span>
               <CircleIcon
                 data-theme={theme}

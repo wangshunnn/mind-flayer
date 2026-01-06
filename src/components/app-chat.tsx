@@ -34,6 +34,7 @@ import {
   type PromptInputMessage,
   PromptInputSubmit,
   PromptInputTextarea,
+  type PromptInputTextareaHandle,
   PromptInputTools
 } from "@/components/ai-elements/prompt-input"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning"
@@ -53,12 +54,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils"
 
 const AppChat = () => {
-  const [useWebSearch, setUseWebSearch] = useState<boolean>(false)
+  const [useWebSearch, setUseWebSearch] = useState<boolean>(true)
   const [useDeepThink, setUseDeepThink] = useState<boolean>(false)
   const [isCondensed, setIsCondensed] = useState(false)
   const [input, setInput] = useState("")
   const [selectedModel, setSelectedModel] = useState<ModelOption>(MODEL_OPTIONS[0])
   const inputContainerRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<PromptInputTextareaHandle>(null)
 
   // Use refs to keep latest values accessible in headers function
   const selectedModelRef = useRef(selectedModel)
@@ -122,6 +124,8 @@ const AppChat = () => {
     if (message.text) {
       sendMessage({ text: message.text })
       setInput("")
+      // Reset textarea height after sending
+      textareaRef.current?.resetHeight()
     }
   }
 
@@ -191,8 +195,6 @@ const AppChat = () => {
                             const callId = part.toolCallId
                             // Type assertion for input
                             const input = part.input as { query: string; maxResults?: number }
-                            const isToolStreaming =
-                              part.state === "input-streaming" || part.state === "input-available"
 
                             // Get result count for output-available state
                             const output =
@@ -338,6 +340,7 @@ const AppChat = () => {
               {/* Input box */}
               <PromptInputBody>
                 <PromptInputTextarea
+                  ref={textareaRef}
                   onChange={event => setInput(event.target.value)}
                   value={input}
                 />
@@ -350,29 +353,29 @@ const AppChat = () => {
                   <Tooltip open={!isCondensed ? false : undefined}>
                     <TooltipTrigger asChild>
                       <PromptInputButton
-                        onClick={() => setUseDeepThink(!useDeepThink)}
-                        variant={useDeepThink ? "selected" : "ghost"}
-                        size={isCondensed ? "icon-xs" : "xs"}
-                      >
-                        <AtomIcon className="lucide-stroke-bold mb-px" />
-                        {!isCondensed && <span>DeepThink</span>}
-                      </PromptInputButton>
-                    </TooltipTrigger>
-                    <TooltipContent>Deep thinking</TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip open={!isCondensed ? false : undefined}>
-                    <TooltipTrigger asChild>
-                      <PromptInputButton
                         onClick={() => setUseWebSearch(!useWebSearch)}
                         variant={useWebSearch ? "selected" : "ghost"}
-                        size={isCondensed ? "icon-xs" : "xs"}
+                        collapsed={isCondensed}
                       >
                         <GlobeIcon className="lucide-stroke-bold mb-px" />
                         {!isCondensed && <span>Search</span>}
                       </PromptInputButton>
                     </TooltipTrigger>
                     <TooltipContent>Web search</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip open={!isCondensed ? false : undefined}>
+                    <TooltipTrigger asChild>
+                      <PromptInputButton
+                        onClick={() => setUseDeepThink(!useDeepThink)}
+                        variant={useDeepThink ? "selected" : "ghost"}
+                        collapsed={isCondensed}
+                      >
+                        <AtomIcon className="lucide-stroke-bold mb-px" />
+                        {!isCondensed && <span>DeepThink</span>}
+                      </PromptInputButton>
+                    </TooltipTrigger>
+                    <TooltipContent>Deep thinking</TooltipContent>
                   </Tooltip>
                 </PromptInputTools>
 

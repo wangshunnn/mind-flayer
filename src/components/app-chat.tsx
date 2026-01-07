@@ -349,9 +349,7 @@ const AppChat = () => {
                                     }
                                   }
 
-                                  const toolDescription = isWebSearch
-                                    ? `${tool.input?.objective}\n\n${toolResult}`
-                                    : ""
+                                  const toolDescription = isWebSearch ? tool.input?.objective : ""
 
                                   const toolIdentifier = `${tool.type}-${message.id}-${segment.partIndex}`
                                   return (
@@ -422,7 +420,7 @@ const AppChat = () => {
                                       {(part.state === "input-streaming" ||
                                         part.state === "input-available") && (
                                         <ToolCallInputStreaming
-                                          message={`Searching: "${input.objective}"`}
+                                          message={`Searching "${input?.objective ? input.objective : "..."}"`}
                                         />
                                       )}
                                       {part.state === "approval-requested" && (
@@ -430,7 +428,7 @@ const AppChat = () => {
                                           description={
                                             <>
                                               The AI wants to search the web for:{" "}
-                                              <strong>"{input.objective}"</strong>
+                                              <strong>"{input?.objective ?? ""}"</strong>
                                             </>
                                           }
                                           onApprove={() =>

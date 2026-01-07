@@ -1,6 +1,6 @@
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses } from "ai"
-import { AtomIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
+import { AtomIcon, GlobeIcon, Search, SparklesIcon, ZapIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
@@ -306,6 +306,11 @@ const AppChat = () => {
                                     type: string
                                     state?: string
                                     output?: { totalResults?: number; [key: string]: unknown }
+                                    input?: {
+                                      objective: string
+                                      searchQueries: string[]
+                                      maxResults?: number
+                                    }
                                   }
                                   const toolType = tool.type.replace("tool-", "")
                                   const isWebSearch = toolType === "webSearch"
@@ -313,25 +318,40 @@ const AppChat = () => {
                                   const toolDisplayName = isWebSearch ? "Web Search" : toolType
 
                                   // Get tool result summary
-                                  let toolResult = "Running..."
-                                  if (tool.state === "output-available" && tool.output) {
-                                    if (isWebSearch && tool.output.totalResults !== undefined) {
-                                      toolResult = `Found ${tool.output.totalResults} results`
-                                    } else {
-                                      toolResult = "Completed"
+                                  let toolResult = "Working..."
+                                  switch (tool.state) {
+                                    case "output-available": {
+                                      if (tool.output) {
+                                        if (isWebSearch && tool.output.totalResults !== undefined) {
+                                          toolResult = `Searched ${tool.output.totalResults} results`
+                                        } else {
+                                          toolResult = "Done"
+                                        }
+                                      }
+                                      break
                                     }
-                                  } else if (tool.state === "output-error") {
-                                    toolResult = "Failed"
-                                  } else if (tool.state === "output-denied") {
-                                    toolResult = "Cancelled"
-                                  } else if (
-                                    tool.state === "input-streaming" ||
-                                    tool.state === "input-available"
-                                  ) {
-                                    toolResult = "Preparing..."
-                                  } else if (tool.state === "approval-requested") {
-                                    toolResult = "Awaiting approval..."
+                                    case "output-error": {
+                                      toolResult = "Failed"
+                                      break
+                                    }
+                                    case "output-denied": {
+                                      toolResult = "Cancelled"
+                                      break
+                                    }
+                                    case "input-streaming":
+                                    case "input-available": {
+                                      toolResult = "Working..."
+                                      break
+                                    }
+                                    case "approval-requested": {
+                                      toolResult = "Awaiting approval..."
+                                      break
+                                    }
                                   }
+
+                                  const toolDescription = isWebSearch
+                                    ? `${tool.input?.objective}\n\n${toolResult}`
+                                    : ""
 
                                   const toolIdentifier = `${tool.type}-${message.id}-${segment.partIndex}`
                                   return (
@@ -341,7 +361,10 @@ const AppChat = () => {
                                       toolName={toolDisplayName}
                                       toolResult={toolResult}
                                       toolState={tool.state}
-                                    />
+                                      toolDescription={toolDescription}
+                                    >
+                                      1212
+                                    </ReasoningSegment>
                                   )
                                 }
 
@@ -367,7 +390,11 @@ const AppChat = () => {
                               if (part.type === "tool-webSearch") {
                                 const callId = part.toolCallId
                                 // Type assertion for input
-                                const input = part.input as { query: string; maxResults?: number }
+                                const input = part.input as {
+                                  objective: string
+                                  searchQueries: string[]
+                                  maxResults?: number
+                                }
 
                                 // Get result count for output-available state
                                 const output =
@@ -392,12 +419,10 @@ const AppChat = () => {
                                   >
                                     <ToolCallTrigger />
                                     <ToolCallContent>
-                                      {part.state === "input-streaming" && (
-                                        <ToolCallInputStreaming message="Preparing web search..." />
-                                      )}
-                                      {part.state === "input-available" && (
+                                      {(part.state === "input-streaming" ||
+                                        part.state === "input-available") && (
                                         <ToolCallInputStreaming
-                                          message={`Searching: "${input.query}"`}
+                                          message={`Searching: "${input.objective}"`}
                                         />
                                       )}
                                       {part.state === "approval-requested" && (
@@ -405,7 +430,7 @@ const AppChat = () => {
                                           description={
                                             <>
                                               The AI wants to search the web for:{" "}
-                                              <strong>"{input.query}"</strong>
+                                              <strong>"{input.objective}"</strong>
                                             </>
                                           }
                                           onApprove={() =>

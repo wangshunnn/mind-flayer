@@ -182,6 +182,7 @@ export type ReasoningSegmentProps = ComponentProps<"div"> & {
   toolName?: string
   toolResult?: string
   toolState?: string
+  toolDescription?: string
 }
 
 export const ReasoningSegment = memo(
@@ -192,6 +193,7 @@ export const ReasoningSegment = memo(
     toolName,
     toolResult,
     toolState,
+    toolDescription,
     children,
     ...props
   }: ReasoningSegmentProps) => {
@@ -218,11 +220,12 @@ export const ReasoningSegment = memo(
           )}
         >
           {segmentType.startsWith("tool-") ? (
-            <div className="text-muted-foreground pr-4 text-xs">
+            <div className="text-muted-foreground text-sm">
+              <div className="mb-1">{toolDescription}</div>
               {isToolInProgress ? (
-                <Shimmer duration={1}>{toolResult || "Running..."}</Shimmer>
+                <Shimmer duration={1}>{toolResult || "Working..."}</Shimmer>
               ) : (
-                toolResult || "Completed"
+                toolResult || "Done"
               )}
             </div>
           ) : (
@@ -296,8 +299,8 @@ export type ReasoningSegmentContentProps = ComponentProps<"div"> & {
 
 export const ReasoningSegmentContent = memo(
   ({ className, children, ...props }: ReasoningSegmentContentProps) => (
-    <div className={cn("text-muted-foreground pr-4", className)} {...props}>
-      <Streamdown className="space-y-2.5">{children}</Streamdown>
+    <div className={cn("text-muted-foreground pr-4 text-sm", className)} {...props}>
+      <Streamdown className="thinking-process space-y-2.5">{children}</Streamdown>
     </div>
   )
 )

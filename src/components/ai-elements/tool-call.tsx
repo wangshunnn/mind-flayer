@@ -243,7 +243,7 @@ export type ToolCallInputStreamingProps = {
 }
 
 export const ToolCallInputStreaming = memo(
-  ({ message = "Preparing..." }: ToolCallInputStreamingProps) => (
+  ({ message = "Working..." }: ToolCallInputStreamingProps) => (
     <div className="flex items-center gap-2 py-1">
       <LoaderIcon className="size-3.5 animate-spin" />
       <span className="text-sm text-muted-foreground">{message}</span>

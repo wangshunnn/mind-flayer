@@ -5,17 +5,7 @@ import { createContext, memo, useContext, useEffect, useState } from "react"
 import { Shimmer } from "@/components/ai-elements/shimmer"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
-
-type ToolCallContextValue = {
-  isOpen: boolean
-  setIsOpen: (open: boolean) => void
-  duration: number | undefined
-  toolName: string
-  resultCount?: number
-  state: ToolCallState
-}
 
 type ToolCallState =
   | "input-streaming"
@@ -25,6 +15,15 @@ type ToolCallState =
   | "output-available"
   | "output-error"
   | "output-denied"
+
+type ToolCallContextValue = {
+  isOpen: boolean
+  setIsOpen: (open: boolean) => void
+  duration: number | undefined
+  toolName: string
+  resultCount?: number
+  state: ToolCallState
+}
 
 const ToolCallContext = createContext<ToolCallContextValue | null>(null)
 
@@ -37,7 +36,6 @@ export const useToolCall = () => {
 }
 
 export type ToolCallProps = ComponentProps<typeof Collapsible> & {
-  isStreaming?: boolean
   open?: boolean
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
@@ -48,21 +46,12 @@ export type ToolCallProps = ComponentProps<typeof Collapsible> & {
 }
 
 const MS_IN_S = 1000
-const AUTO_CLOSE_DELAY = 500
-
-// States that indicate the tool is still in progress
-const IN_PROGRESS_STATES: ToolCallState[] = [
-  "input-streaming",
-  "input-available",
-  "approval-requested",
-  "approval-responded"
-]
 
 export const ToolCall = memo(
   ({
     className,
     open,
-    defaultOpen = false,
+    defaultOpen = true,
     onOpenChange,
     duration: durationProp,
     toolName,
@@ -76,32 +65,9 @@ export const ToolCall = memo(
       defaultProp: defaultOpen,
       onChange: onOpenChange
     })
-    const [duration, setDuration] = useControllableState({
-      prop: durationProp,
-      defaultProp: undefined
-    })
-
+    const [duration, setDuration] = useState<number | undefined>(durationProp)
     const [startTime, setStartTime] = useState<number | null>(null)
-    const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false)
     const [prevState, setPrevState] = useState<ToolCallState>(state)
-
-    const isInProgress = IN_PROGRESS_STATES.includes(state)
-
-    // Auto-expand when tool is in progress, auto-collapse when completed
-    useEffect(() => {
-      if (isInProgress) {
-        // Always expand when in progress
-        setIsOpen(true)
-        setHasAutoCollapsed(false)
-      } else if (!hasAutoCollapsed) {
-        // Auto-collapse after completion (with a small delay)
-        const timer = setTimeout(() => {
-          setIsOpen(false)
-          setHasAutoCollapsed(true)
-        }, AUTO_CLOSE_DELAY)
-        return () => clearTimeout(timer)
-      }
-    }, [isInProgress, hasAutoCollapsed, setIsOpen])
 
     // Track duration: start timing after approval is granted or when tool starts execution
     useEffect(() => {
@@ -117,12 +83,20 @@ export const ToolCall = memo(
 
       // Stop timing when reaching a final state
       if ((state === "output-available" || state === "output-error") && startTime !== null) {
-        setDuration(Math.round(((Date.now() - startTime) / MS_IN_S) * 10) / 10)
+        const calculatedDuration = Math.round(((Date.now() - startTime) / MS_IN_S) * 10) / 10
+        setDuration(calculatedDuration)
         setStartTime(null)
       }
 
       setPrevState(state)
-    }, [state, startTime, prevState, setDuration])
+    }, [state, startTime, prevState])
+
+    // Update duration if prop changes
+    useEffect(() => {
+      if (durationProp !== undefined) {
+        setDuration(durationProp)
+      }
+    }, [durationProp])
 
     const handleOpenChange = (newOpen: boolean) => {
       setIsOpen(newOpen)
@@ -132,27 +106,26 @@ export const ToolCall = memo(
       <ToolCallContext.Provider
         value={{ isOpen, setIsOpen, duration, toolName, resultCount, state }}
       >
-        <Collapsible
-          className={cn("not-prose my-1", className)}
-          onOpenChange={handleOpenChange}
-          open={isOpen}
-          {...props}
-        >
-          {children}
-        </Collapsible>
+        <div className={cn("rounded-lg border border-border/50 bg-muted/30 p-3", className)}>
+          <Collapsible
+            className="not-prose"
+            onOpenChange={handleOpenChange}
+            open={isOpen}
+            {...props}
+          >
+            {children}
+          </Collapsible>
+        </div>
       </ToolCallContext.Provider>
     )
   }
 )
 
 /**
- * Get the appropriate icon for the tool with color based on state
+ * Get the appropriate icon for the tool
  */
 const getToolIcon = (toolName: string) => {
-  // Determine color based on state
-  const colorClass = "transition-colors"
-
-  const iconClass = cn("size-4", colorClass)
+  const iconClass = "size-4 transition-colors"
 
   switch (toolName.toLowerCase()) {
     case "websearch":
@@ -201,7 +174,7 @@ const defaultGetToolMessage = (
     if (resultCount !== undefined) {
       parts.push(`${resultCount} results`)
     }
-    if (duration !== undefined) {
+    if (duration !== undefined && duration > 0) {
       parts.push(`${duration}s`)
     }
     return <span>{parts.join(" · ")}</span>
@@ -241,25 +214,27 @@ export const ToolCallTrigger = memo(
   }
 )
 
-export type ToolCallContentProps = ComponentProps<typeof CollapsibleContent>
+export type ToolCallContentProps = ComponentProps<typeof CollapsibleContent> & {
+  maxHeight?: string
+}
 
-export const ToolCallContent = memo(({ className, children, ...props }: ToolCallContentProps) => (
-  <CollapsibleContent
-    className={cn(
-      "relative mt-4 text-sm leading-normal pl-6",
-      "before:absolute before:left-1.75 before:top-0 before:h-full before:w-0.5 before:rounded-full",
-      "before:bg-muted-foreground/20",
-      "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2",
-      "text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
-      className
-    )}
-    {...props}
-  >
-    <ScrollArea className="max-h-64">
-      <div className="space-y-2 pr-4">{children}</div>
-    </ScrollArea>
-  </CollapsibleContent>
-))
+export const ToolCallContent = memo(
+  ({ className, maxHeight = "16rem", children, ...props }: ToolCallContentProps) => (
+    <CollapsibleContent
+      className={cn(
+        "relative mt-3 text-sm leading-normal",
+        "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2",
+        "text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
+        className
+      )}
+      {...props}
+    >
+      <div className="overflow-y-auto pr-2" style={{ maxHeight }}>
+        <div className="space-y-2">{children}</div>
+      </div>
+    </CollapsibleContent>
+  )
+)
 
 // Sub-components for different tool states
 

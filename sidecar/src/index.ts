@@ -43,6 +43,7 @@ app.post("/api/chat", async (req, res) => {
     // const modelProvider = (req.headers["x-model-provider"] as string) || req.body.provider
     const modelId = (req.headers["x-model-id"] as string) || req.body.model
     const useWebSearch = req.headers["x-use-web-search"] === "true" || req.body.useWebSearch
+    const webSearchMode = (req.headers["x-web-search-mode"] as string) || "auto"
     const { messages } = req.body
 
     if (!modelId) {
@@ -54,7 +55,7 @@ app.post("/api/chat", async (req, res) => {
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: "Messages array is required" })
     }
-    console.log("[sidecar] /api/chat", modelId, messages, { useWebSearch })
+    console.log("[sidecar] /api/chat", modelId, messages, { useWebSearch, webSearchMode })
 
     const minimax = createMinimax({
       baseURL: "https://api.minimaxi.com/anthropic/v1",
@@ -67,11 +68,20 @@ app.post("/api/chat", async (req, res) => {
       tools.webSearch = webSearchTool
     }
 
+    const toolsCount = Object.keys(tools).length
+
+    // Configure toolChoice based on webSearchMode
+    let toolChoice: "auto" | { type: "tool"; toolName: string } = "auto"
+    if (useWebSearch && webSearchMode === "always") {
+      toolChoice = { type: "tool", toolName: "webSearch" }
+    }
+
     const result = streamText({
       model: minimax(modelId),
       messages: await convertToModelMessages(messages as UIMessage[]),
       tools,
-      stopWhen: stepCountIs(5)
+      toolChoice,
+      stopWhen: toolsCount ? stepCountIs(5) : stepCountIs(1)
     })
 
     const response = result.toUIMessageStreamResponse({

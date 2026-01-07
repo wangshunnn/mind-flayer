@@ -1001,11 +1001,11 @@ export const PromptInputSubmit = ({
   let Icon = <Navigation2Icon className="mb-px fixed fill-current" />
 
   if (status === "submitted") {
-    Icon = <Loader2Icon className="animate-spin" />
+    Icon = <Loader2Icon className="fixedanimate-spin" />
   } else if (status === "streaming") {
-    Icon = <SquareIcon className="size-3" />
+    Icon = <SquareIcon className="fixed size-3 fill-current" />
   } else if (status === "error") {
-    Icon = <XIcon />
+    Icon = <XIcon className="fixed" />
   }
 
   return (

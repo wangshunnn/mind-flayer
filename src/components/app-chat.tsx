@@ -1,6 +1,6 @@
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses } from "ai"
-import { AtomIcon, GlobeIcon } from "lucide-react"
+import { AtomIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
@@ -28,7 +28,6 @@ import {
   PromptInputAttachment,
   PromptInputAttachments,
   PromptInputBody,
-  PromptInputButton,
   PromptInputFooter,
   PromptInputHeader,
   type PromptInputMessage,
@@ -37,7 +36,14 @@ import {
   type PromptInputTextareaHandle,
   PromptInputTools
 } from "@/components/ai-elements/prompt-input"
-import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning"
+import {
+  ReasoningSegment,
+  ReasoningSegmentContent,
+  ThinkingProcess,
+  ThinkingProcessCompletion,
+  ThinkingProcessContent,
+  ThinkingProcessTrigger
+} from "@/components/ai-elements/thinking-process"
 import {
   ToolCall,
   ToolCallApprovalRequested,
@@ -48,13 +54,20 @@ import {
   ToolCallTrigger,
   ToolCallWebSearchResults
 } from "@/components/ai-elements/tool-call"
+import {
+  ToolCallsContainer,
+  ToolCallsContainerContent,
+  ToolCallsContainerTrigger
+} from "@/components/ai-elements/tool-calls-container"
 import { MODEL_OPTIONS, type ModelOption, SelectModel } from "@/components/select-model"
+import { ToolButton } from "@/components/tool-button"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 const AppChat = () => {
   const [useWebSearch, setUseWebSearch] = useState<boolean>(true)
+  const [webSearchMode, setWebSearchMode] = useState<"auto" | "always">("auto")
   const [useDeepThink, setUseDeepThink] = useState<boolean>(false)
   const [isCondensed, setIsCondensed] = useState(false)
   const [input, setInput] = useState("")
@@ -65,6 +78,7 @@ const AppChat = () => {
   // Use refs to keep latest values accessible in headers function
   const selectedModelRef = useRef(selectedModel)
   const useWebSearchRef = useRef(useWebSearch)
+  const webSearchModeRef = useRef(webSearchMode)
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -75,6 +89,10 @@ const AppChat = () => {
     useWebSearchRef.current = useWebSearch
   }, [useWebSearch])
 
+  useEffect(() => {
+    webSearchModeRef.current = webSearchMode
+  }, [webSearchMode])
+
   const { status, messages, sendMessage, addToolApprovalResponse } = useChat({
     transport: new DefaultChatTransport({
       api: `http://localhost:${__SIDECAR_PORT__}/api/chat`,
@@ -82,7 +100,8 @@ const AppChat = () => {
         "X-API-Key": import.meta.env.VITE_MINIMAX_API_KEY || "",
         "X-Model-Provider": selectedModelRef.current.provider,
         "X-Model-Id": selectedModelRef.current.api_id,
-        "X-Use-Web-Search": useWebSearchRef.current.toString()
+        "X-Use-Web-Search": useWebSearchRef.current.toString(),
+        "X-Web-Search-Mode": webSearchModeRef.current
       })
     }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
@@ -151,10 +170,6 @@ const AppChat = () => {
         <Conversation className="h-full">
           <ConversationContent>
             {messages.map((message, index) => {
-              const reasoningText = message.parts
-                .filter(part => part.type === "reasoning")
-                .map(part => part.text)
-                .join("")
               const messageText = message.parts
                 .filter(part => part.type === "text")
                 .map(part => part.text)
@@ -175,95 +190,256 @@ const AppChat = () => {
               const isLastMessage = index === messages.length - 1
               const isCurrentlyStreaming = status === "streaming" && isLastMessage
 
+              // Check if the thinking/reasoning phase is still streaming
+              // This is true only if we're streaming AND the last part is reasoning/tool related
+              const lastPart = message.parts[message.parts.length - 1]
+              const isThinkingStreaming =
+                isCurrentlyStreaming &&
+                (lastPart?.type === "reasoning" ||
+                  lastPart?.type === "step-start" ||
+                  lastPart?.type.startsWith("tool-"))
+
+              // Process message parts to organize by steps
+              type StepSegment = {
+                type: "reasoning" | "tool"
+                partIndex: number
+                reasoning?: { text: string; isStreaming: boolean }
+                tool?: { type: string; state?: string; [key: string]: unknown }
+              }
+
+              const steps: StepSegment[][] = []
+              let currentStep: StepSegment[] = []
+
+              message.parts.forEach((part, partIndex) => {
+                if (part.type === "step-start") {
+                  // Start a new step
+                  if (currentStep.length > 0) {
+                    steps.push(currentStep)
+                    currentStep = []
+                  }
+                } else if (part.type === "reasoning") {
+                  const isReasoningStreaming =
+                    isThinkingStreaming && partIndex === message.parts.length - 1
+                  currentStep.push({
+                    type: "reasoning",
+                    partIndex,
+                    reasoning: { text: part.text, isStreaming: isReasoningStreaming }
+                  })
+                } else if (part.type.startsWith("tool-")) {
+                  currentStep.push({
+                    type: "tool",
+                    partIndex,
+                    tool: part
+                  })
+                }
+              })
+
+              // Add the last step
+              if (currentStep.length > 0) {
+                steps.push(currentStep)
+              }
+
+              const hasThinkingProcess =
+                steps.length > 0 &&
+                steps.some(step =>
+                  step.some(segment => segment.type === "reasoning" || segment.type === "tool")
+                )
+
+              // Check if thinking process is complete (all reasoning and tools are done)
+              const isThinkingComplete = steps.every(step =>
+                step.every(segment => {
+                  if (segment.type === "reasoning") {
+                    return !segment.reasoning?.isStreaming
+                  }
+                  if (segment.type === "tool" && segment.tool) {
+                    const toolState = (segment.tool as { state?: string }).state
+                    return (
+                      !toolState ||
+                      ![
+                        "input-streaming",
+                        "input-available",
+                        "approval-requested",
+                        "approval-responded"
+                      ].includes(toolState)
+                    )
+                  }
+                  return true
+                })
+              )
+
+              // Collect tool information for detailed container (show as soon as there are tool calls)
+              const toolParts = message.parts.filter(part => part.type.startsWith("tool-"))
+              const toolNames = toolParts.map(part => {
+                const toolType = part.type.replace("tool-", "")
+                return toolType === "webSearch" ? "Web Search" : toolType
+              })
+              const hasTools = toolParts.length > 0
+
               return (
                 <MessageBranch defaultBranch={0} key={message.id}>
                   <MessageBranchContent>
                     <Message from={message.role} key={message.id}>
-                      {/* Reasoning */}
-                      {reasoningText && (
-                        <Reasoning isStreaming={isCurrentlyStreaming}>
-                          <ReasoningTrigger />
-                          <ReasoningContent>{reasoningText}</ReasoningContent>
-                        </Reasoning>
+                      {/* Thinking Process - organized by steps */}
+                      {message.role === "assistant" && hasThinkingProcess && (
+                        <ThinkingProcess isStreaming={isThinkingStreaming}>
+                          <ThinkingProcessTrigger />
+                          <ThinkingProcessContent>
+                            {steps.map(step => {
+                              // Process all segments in this step
+                              return step.map(segment => {
+                                if (segment.type === "reasoning") {
+                                  return (
+                                    <ReasoningSegment
+                                      key={`reasoning-${message.id}-${segment.partIndex}`}
+                                      isStreaming={segment.reasoning?.isStreaming}
+                                      segmentType="reasoning"
+                                    >
+                                      <ReasoningSegmentContent>
+                                        {segment.reasoning?.text || ""}
+                                      </ReasoningSegmentContent>
+                                    </ReasoningSegment>
+                                  )
+                                }
+
+                                if (segment.type === "tool" && segment.tool) {
+                                  const tool = segment.tool as {
+                                    type: string
+                                    state?: string
+                                    output?: { totalResults?: number; [key: string]: unknown }
+                                  }
+                                  const toolType = tool.type.replace("tool-", "")
+                                  const isWebSearch = toolType === "webSearch"
+                                  const segmentType = isWebSearch ? "tool-webSearch" : "tool-other"
+                                  const toolDisplayName = isWebSearch ? "Web Search" : toolType
+
+                                  // Get tool result summary
+                                  let toolResult = "Running..."
+                                  if (tool.state === "output-available" && tool.output) {
+                                    if (isWebSearch && tool.output.totalResults !== undefined) {
+                                      toolResult = `Found ${tool.output.totalResults} results`
+                                    } else {
+                                      toolResult = "Completed"
+                                    }
+                                  } else if (tool.state === "output-error") {
+                                    toolResult = "Failed"
+                                  } else if (tool.state === "output-denied") {
+                                    toolResult = "Cancelled"
+                                  } else if (
+                                    tool.state === "input-streaming" ||
+                                    tool.state === "input-available"
+                                  ) {
+                                    toolResult = "Preparing..."
+                                  } else if (tool.state === "approval-requested") {
+                                    toolResult = "Awaiting approval..."
+                                  }
+
+                                  const toolIdentifier = `${tool.type}-${message.id}-${segment.partIndex}`
+                                  return (
+                                    <ReasoningSegment
+                                      key={toolIdentifier}
+                                      segmentType={segmentType}
+                                      toolName={toolDisplayName}
+                                      toolResult={toolResult}
+                                      toolState={tool.state}
+                                    />
+                                  )
+                                }
+
+                                return null
+                              })
+                            })}
+
+                            {/* Show completion summary when thinking process is complete */}
+                            {isThinkingComplete && (
+                              <ThinkingProcessCompletion stepCount={steps.length} />
+                            )}
+                          </ThinkingProcessContent>
+                        </ThinkingProcess>
                       )}
 
-                      {/* Render tool parts for assistant messages */}
-                      {message.role === "assistant" &&
-                        message.parts.map(part => {
-                          // Handle webSearch tool with approval
-                          if (part.type === "tool-webSearch") {
-                            const callId = part.toolCallId
-                            // Type assertion for input
-                            const input = part.input as { query: string; maxResults?: number }
+                      {/* Tool Calls Container - only show after streaming is done */}
+                      {message.role === "assistant" && hasTools && (
+                        <ToolCallsContainer toolCount={toolParts.length}>
+                          <ToolCallsContainerTrigger toolNames={toolNames} />
+                          <ToolCallsContainerContent>
+                            {toolParts.map(part => {
+                              // Handle webSearch tool with approval
+                              if (part.type === "tool-webSearch") {
+                                const callId = part.toolCallId
+                                // Type assertion for input
+                                const input = part.input as { query: string; maxResults?: number }
 
-                            // Get result count for output-available state
-                            const output =
-                              part.state === "output-available"
-                                ? (part.output as {
-                                    query: string
-                                    results: Array<{
-                                      title: string
-                                      url: string
-                                      snippet: string
-                                    }>
-                                    totalResults: number
-                                  })
-                                : null
+                                // Get result count for output-available state
+                                const output =
+                                  part.state === "output-available"
+                                    ? (part.output as {
+                                        query: string
+                                        results: Array<{
+                                          title: string
+                                          url: string
+                                          snippet: string
+                                        }>
+                                        totalResults: number
+                                      })
+                                    : null
 
-                            return (
-                              <ToolCall
-                                key={callId}
-                                toolName="webSearch"
-                                state={part.state}
-                                resultCount={output?.totalResults}
-                              >
-                                <ToolCallTrigger />
-                                <ToolCallContent>
-                                  {part.state === "input-streaming" && (
-                                    <ToolCallInputStreaming message="Preparing web search..." />
-                                  )}
-                                  {part.state === "input-available" && (
-                                    <ToolCallInputStreaming
-                                      message={`Searching: "${input.query}"`}
-                                    />
-                                  )}
-                                  {part.state === "approval-requested" && (
-                                    <ToolCallApprovalRequested
-                                      description={
-                                        <>
-                                          The AI wants to search the web for:{" "}
-                                          <strong>"{input.query}"</strong>
-                                        </>
-                                      }
-                                      onApprove={() =>
-                                        addToolApprovalResponse({
-                                          id: part.approval.id,
-                                          approved: true
-                                        })
-                                      }
-                                      onDeny={() =>
-                                        addToolApprovalResponse({
-                                          id: part.approval.id,
-                                          approved: false
-                                        })
-                                      }
-                                    />
-                                  )}
-                                  {part.state === "output-available" && output && (
-                                    <ToolCallWebSearchResults results={output.results} />
-                                  )}
-                                  {part.state === "output-error" && (
-                                    <ToolCallOutputError errorText={part.errorText} />
-                                  )}
-                                  {part.state === "output-denied" && (
-                                    <ToolCallOutputDenied message={part.errorText} />
-                                  )}
-                                </ToolCallContent>
-                              </ToolCall>
-                            )
-                          }
-                          return null
-                        })}
+                                return (
+                                  <ToolCall
+                                    key={callId}
+                                    toolName="webSearch"
+                                    state={part.state}
+                                    resultCount={output?.totalResults}
+                                  >
+                                    <ToolCallTrigger />
+                                    <ToolCallContent>
+                                      {part.state === "input-streaming" && (
+                                        <ToolCallInputStreaming message="Preparing web search..." />
+                                      )}
+                                      {part.state === "input-available" && (
+                                        <ToolCallInputStreaming
+                                          message={`Searching: "${input.query}"`}
+                                        />
+                                      )}
+                                      {part.state === "approval-requested" && (
+                                        <ToolCallApprovalRequested
+                                          description={
+                                            <>
+                                              The AI wants to search the web for:{" "}
+                                              <strong>"{input.query}"</strong>
+                                            </>
+                                          }
+                                          onApprove={() =>
+                                            addToolApprovalResponse({
+                                              id: part.approval.id,
+                                              approved: true
+                                            })
+                                          }
+                                          onDeny={() =>
+                                            addToolApprovalResponse({
+                                              id: part.approval.id,
+                                              approved: false
+                                            })
+                                          }
+                                        />
+                                      )}
+                                      {part.state === "output-available" && output && (
+                                        <ToolCallWebSearchResults results={output.results} />
+                                      )}
+                                      {part.state === "output-error" && (
+                                        <ToolCallOutputError errorText={part.errorText} />
+                                      )}
+                                      {part.state === "output-denied" && (
+                                        <ToolCallOutputDenied message={part.errorText} />
+                                      )}
+                                    </ToolCallContent>
+                                  </ToolCall>
+                                )
+                              }
+                              return null
+                            })}
+                          </ToolCallsContainerContent>
+                        </ToolCallsContainer>
+                      )}
 
                       {/* Message content */}
                       <MessageContent>
@@ -350,33 +526,40 @@ const AppChat = () => {
               <PromptInputFooter>
                 {/* Tools in Left */}
                 <PromptInputTools className="-ml-1.5">
-                  <Tooltip open={!isCondensed ? false : undefined}>
-                    <TooltipTrigger asChild>
-                      <PromptInputButton
-                        onClick={() => setUseWebSearch(!useWebSearch)}
-                        variant={useWebSearch ? "selected" : "ghost"}
-                        collapsed={isCondensed}
-                      >
-                        <GlobeIcon className="lucide-stroke-bold mb-px" />
-                        {!isCondensed && <span>Search</span>}
-                      </PromptInputButton>
-                    </TooltipTrigger>
-                    <TooltipContent>Web search</TooltipContent>
-                  </Tooltip>
+                  <ToolButton
+                    icon={GlobeIcon}
+                    label="Search"
+                    tooltip="Web search"
+                    enabled={useWebSearch}
+                    onEnabledChange={setUseWebSearch}
+                    collapsed={isCondensed}
+                    modes={[
+                      {
+                        value: "auto",
+                        label: "Auto",
+                        badge: "Recommended",
+                        description: "Search only when needed needed",
+                        icon: SparklesIcon
+                      },
+                      {
+                        value: "always",
+                        label: "Always",
+                        description: "Search for every query",
+                        icon: ZapIcon
+                      }
+                    ]}
+                    selectedMode={webSearchMode}
+                    onModeChange={mode => setWebSearchMode(mode as "auto" | "always")}
+                  />
 
-                  <Tooltip open={!isCondensed ? false : undefined}>
-                    <TooltipTrigger asChild>
-                      <PromptInputButton
-                        onClick={() => setUseDeepThink(!useDeepThink)}
-                        variant={useDeepThink ? "selected" : "ghost"}
-                        collapsed={isCondensed}
-                      >
-                        <AtomIcon className="lucide-stroke-bold mb-px" />
-                        {!isCondensed && <span>DeepThink</span>}
-                      </PromptInputButton>
-                    </TooltipTrigger>
-                    <TooltipContent>Deep thinking</TooltipContent>
-                  </Tooltip>
+                  <ToolButton
+                    icon={AtomIcon}
+                    label="DeepThink"
+                    tooltip="Deep thinking"
+                    enabled={useDeepThink}
+                    onEnabledChange={setUseDeepThink}
+                    collapsed={isCondensed}
+                  />
                 </PromptInputTools>
 
                 {/* Tools in Right */}
@@ -408,12 +591,22 @@ const AppChat = () => {
       {/* Copyright */}
       <div
         className={cn(
-          "absolute bottom-1 flex w-full max-h-6 items-center justify-center",
-          "w-(--chat-content-width) max-w-(--chat-content-max-width)",
-          "text-[10px] text-muted-foreground/50 shadow-none"
+          "absolute bottom-1 flex max-h-6 items-center justify-center",
+          "max-w-(--chat-content-max-width) mx-auto left-0 right-0",
+          "text-[9px] text-muted-foreground/50 shadow-none",
+          "overflow-hidden whitespace-nowrap text-ellipsis"
         )}
       >
-        AI-generated content, for reference only
+        AI-generated content, for reference only. Star at{" "}
+        <a
+          href="https://github.com/wangshunnn/mind-flayer"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-1 text-muted-foreground/50 hover:text-muted-foreground transition-colors underline"
+        >
+          Github
+        </a>
+        {"."}
       </div>
     </div>
   )

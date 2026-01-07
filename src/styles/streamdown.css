@@ -1,0 +1,29 @@
+/* Headings */
+[data-streamdown="heading-1"] {
+  font-size: 1.4rem;
+}
+
+[data-streamdown="heading-2"] {
+  font-size: 1.2rem;
+}
+
+[data-streamdown="heading-3"] {
+  font-size: 1rem;
+}
+
+[data-streamdown="heading-4"],
+[data-streamdown="heading-5"],
+[data-streamdown="heading-6"] {
+  font-size: 1rem;
+}
+
+/* Custom link appearance */
+[data-streamdown="link"] {
+  /* color: var(--color-brand-green); */
+  text-decoration: none;
+  border-bottom: 1px solid oklch(from var(--color-brand-green) l c h / 0.5);
+  transition: border-color 0.2s;
+}
+[data-streamdown="link"]:hover {
+  border-bottom-color: var(--color-brand-green);
+}

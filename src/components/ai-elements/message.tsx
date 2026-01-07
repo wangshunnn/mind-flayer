@@ -34,7 +34,7 @@ export const MessageContent = ({ children, className, ...props }: MessageContent
   <div
     className={cn(
       "is-user:dark flex w-fit max-w-full min-w-0 flex-col gap-2 overflow-hidden",
-      "text-[15px] leading-[1.6]",
+      "text-[15px] leading-[1.6] px-2",
       "group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
       "group-[.is-assistant]:text-foreground",
       "group-[.is-user]:bg-brand-green-light",
@@ -281,6 +281,16 @@ export const MessageResponse = memo(
         "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         className
       )}
+      controls={{
+        table: true,
+        code: true,
+        mermaid: {
+          download: true,
+          copy: true,
+          fullscreen: true,
+          panZoom: true
+        }
+      }}
       {...props}
     />
   ),

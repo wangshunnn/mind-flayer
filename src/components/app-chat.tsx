@@ -1,5 +1,9 @@
 import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses } from "ai"
+import {
+  DefaultChatTransport,
+  lastAssistantMessageIsCompleteWithApprovalResponses,
+  type ToolUIPart
+} from "ai"
 import { AtomIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
@@ -201,7 +205,7 @@ const AppChat = () => {
 
               // Process message parts to organize by steps
               type StepSegment = {
-                type: "reasoning" | "tool"
+                type: "step-start" | "reasoning" | "tool"
                 partIndex: number
                 reasoning?: { text: string; isStreaming: boolean }
                 tool?: { type: string; state?: string; [key: string]: unknown }
@@ -215,7 +219,12 @@ const AppChat = () => {
                   // Start a new step
                   if (currentStep.length > 0) {
                     steps.push(currentStep)
-                    currentStep = []
+                    currentStep = [
+                      {
+                        type: "step-start",
+                        partIndex
+                      }
+                    ]
                   }
                 } else if (part.type === "reasoning") {
                   const isReasoningStreaming =
@@ -245,27 +254,10 @@ const AppChat = () => {
                   step.some(segment => segment.type === "reasoning" || segment.type === "tool")
                 )
 
+              const lastStepInStep = currentStep.at(-1)
               // Check if thinking process is complete (all reasoning and tools are done)
-              const isThinkingComplete = steps.every(step =>
-                step.every(segment => {
-                  if (segment.type === "reasoning") {
-                    return !segment.reasoning?.isStreaming
-                  }
-                  if (segment.type === "tool" && segment.tool) {
-                    const toolState = (segment.tool as { state?: string }).state
-                    return (
-                      !toolState ||
-                      ![
-                        "input-streaming",
-                        "input-available",
-                        "approval-requested",
-                        "approval-responded"
-                      ].includes(toolState)
-                    )
-                  }
-                  return true
-                })
-              )
+              const isThinkingComplete =
+                lastStepInStep?.type === "reasoning" && !lastStepInStep.reasoning?.isStreaming
 
               // Collect tool information for detailed container (show as soon as there are tool calls)
               const toolParts = message.parts.filter(part => part.type.startsWith("tool-"))
@@ -273,6 +265,7 @@ const AppChat = () => {
                 const toolType = part.type.replace("tool-", "")
                 return toolType === "webSearch" ? "Web Search" : toolType
               })
+
               const hasTools = toolParts.length > 0
 
               return (
@@ -304,7 +297,7 @@ const AppChat = () => {
                                 if (segment.type === "tool" && segment.tool) {
                                   const tool = segment.tool as {
                                     type: string
-                                    state?: string
+                                    state?: ToolUIPart["state"]
                                     output?: { totalResults?: number; [key: string]: unknown }
                                     input?: {
                                       objective: string
@@ -347,6 +340,9 @@ const AppChat = () => {
                                       toolResult = "Awaiting approval..."
                                       break
                                     }
+                                    default: {
+                                      toolResult = "Working..."
+                                    }
                                   }
 
                                   const toolDescription = isWebSearch ? tool.input?.objective : ""
@@ -378,8 +374,8 @@ const AppChat = () => {
                         </ThinkingProcess>
                       )}
 
-                      {/* Tool Calls Container - only show after streaming is done */}
-                      {message.role === "assistant" && hasTools && (
+                      {/* Tool Calls Container - only show after thinking is done */}
+                      {message.role === "assistant" && hasTools && isThinkingComplete && (
                         <ToolCallsContainer toolCount={toolParts.length}>
                           <ToolCallsContainerTrigger toolNames={toolNames} />
                           <ToolCallsContainerContent>

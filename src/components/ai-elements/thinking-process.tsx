@@ -223,9 +223,7 @@ export const ReasoningSegment = memo(
             <div className="text-muted-foreground text-sm">
               <div className="mb-1">{toolDescription}</div>
               {isToolInProgress ? (
-                <Shimmer duration={1} className="text-xs">
-                  {toolResult || "Working..."}
-                </Shimmer>
+                <Shimmer duration={1}>{toolResult || "Working..."}</Shimmer>
               ) : (
                 toolResult || "Done"
               )}

@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 @import "./streamdown.css";
 
-@custom-variant dark (&: is(.dark *));
+@custom-variant dark (&:is(.dark *));
 
 :root {
   --radius: 0.625rem;
@@ -102,15 +102,16 @@
   --chat-input-max-height: 13rem;
 
   /* Font Families - Elegant sans-serif font configuration */
-  --font-family-base: ui-sans-serif, -apple-system, BlinkMacSystemFont,
-    "Segoe UI Variable", "Segoe UI", system-ui, sans-serif, "Apple Color Emoji",
-    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-family-chinese: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI",
-    "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-family-base:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", system-ui,
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-family-chinese:
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC",
+    sans-serif;
   --font-family-display: "Inter Variable", "Inter", var(--font-family-base);
-  --font-family-mono: ui-monospace, "SF Mono", "Cascadia Code",
-    "Source Code Pro", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
-    monospace;
+  --font-family-mono:
+    ui-monospace, "SF Mono", "Cascadia Code", "Source Code Pro", Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 
   /* Combined font stack - Multi-language support */
   --font-family-sans: var(--font-family-display), var(--font-family-chinese);

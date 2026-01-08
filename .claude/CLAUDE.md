@@ -417,19 +417,16 @@ Card.Content = ({ children, className }: CardContentProps) => (
 pnpm install
 
 # Run development server
-pnpm tauri dev
+pnpm dev
 
 # Build for production
-pnpm tauri build
+pnpm build
+
+# Format & Lint code
+pnpm check:frontend
 
 # Run tests
 pnpm test
-
-# Format code
-pnpm format
-
-# Lint code
-pnpm lint
 ```
 
 ### Useful Shortcuts

@@ -1,6 +1,6 @@
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses } from "ai"
-import { AtomIcon, GlobeIcon, Search, SparklesIcon, ZapIcon } from "lucide-react"
+import { AtomIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import {

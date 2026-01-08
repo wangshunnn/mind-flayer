@@ -12,6 +12,7 @@ import { createContext, memo, useContext, useEffect, useState } from "react"
 import { Streamdown } from "streamdown"
 import { Shimmer } from "@/components/ai-elements/shimmer"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { TEXT_UTILS, THINKING_CONSTANTS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
 type ThinkingProcessContextValue = {
@@ -117,12 +118,12 @@ export type ThinkingProcessTriggerProps = ComponentProps<typeof CollapsibleTrigg
 
 const defaultGetThinkingMessage = (isStreaming: boolean, totalDuration?: number) => {
   if (isStreaming || totalDuration === 0) {
-    return <Shimmer duration={1}>Thinking...</Shimmer>
+    return <Shimmer duration={1}>{THINKING_CONSTANTS.thinking}</Shimmer>
   }
   if (totalDuration === undefined) {
-    return <p>Thought for a few seconds</p>
+    return <p>{THINKING_CONSTANTS.thoughtForFewSeconds}</p>
   }
-  return <p>Thought for {totalDuration}s</p>
+  return <p>{THINKING_CONSTANTS.thoughtForSeconds(totalDuration)}</p>
 }
 
 export const ThinkingProcessTrigger = memo(
@@ -223,9 +224,9 @@ export const ReasoningSegment = memo(
             <div className="text-muted-foreground text-sm">
               <div className="mb-1">{toolDescription}</div>
               {isToolInProgress ? (
-                <Shimmer duration={1}>{toolResult || "Working..."}</Shimmer>
+                <Shimmer duration={1}>{toolResult || THINKING_CONSTANTS.working}</Shimmer>
               ) : (
-                toolResult || "Done"
+                toolResult || THINKING_CONSTANTS.done
               )}
             </div>
           ) : (
@@ -264,7 +265,9 @@ export const ReasoningSegmentHeader = memo(
 
     const getLabel = () => {
       if (segmentType === "tool-webSearch") {
-        return toolName || "Web Search"
+        return toolName
+          ? TEXT_UTILS.getToolDisplayName(toolName)
+          : TEXT_UTILS.getToolDisplayName("webSearch")
       }
       if (segmentType === "tool-other") {
         return toolName || "Tool"
@@ -308,17 +311,15 @@ export const ReasoningSegmentContent = memo(
 // Completion summary component for end of thinking process
 export type ThinkingProcessCompletionProps = ComponentProps<"div"> & {
   stepCount: number
-  totalDuration?: number
 }
 
 export const ThinkingProcessCompletion = memo(
-  ({ className, stepCount, totalDuration, ...props }: ThinkingProcessCompletionProps) => (
+  ({ className, stepCount, ...props }: ThinkingProcessCompletionProps) => (
     <div className={cn("relative my-0", className)} {...props}>
       <div className={cn("flex items-center gap-2 text-xs text-muted-foreground", "relative my-2")}>
         <CheckCircle2 className="ml-px size-3" />
         <span>
-          Thought
-          {totalDuration && ` for ${totalDuration}s`}
+          {THINKING_CONSTANTS.done}
           {stepCount && ` in ${stepCount} ${stepCount > 1 ? "steps" : "step"}`}
         </span>
       </div>

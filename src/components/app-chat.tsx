@@ -67,6 +67,14 @@ import { MODEL_OPTIONS, type ModelOption, SelectModel } from "@/components/selec
 import { ToolButton } from "@/components/tool-button"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  FOOTER_CONSTANTS,
+  TEXT_UTILS,
+  TOAST_CONSTANTS,
+  TOOL_BUTTON_CONSTANTS,
+  TOOL_CONSTANTS,
+  TOOLTIP_CONSTANTS
+} from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
 const AppChat = () => {
@@ -110,7 +118,7 @@ const AppChat = () => {
     }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
     onError: error => {
-      toast.error("Error", {
+      toast.error(TOAST_CONSTANTS.error, {
         description: error.message
       })
     }
@@ -139,8 +147,8 @@ const AppChat = () => {
     }
 
     if (message.files?.length) {
-      toast.success("Files attached", {
-        description: `${message.files.length} file(s) attached to message`
+      toast.success(TOAST_CONSTANTS.filesAttached, {
+        description: TOAST_CONSTANTS.filesAttachedDescription(message.files.length)
       })
     }
 
@@ -263,7 +271,7 @@ const AppChat = () => {
               const toolParts = message.parts.filter(part => part.type.startsWith("tool-"))
               const toolNames = toolParts.map(part => {
                 const toolType = part.type.replace("tool-", "")
-                return toolType === "webSearch" ? "Web Search" : toolType
+                return TEXT_UTILS.getToolDisplayName(toolType)
               })
 
               const hasTools = toolParts.length > 0
@@ -308,40 +316,42 @@ const AppChat = () => {
                                   const toolType = tool.type.replace("tool-", "")
                                   const isWebSearch = toolType === "webSearch"
                                   const segmentType = isWebSearch ? "tool-webSearch" : "tool-other"
-                                  const toolDisplayName = isWebSearch ? "Web Search" : toolType
+                                  const toolDisplayName = TEXT_UTILS.getToolDisplayName(toolType)
 
                                   // Get tool result summary
-                                  let toolResult = "Working..."
+                                  let toolResult: string = TOOL_CONSTANTS.states.working
                                   switch (tool.state) {
                                     case "output-available": {
                                       if (tool.output) {
                                         if (isWebSearch && tool.output.totalResults !== undefined) {
-                                          toolResult = `Searched ${tool.output.totalResults} results`
+                                          toolResult = TOOL_CONSTANTS.webSearch.searchedResults(
+                                            tool.output.totalResults
+                                          )
                                         } else {
-                                          toolResult = "Done"
+                                          toolResult = TOOL_CONSTANTS.states.done
                                         }
                                       }
                                       break
                                     }
                                     case "output-error": {
-                                      toolResult = "Failed"
+                                      toolResult = TOOL_CONSTANTS.states.failed
                                       break
                                     }
                                     case "output-denied": {
-                                      toolResult = "Cancelled"
+                                      toolResult = TOOL_CONSTANTS.states.cancelled
                                       break
                                     }
                                     case "input-streaming":
                                     case "input-available": {
-                                      toolResult = "Working..."
+                                      toolResult = TOOL_CONSTANTS.states.working
                                       break
                                     }
                                     case "approval-requested": {
-                                      toolResult = "Awaiting approval..."
+                                      toolResult = TOOL_CONSTANTS.states.awaitingApproval
                                       break
                                     }
                                     default: {
-                                      toolResult = "Working..."
+                                      toolResult = TOOL_CONSTANTS.states.working
                                     }
                                   }
 
@@ -416,7 +426,9 @@ const AppChat = () => {
                                       {(part.state === "input-streaming" ||
                                         part.state === "input-available") && (
                                         <ToolCallInputStreaming
-                                          message={`Searching "${input?.objective ? input.objective : "..."}"`}
+                                          message={TOOL_CONSTANTS.webSearch.searching(
+                                            input?.objective || "..."
+                                          )}
                                         />
                                       )}
                                       {part.state === "approval-requested" && (
@@ -547,23 +559,18 @@ const AppChat = () => {
                 <PromptInputTools className="-ml-1.5">
                   <ToolButton
                     icon={GlobeIcon}
-                    label="Search"
-                    tooltip="Web search"
+                    label={TOOL_BUTTON_CONSTANTS.webSearch.label}
+                    tooltip={TOOL_BUTTON_CONSTANTS.webSearch.tooltip}
                     enabled={useWebSearch}
                     onEnabledChange={setUseWebSearch}
                     collapsed={isCondensed}
                     modes={[
                       {
-                        value: "auto",
-                        label: "Auto",
-                        badge: "Recommended",
-                        description: "Search only when needed needed",
+                        ...TOOL_BUTTON_CONSTANTS.webSearch.modes.auto,
                         icon: SparklesIcon
                       },
                       {
-                        value: "always",
-                        label: "Always",
-                        description: "Search for every query",
+                        ...TOOL_BUTTON_CONSTANTS.webSearch.modes.always,
                         icon: ZapIcon
                       }
                     ]}
@@ -573,8 +580,8 @@ const AppChat = () => {
 
                   <ToolButton
                     icon={AtomIcon}
-                    label="DeepThink"
-                    tooltip="Deep thinking"
+                    label={TOOL_BUTTON_CONSTANTS.deepThink.label}
+                    tooltip={TOOL_BUTTON_CONSTANTS.deepThink.tooltip}
                     enabled={useDeepThink}
                     onEnabledChange={setUseDeepThink}
                     collapsed={isCondensed}
@@ -598,7 +605,7 @@ const AppChat = () => {
                         <PromptInputSubmit disabled={isSubmitDisabled} status={status} />
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent>Submit</TooltipContent>
+                    <TooltipContent>{TOOLTIP_CONSTANTS.submit}</TooltipContent>
                   </Tooltip>
                 </PromptInputTools>
               </PromptInputFooter>
@@ -616,14 +623,14 @@ const AppChat = () => {
           "overflow-hidden whitespace-nowrap text-ellipsis"
         )}
       >
-        AI-generated content, for reference only. Star at{" "}
+        {FOOTER_CONSTANTS.disclaimer}{" "}
         <a
-          href="https://github.com/wangshunnn/mind-flayer"
+          href={FOOTER_CONSTANTS.githubUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="ml-1 text-muted-foreground/50 hover:text-muted-foreground transition-colors underline"
         >
-          Github
+          {FOOTER_CONSTANTS.github}
         </a>
         {"."}
       </div>

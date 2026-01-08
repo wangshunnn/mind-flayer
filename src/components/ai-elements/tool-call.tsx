@@ -5,6 +5,7 @@ import { createContext, memo, useContext, useEffect, useState } from "react"
 import { Shimmer } from "@/components/ai-elements/shimmer"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { ACTION_CONSTANTS, ERROR_CONSTANTS, TEXT_UTILS, TOOL_CONSTANTS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
 type ToolCallState =
@@ -151,7 +152,7 @@ const defaultGetToolMessage = (
   resultCount?: number
 ) => {
   // Display tool name in a readable format
-  const displayName = toolName === "webSearch" ? "Web Search" : toolName
+  const displayName = TEXT_UTILS.getToolDisplayName(toolName)
 
   // Show shimmer for all in-progress states (not completed)
   const isCompleted = ["output-available", "output-error", "output-denied"].includes(state)
@@ -162,11 +163,19 @@ const defaultGetToolMessage = (
 
   // Completed states
   if (state === "output-error") {
-    return <span>{displayName} failed</span>
+    return (
+      <span>
+        {displayName} {TOOL_CONSTANTS.states.failed.toLowerCase()}
+      </span>
+    )
   }
 
   if (state === "output-denied") {
-    return <span>{displayName} cancelled</span>
+    return (
+      <span>
+        {displayName} {TOOL_CONSTANTS.states.cancelled.toLowerCase()}
+      </span>
+    )
   }
 
   if (state === "output-available") {
@@ -175,7 +184,7 @@ const defaultGetToolMessage = (
       parts.push(`${resultCount} results`)
     }
     if (duration !== undefined && duration > 0) {
-      parts.push(`${duration}s`)
+      parts.push(TEXT_UTILS.formatDuration(duration))
     }
     return <span>{parts.join(" · ")}</span>
   }
@@ -243,7 +252,7 @@ export type ToolCallInputStreamingProps = {
 }
 
 export const ToolCallInputStreaming = memo(
-  ({ message = "Working..." }: ToolCallInputStreamingProps) => (
+  ({ message = TOOL_CONSTANTS.states.working }: ToolCallInputStreamingProps) => (
     <div className="flex items-center gap-2 py-1">
       <LoaderIcon className="size-3.5 animate-spin" />
       <span className="text-sm text-muted-foreground">{message}</span>
@@ -277,7 +286,7 @@ export const ToolCallApprovalRequested = memo(
           onClick={onApprove}
         >
           <CheckIcon className="mr-1 size-3" />
-          Approve
+          {ACTION_CONSTANTS.approve}
         </Button>
         <Button
           size="sm"
@@ -286,7 +295,7 @@ export const ToolCallApprovalRequested = memo(
           onClick={onDeny}
         >
           <XIcon className="mr-1 size-3" />
-          Deny
+          {ACTION_CONSTANTS.deny}
         </Button>
       </div>
     </div>
@@ -298,7 +307,7 @@ export type ToolCallOutputErrorProps = {
 }
 
 export const ToolCallOutputError = memo(
-  ({ errorText = "An error occurred" }: ToolCallOutputErrorProps) => (
+  ({ errorText = ERROR_CONSTANTS.toolCallError }: ToolCallOutputErrorProps) => (
     <div className="flex items-center gap-2 py-1">
       <XIcon className="size-3.5 text-destructive" />
       <span className="text-sm text-destructive">{errorText}</span>
@@ -311,7 +320,7 @@ export type ToolCallOutputDeniedProps = {
 }
 
 export const ToolCallOutputDenied = memo(
-  ({ message = "Tool execution was denied by user" }: ToolCallOutputDeniedProps) => (
+  ({ message = ERROR_CONSTANTS.toolExecutionDenied }: ToolCallOutputDeniedProps) => (
     <div className="flex items-center gap-2 py-1">
       <XIcon className="size-3.5 text-muted-foreground" />
       <span className="text-sm text-muted-foreground">{message}</span>

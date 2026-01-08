@@ -4,6 +4,7 @@ import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useContext } from "react"
 import { Shimmer } from "@/components/ai-elements/shimmer"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { TEXT_UTILS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
 type ToolCallsContainerContextValue = {
@@ -84,9 +85,9 @@ const defaultGetToolsMessage = (
   isAnyToolInProgress: boolean,
   totalDuration?: number
 ) => {
-  const toolsText = toolCount === 1 ? "1 tool" : `${toolCount} tools`
+  const toolsText = TEXT_UTILS.pluralize(toolCount, "tool")
   const namesText = toolNames.join(", ")
-  const durationText = totalDuration ? ` · ${totalDuration}s` : ""
+  const durationText = totalDuration ? ` · ${TEXT_UTILS.formatDuration(totalDuration)}` : ""
 
   if (isAnyToolInProgress) {
     return <Shimmer duration={1}>{`Using ${toolsText} · ${namesText}`}</Shimmer>

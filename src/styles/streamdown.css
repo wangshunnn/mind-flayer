@@ -27,3 +27,8 @@
 [data-streamdown="link"]:hover {
   border-bottom-color: var(--color-brand-green);
 }
+
+.thinking-process [data-streamdown="strong"] {
+  font-size: inherit;
+  font-weight: inherit;
+}

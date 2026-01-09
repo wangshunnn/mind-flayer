@@ -78,255 +78,186 @@ import {
   TOOLTIP_CONSTANTS
 } from "@/lib/constants"
 import { cn } from "@/lib/utils"
-import type { Chat } from "@/types/chat"
+import type { Chat, ChatId, MessageId } from "@/types/chat"
 
 interface AppChatProps {
   activeChat?: Chat | null
   onChatCreated?: (chat: Chat) => void
 }
 
+interface StepSegment {
+  type: "step-start" | "reasoning" | "tool"
+  partIndex: number
+  reasoning?: { text: string; isStreaming: boolean }
+  tool?: { type: string; state?: string; [key: string]: unknown }
+}
+
 const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
+  const [selectedModel, setSelectedModel] = useState<ModelOption>(MODEL_OPTIONS[0])
   const [useWebSearch, setUseWebSearch] = useState<boolean>(true)
   const [webSearchMode, setWebSearchMode] = useState<"auto" | "always">("auto")
   const [useDeepThink, setUseDeepThink] = useState<boolean>(false)
   const [isCondensed, setIsCondensed] = useState(false)
   const [input, setInput] = useState("")
-  const [selectedModel, setSelectedModel] = useState<ModelOption>(MODEL_OPTIONS[0])
-  const [initialMessages, setInitialMessages] = useState<UIMessage[]>([])
-  const [currentChatId, setCurrentChatId] = useState<string | null>(null)
-  const inputContainerRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<PromptInputTextareaHandle>(null)
-  // Cache thinking durations for each message by message ID
-  const thinkingDurationsRef = useRef<Map<string, number>>(new Map())
-  // Track stored message IDs and previous message count for incremental saves
-  const storedMessageIdsRef = useRef<Set<string>>(new Set())
-  const prevMessagesCountRef = useRef<number>(0)
-  const isSavingRef = useRef<boolean>(false)
-  const messagesRef = useRef<UIMessage[]>([])
-
-  // localStorage helper function for stored message IDs
-  const saveStoredMessageIds = useCallback((chatId: string, messageIds: Set<string>) => {
-    const storageKey = `stored-messages-${chatId}`
-    localStorage.setItem(storageKey, JSON.stringify(Array.from(messageIds)))
-  }, [])
-
-  const { createChat, insertNewMessages, loadMessages } = useChatStorage()
-
-  // Use refs to keep latest values accessible in headers function
   const selectedModelRef = useRef(selectedModel)
   const useWebSearchRef = useRef(useWebSearch)
   const webSearchModeRef = useRef(webSearchMode)
+  const inputContainerRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<PromptInputTextareaHandle>(null)
+  const thinkingDurationsRef = useRef<Map<MessageId, number>>(new Map())
+  const messagesRef = useRef<UIMessage[]>([])
+  const storedMessageIdsRef = useRef<Set<MessageId>>(new Set())
+  const currentChatIdRef = useRef<ChatId | null>(activeChat?.id)
 
-  // Keep refs in sync with state
+  const { isCompact, open } = useSidebar()
+  const { createChat, loadMessages, saveChatAllMessages } = useChatStorage()
+
+  // TODO add: stop, regenerate
+  const { status, messages, setMessages, sendMessage, addToolApprovalResponse, regenerate } =
+    useChat({
+      transport: new DefaultChatTransport({
+        api: `http://localhost:${__SIDECAR_PORT__}/api/chat`,
+        headers: () => ({
+          "X-API-Key": import.meta.env.VITE_MINIMAX_API_KEY || "",
+          "X-Model-Provider": selectedModelRef.current.provider,
+          "X-Model-Id": selectedModelRef.current.api_id,
+          "X-Use-Web-Search": useWebSearchRef.current.toString(),
+          "X-Web-Search-Mode": webSearchModeRef.current
+        })
+      }),
+      sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+      onFinish: ({ messages, finishReason }) => {
+        console.log("[AppChat] useChat-onFinish finishReason=", finishReason)
+        saveAllMessagesAsync(messages)
+      },
+      onError: error => {
+        toast.error("Error", {
+          description: error.message
+        })
+      }
+    })
+
+  const cleanupChatState = useCallback(() => {
+    currentChatIdRef.current = null
+    messagesRef.current = []
+    storedMessageIdsRef.current = new Set()
+    setMessages?.([])
+  }, [setMessages])
+
+  const createNewChatAsync = useCallback(
+    async (title?: string): Promise<Chat> => {
+      const newChat = await createChat(title)
+      onChatCreated?.(newChat)
+      return newChat
+    },
+    [createChat, onChatCreated]
+  )
+
+  const saveAllMessagesAsync = useCallback(
+    async (allMessages: UIMessage[]) => {
+      if (!allMessages || allMessages.length === 0) {
+        return
+      }
+      const allMessagesWithMetadata = allMessages.map(msg => {
+        const cachedDuration = thinkingDurationsRef.current.get(msg.id)
+        if (cachedDuration !== undefined && msg.role === "assistant") {
+          return {
+            ...msg,
+            metadata: {
+              ...(msg.metadata || {}),
+              thinkingDuration: cachedDuration
+            }
+          }
+        }
+        return msg
+      })
+      let chatId = currentChatIdRef.current
+      if (!chatId) {
+        const title = allMessages[0].parts.find(part => part.type === "text")?.text
+        const newChat = await createNewChatAsync(title)
+        chatId = newChat.id
+        currentChatIdRef.current = chatId
+        console.log("[AppChat] createNewChatAsync id=", chatId)
+      }
+      await saveChatAllMessages(chatId, allMessagesWithMetadata)
+      for (const msg of allMessages) {
+        storedMessageIdsRef.current.add(msg.id)
+      }
+      console.log("[AppChat] Saved new messages:", allMessages.length)
+    },
+    [createNewChatAsync, saveChatAllMessages]
+  )
+
+  useEffect(() => {
+    const el = inputContainerRef.current
+    if (!el) return
+    const observer = new ResizeObserver(([entry]) => {
+      // show only input menu icons without text label, like Web Search
+      setIsCondensed(entry.contentRect.width < 448)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
   useEffect(() => {
     selectedModelRef.current = selectedModel
   }, [selectedModel])
-
   useEffect(() => {
     useWebSearchRef.current = useWebSearch
   }, [useWebSearch])
-
   useEffect(() => {
     webSearchModeRef.current = webSearchMode
   }, [webSearchMode])
 
   // Load messages when activeChat changes
   useEffect(() => {
-    const loadChatMessages = async () => {
+    const changeActiveChat = async () => {
       if (activeChat?.id) {
         try {
           const msgs = await loadMessages(activeChat.id)
-          setInitialMessages(msgs)
-          setCurrentChatId(activeChat.id)
-
-          // Always initialize stored message IDs with current messages
-          // This prevents re-insertion when switching to existing chats
-          const messageIds = new Set(msgs.map(m => m.id))
-          storedMessageIdsRef.current = messageIds
-          prevMessagesCountRef.current = msgs.length
-
-          // Persist to localStorage for future sessions
-          saveStoredMessageIds(activeChat.id, messageIds)
+          if (
+            activeChat.id === currentChatIdRef.current &&
+            messagesRef.current.length >= msgs.length
+          ) {
+            console.log("[AppChat] Active chat ID unchanged, skipping loadMessages")
+            return
+          }
+          messagesRef.current = msgs
+          // TODO Incremental update
+          storedMessageIdsRef.current = new Set(msgs.map(m => m.id))
+          setMessages?.(msgs ?? [])
         } catch (error) {
-          console.error("Failed to load chat messages:", error)
-          toast.error("Failed to load chat history")
+          cleanupChatState()
+          console.error("[AppChat] Failed to load chat messages:", error)
+        } finally {
+          currentChatIdRef.current = activeChat.id
         }
       } else {
-        // No active chat - start fresh
-        setInitialMessages([])
-        setCurrentChatId(null)
-        storedMessageIdsRef.current = new Set()
-        // Will be set to 0 when initialMessages changes trigger setMessages
+        // Start a new chat
+        cleanupChatState()
       }
     }
 
-    loadChatMessages()
-  }, [activeChat?.id, loadMessages, saveStoredMessageIds])
+    changeActiveChat()
+  }, [activeChat?.id, loadMessages, setMessages, cleanupChatState])
 
-  const { status, messages, sendMessage, addToolApprovalResponse, setMessages } = useChat({
-    transport: new DefaultChatTransport({
-      api: `http://localhost:${__SIDECAR_PORT__}/api/chat`,
-      headers: () => ({
-        "X-API-Key": import.meta.env.VITE_MINIMAX_API_KEY || "",
-        "X-Model-Provider": selectedModelRef.current.provider,
-        "X-Model-Id": selectedModelRef.current.api_id,
-        "X-Use-Web-Search": useWebSearchRef.current.toString(),
-        "X-Web-Search-Mode": webSearchModeRef.current
-      })
-    }),
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
-    onError: error => {
-      toast.error("Error", {
-        description: error.message
-      })
-    }
-  })
-
-  // Set messages when initialMessages changes (when switching chats)
-  useEffect(() => {
-    setMessages(initialMessages)
-    messagesRef.current = initialMessages
-    // Sync prevMessagesCountRef with initialMessages to prevent false positives
-    // When switching to new chat (initialMessages = []), this becomes 0
-    // When switching to existing chat, this matches the loaded message count
-    prevMessagesCountRef.current = initialMessages.length
-  }, [initialMessages, setMessages])
-
-  // Keep messagesRef in sync with messages
   useEffect(() => {
     messagesRef.current = messages
   }, [messages])
 
-  // Incremental save: only save new messages when a conversation round completes
-  useEffect(() => {
-    const saveNewMessagesAsync = async () => {
-      // Only save when status is ready (idle) and we have more messages than before
-      if (
-        status !== "ready" ||
-        messages.length === 0 ||
-        messages.length <= prevMessagesCountRef.current
-      ) {
-        return
-      }
-
-      // Only save when the last message is from assistant (conversation round complete)
-      const lastMessage = messages[messages.length - 1]
-      if (lastMessage.role !== "assistant") {
-        return
-      }
-
-      // Prevent concurrent saves
-      if (isSavingRef.current) {
-        return
-      }
-
-      isSavingRef.current = true
-
-      try {
-        // Extract new messages that haven't been stored yet
-        const newMessages = messages.filter(msg => !storedMessageIdsRef.current.has(msg.id))
-
-        if (newMessages.length === 0) {
-          console.log("[AppChat] No new messages to save, skipping")
-          return
-        }
-
-        console.log(
-          `[AppChat] Preparing to save ${newMessages.length} new messages (total: ${messages.length}, stored: ${storedMessageIdsRef.current.size})`
-        )
-
-        // Merge thinking durations from cache into new message metadata before saving
-        const newMessagesWithMetadata = newMessages.map(msg => {
-          const cachedDuration = thinkingDurationsRef.current.get(msg.id)
-          if (cachedDuration !== undefined && msg.role === "assistant") {
-            return {
-              ...msg,
-              metadata: {
-                ...(msg.metadata || {}),
-                thinkingDuration: cachedDuration
-              }
-            }
-          }
-          return msg
-        })
-
-        // If no current chat, create one and save all messages
-        if (!currentChatId && !activeChat?.id) {
-          const newChat = await createChat()
-          setCurrentChatId(newChat.id)
-          await insertNewMessages(newChat.id, newMessagesWithMetadata, messages.length)
-          onChatCreated?.(newChat)
-
-          // Update stored message IDs
-          const allMessageIds = new Set(messages.map(m => m.id))
-          storedMessageIdsRef.current = allMessageIds
-          saveStoredMessageIds(newChat.id, allMessageIds)
-        } else if (currentChatId) {
-          // Save only new messages to existing chat
-          await insertNewMessages(currentChatId, newMessagesWithMetadata, messages.length)
-
-          // Update stored message IDs
-          for (const msg of newMessages) {
-            storedMessageIdsRef.current.add(msg.id)
-          }
-          saveStoredMessageIds(currentChatId, storedMessageIdsRef.current)
-        }
-
-        // Update previous message count
-        prevMessagesCountRef.current = messages.length
-
-        console.log("[AppChat] Saved new messages:", newMessages.length)
-      } catch (error) {
-        console.error("Failed to save new messages:", error)
-      } finally {
-        isSavingRef.current = false
-      }
-    }
-
-    saveNewMessagesAsync()
-  }, [
-    status,
-    messages,
-    currentChatId,
-    activeChat?.id,
-    createChat,
-    insertNewMessages,
-    onChatCreated,
-    saveStoredMessageIds
-  ])
-
-  // console.dir(messages.at(-1), { depth: null })
-
-  const { isCompact, open } = useSidebar()
-
-  useEffect(() => {
-    const el = inputContainerRef.current
-    if (!el) return
-    const observer = new ResizeObserver(([entry]) => {
-      setIsCondensed(entry.contentRect.width < 448) // md breakpoint
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
   const handleSubmit = (message: PromptInputMessage) => {
     const hasText = Boolean(message.text)
     const hasAttachments = Boolean(message.files?.length)
-
     if (!(hasText || hasAttachments)) {
       return
     }
-
     if (message.files?.length) {
       toast.success(TOAST_CONSTANTS.filesAttached, {
         description: TOAST_CONSTANTS.filesAttachedDescription(message.files.length)
       })
     }
-
     if (message.text) {
       sendMessage({ text: message.text })
       setInput("")
-      // Reset textarea height after sending
       textareaRef.current?.resetHeight()
     }
   }
@@ -358,7 +289,6 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
                 .map(part => part.text)
                 .join("")
 
-              // Ensure metadata is typed as an object with optional totalTokens and thinkingDuration
               const metadata = message.metadata as
                 | {
                     totalUsage?: {
@@ -370,26 +300,15 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
                   }
                 | undefined
 
-              // Check if this is the last message and currently streaming
               const isLastMessage = index === messages.length - 1
               const isCurrentlyStreaming = status === "streaming" && isLastMessage
 
-              // Check if the thinking/reasoning phase is still streaming
-              // This is true only if we're streaming AND the last part is reasoning/tool related
               const lastPart = message.parts[message.parts.length - 1]
               const isThinkingStreaming =
                 isCurrentlyStreaming &&
                 (lastPart?.type === "reasoning" ||
                   lastPart?.type === "step-start" ||
                   lastPart?.type.startsWith("tool-"))
-
-              // Process message parts to organize by steps
-              type StepSegment = {
-                type: "step-start" | "reasoning" | "tool"
-                partIndex: number
-                reasoning?: { text: string; isStreaming: boolean }
-                tool?: { type: string; state?: string; [key: string]: unknown }
-              }
 
               const steps: StepSegment[][] = []
               let currentStep: StepSegment[] = []
@@ -461,16 +380,8 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
                             metadata?.thinkingDuration ??
                             thinkingDurationsRef.current.get(message.id)
                           }
-                          onDurationChange={duration => {
-                            // Cache thinking duration for this message
-                            const durationValue = duration as number
-                            console.log(
-                              "[AppChat] onDurationChange called with duration:",
-                              durationValue,
-                              "for message:",
-                              message.id
-                            )
-                            thinkingDurationsRef.current.set(message.id, durationValue)
+                          onTotalDurationChange={duration => {
+                            thinkingDurationsRef.current.set(message.id, duration)
                           }}
                         >
                           <ThinkingProcessTrigger />
@@ -507,9 +418,8 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
                                   const isWebSearch = toolType === "webSearch"
                                   const segmentType = isWebSearch ? "tool-webSearch" : "tool-other"
                                   const toolDisplayName = TEXT_UTILS.getToolDisplayName(toolType)
-
-                                  // Get tool result summary
                                   let toolResult: string = TOOL_CONSTANTS.states.working
+
                                   switch (tool.state) {
                                     case "output-available": {
                                       if (tool.output) {
@@ -546,7 +456,6 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
                                   }
 
                                   const toolDescription = isWebSearch ? tool.input?.objective : ""
-
                                   const toolIdentifier = `${tool.type}-${message.id}-${segment.partIndex}`
                                   return (
                                     <ReasoningSegment
@@ -556,9 +465,7 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
                                       toolResult={toolResult}
                                       toolState={tool.state}
                                       toolDescription={toolDescription}
-                                    >
-                                      1212
-                                    </ReasoningSegment>
+                                    />
                                   )
                                 }
 
@@ -566,7 +473,6 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
                               })
                             })}
 
-                            {/* Show completion summary when thinking process is complete */}
                             {isThinkingComplete && (
                               <ThinkingProcessCompletion stepCount={steps.length} />
                             )}
@@ -583,14 +489,11 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
                               // Handle webSearch tool with approval
                               if (part.type === "tool-webSearch") {
                                 const callId = part.toolCallId
-                                // Type assertion for input
                                 const input = part.input as {
                                   objective: string
                                   searchQueries: string[]
                                   maxResults?: number
                                 }
-
-                                // Get result count for output-available state
                                 const output =
                                   part.state === "output-available"
                                     ? (part.output as {
@@ -666,7 +569,6 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
                       <MessageContent>
                         <MessageResponse>{messageText}</MessageResponse>
                       </MessageContent>
-                      {/* Action bar for user messages (hover to show) */}
                       {message.role === "user" && (
                         <UserMessageActionsBar
                           messageText={messageText}
@@ -675,7 +577,6 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
                           }}
                         />
                       )}
-                      {/* Action bar for assistant messages (show only after streaming is complete and no pending approvals) */}
                       {message.role === "assistant" &&
                         !isCurrentlyStreaming &&
                         !message.parts.some(
@@ -696,7 +597,8 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
                               // TODO: Implement share functionality
                             }}
                             onRefresh={() => {
-                              // TODO: Implement regenerate functionality
+                              regenerate({ messageId: message.id })
+                              // TODO update stored messages
                             }}
                           />
                         )}

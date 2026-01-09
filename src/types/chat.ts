@@ -1,10 +1,13 @@
 import type { UIMessage } from "ai"
 
+export type ChatId = string
+export type MessageId = string
+
 /**
  * Chat conversation interface
  */
 export interface Chat {
-  id: string
+  id: ChatId
   title: string
   created_at: number // Unix timestamp in milliseconds
   updated_at: number // Unix timestamp in milliseconds
@@ -14,8 +17,8 @@ export interface Chat {
  * Stored message interface (for database)
  */
 export interface StoredMessage {
-  id: string
-  chat_id: string
+  id: MessageId
+  chat_id: ChatId
   role: "user" | "assistant" | "system"
   content_json: string // JSON stringified UIMessage
   created_at: number // Unix timestamp in milliseconds
@@ -25,7 +28,7 @@ export interface StoredMessage {
  * Database chat row interface
  */
 export interface ChatRow {
-  id: string
+  id: ChatId
   title: string
   created_at: number
   updated_at: number
@@ -35,8 +38,8 @@ export interface ChatRow {
  * Database message row interface
  */
 export interface MessageRow {
-  id: string
-  chat_id: string
+  id: MessageId
+  chat_id: ChatId
   role: string
   content_json: string
   created_at: number
@@ -45,7 +48,7 @@ export interface MessageRow {
 /**
  * Convert UIMessage to StoredMessage
  */
-export function uiMessageToStored(message: UIMessage, chatId: string): StoredMessage {
+export function uiMessageToStored(message: UIMessage, chatId: ChatId): StoredMessage {
   return {
     id: message.id,
     chat_id: chatId,

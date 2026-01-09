@@ -131,8 +131,8 @@ export function useChatStorage() {
   /**
    * Save messages for a chat
    */
-  const saveMessages = useCallback(
-    async (chatId: string, messages: UIMessage[]): Promise<void> => {
+  const saveChatAllMessages = useCallback(
+    async (chatId: string, messages: UIMessage[], isNewChat = false): Promise<void> => {
       try {
         console.log("[ChatStorage] Saving messages:", messages.length)
         messages.forEach((msg, idx) => {
@@ -160,7 +160,7 @@ export function useChatStorage() {
 
         await db.execute("UPDATE chats SET updated_at = ? WHERE id = ?", [Date.now(), chatId])
 
-        if (messages.length === 1 && messages[0].role === "user") {
+        if (isNewChat && messages[0].role === "user") {
           const firstMessageText = messages[0].parts
             .filter(part => part.type === "text")
             .map(part => ("text" in part ? part.text : ""))
@@ -188,7 +188,7 @@ export function useChatStorage() {
    * Insert only new messages for a chat (incremental save)
    * This is more efficient than saveMessages as it only inserts new messages
    */
-  const insertNewMessages = useCallback(
+  const insertChatNewMessages = useCallback(
     async (chatId: string, newMessages: UIMessage[], totalMessageCount: number): Promise<void> => {
       try {
         if (newMessages.length === 0) {
@@ -253,12 +253,8 @@ export function useChatStorage() {
       )
 
       const messages = result.map(row => storedMessageToUI(row))
-      console.log("[ChatStorage] Loaded messages:", messages.length)
-      messages.forEach((msg, idx) => {
-        if (msg.role === "assistant" && msg.metadata) {
-          console.log(`[ChatStorage] Message ${idx} metadata:`, msg.metadata)
-        }
-      })
+      console.log("[ChatStorage] Loaded messages:", chatId, messages.length, messages)
+
       setError(null)
       return messages
     } catch (err) {
@@ -300,8 +296,8 @@ export function useChatStorage() {
     createChat,
     deleteChat,
     updateChatTitle,
-    saveMessages,
-    insertNewMessages,
+    saveChatAllMessages,
+    insertChatNewMessages,
     loadMessages,
     switchChat,
     loadChats

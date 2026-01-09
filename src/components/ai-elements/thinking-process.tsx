@@ -38,7 +38,7 @@ export type ThinkingProcessProps = ComponentProps<typeof Collapsible> & {
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
   totalDuration?: number
-  onDurationChange?: (duration: number) => void
+  onTotalDurationChange?: (duration: number) => void
 }
 
 const AUTO_CLOSE_DELAY = 1000
@@ -51,7 +51,7 @@ export const ThinkingProcess = memo(
     defaultOpen = true,
     onOpenChange,
     totalDuration: totalDurationProp,
-    onDurationChange,
+    onTotalDurationChange,
     children,
     ...props
   }: ThinkingProcessProps) => {
@@ -83,10 +83,10 @@ export const ThinkingProcess = memo(
         const durationMs = Date.now() - startTime
         const durationS = Math.round((durationMs / 1000) * 10) / 10
         setInternalDuration(durationS)
-        onDurationChange?.(durationS)
+        onTotalDurationChange?.(durationS)
         setStartTime(null)
       }
-    }, [isStreaming, startTime, onDurationChange])
+    }, [isStreaming, startTime, onTotalDurationChange])
 
     // Auto-close when streaming ends (only if it was initially set to defaultOpen=true)
     useEffect(() => {

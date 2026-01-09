@@ -51,7 +51,7 @@
     "@tanstack/react-router": "^1.142.6",
     "@tauri-apps/api": "^2.9.1",
     "@tauri-apps/plugin-opener": "^2.5.2",
-    "ai": "^6.0.3",
+    "ai": "^6.0.23",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -90,10 +90,11 @@
   },
   "pnpm": {
     "overrides": {
-      "@ai-sdk/anthropic": "^3.0.2",
-      "@ai-sdk/openai": "^3.0.2",
+      "ai": "^6.0.23",
+      "@ai-sdk/anthropic": "^3.0.9",
+      "@ai-sdk/openai": "^3.0.7",
       "@ai-sdk/provider": "^3.0.1",
-      "@ai-sdk/provider-utils": "^4.0.2"
+      "@ai-sdk/provider-utils": "^4.0.4"
     }
   }
 }

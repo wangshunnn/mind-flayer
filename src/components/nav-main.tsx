@@ -1,5 +1,4 @@
-import type { LucideIcon } from "lucide-react"
-import { Collapsible } from "@/components/ui/collapsible"
+import { MessageSquarePlus } from "lucide-react"
 import {
   SidebarGroup,
   SidebarMenu,
@@ -7,35 +6,18 @@ import {
   SidebarMenuItem
 } from "@/components/ui/sidebar"
 
-export function NavMain({
-  items
-}: {
-  items: {
-    title: string
-    url: string
-    icon: LucideIcon
-    isActive?: boolean
-  }[]
-}) {
+export function NavMain() {
   return (
     <SidebarGroup>
       <SidebarMenu>
-        {items.map(item => (
-          <Collapsible key={item.title} asChild defaultOpen={item.isActive}>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip={item.title}>
-                <a href={item.url}>
-                  {item.title === "Mind Flayer" ? (
-                    <img src="/tauri.svg" alt="Mind Flayer" className="h-4 w-4" />
-                  ) : (
-                    <item.icon className="opacity-70" />
-                  )}
-                  <span>{item.title}</span>
-                </a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </Collapsible>
-        ))}
+        <SidebarMenuItem>
+          <SidebarMenuButton asChild className="text-sm font-normal">
+            <div>
+              <MessageSquarePlus className="size-4! opacity-80" />
+              <span>New Chat</span>
+            </div>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
       </SidebarMenu>
     </SidebarGroup>
   )

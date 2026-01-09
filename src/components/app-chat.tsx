@@ -340,7 +340,7 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
         <div
           className={cn(
             "fixed left-10 flex z-50 items-center justify-center pointer-events-auto gap-1.25",
-            !isCompact && open ? "left-58" : "left-42",
+            !isCompact && open ? "left-66.75" : "left-42",
             "transition-left duration-300 ease"
           )}
         >

@@ -1,4 +1,3 @@
-import { BookmarkCheck } from "lucide-react"
 import type * as React from "react"
 import { toast } from "sonner"
 import { NavChats } from "@/components/nav-chats"
@@ -10,21 +9,9 @@ import type { Chat } from "@/types/chat"
 
 const data = {
   user: {
-    name: "Mind Flayer"
-    // avatar: "/tauri.svg"
-  },
-  navMain: [
-    {
-      title: "Mind Flayer",
-      url: "#",
-      icon: BookmarkCheck
-    },
-    {
-      title: "All Collections",
-      url: "#",
-      icon: BookmarkCheck
-    }
-  ]
+    name: "Mind Flayer",
+    avatar: ""
+  }
 }
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
@@ -59,7 +46,7 @@ export function AppSidebar({
         <SearchChat />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain />
         <NavChats
           chats={chats}
           activeChat={activeChat}

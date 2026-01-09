@@ -31,11 +31,11 @@ export function NavChats({
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Chat</SidebarGroupLabel>
+      <SidebarGroupLabel>Recent Chats</SidebarGroupLabel>
       <SidebarMenu>
         {chats.length === 0 && (
-          <div className="px-2 py-4 text-xs text-muted-foreground text-center">
-            No chats yet. Start a conversation!
+          <div className="px-2 py-4 text-xs text-muted-foreground/50 text-center">
+            No chats yet. Start a new chat!
           </div>
         )}
         {chats.map(chat => (

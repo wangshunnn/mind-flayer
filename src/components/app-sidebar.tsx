@@ -1,10 +1,12 @@
 import { BookmarkCheck } from "lucide-react"
 import type * as React from "react"
+import { toast } from "sonner"
 import { NavChats } from "@/components/nav-chats"
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar"
 import { SearchChat } from "@/components/ui/sidebar-search"
+import type { Chat } from "@/types/chat"
 
 const data = {
   user: {
@@ -22,24 +24,35 @@ const data = {
       url: "#",
       icon: BookmarkCheck
     }
-  ],
-  chats: [
-    {
-      name: "history chat 1",
-      url: "#"
-    },
-    {
-      name: "history chat 2",
-      url: "#"
-    },
-    {
-      name: "history chat 3",
-      url: "#"
-    }
   ]
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  chats: Chat[]
+  onChatClick: (chat: Chat) => void
+  onDeleteChat: (chatId: string) => Promise<void>
+  activeChat?: Chat | null
+  onNewChat?: () => void
+}
+
+export function AppSidebar({
+  chats,
+  activeChat,
+  onChatClick,
+  onNewChat,
+  onDeleteChat,
+  ...props
+}: AppSidebarProps) {
+  const handleDeleteChat = async (chatId: string) => {
+    try {
+      await onDeleteChat(chatId)
+      toast.success("Chat deleted")
+    } catch (error) {
+      console.error("Failed to delete chat:", error)
+      toast.error("Failed to delete chat")
+    }
+  }
+
   return (
     <Sidebar {...props}>
       <SidebarHeader>
@@ -47,7 +60,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavChats chats={data.chats} />
+        <NavChats
+          chats={chats}
+          activeChat={activeChat}
+          onChatClick={onChatClick}
+          onDeleteChat={handleDeleteChat}
+        />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />

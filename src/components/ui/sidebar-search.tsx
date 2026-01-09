@@ -16,25 +16,27 @@ import { cn } from "@/lib/utils"
 export function SearchChat() {
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <Label htmlFor="search" className="sr-only">
-              Search
-            </Label>
-            <SidebarMenuButton
-              className={cn(
-                "cursor-pointer bg-sidebar-search hover:bg-sidebar-search-hover",
-                "text-sidebar-search-foreground hover:text-sidebar-search-foreground",
-                "border-[0.5px] border-sidebar-search-border"
-              )}
-            >
-              <Search />
-              <span>Search</span>
-            </SidebarMenuButton>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </DialogTrigger>
+      <SidebarGroup>
+        <SidebarGroupContent className="flex items-center gap-2">
+          <DialogTrigger asChild className="flex-1">
+            <div>
+              <Label htmlFor="search" className="sr-only">
+                Search
+              </Label>
+              <SidebarMenuButton
+                className={cn(
+                  "cursor-pointer bg-sidebar-search hover:bg-sidebar-search-hover w-full",
+                  "text-sidebar-search-foreground hover:text-sidebar-search-foreground",
+                  "border-[0.5px] border-sidebar-search-border"
+                )}
+              >
+                <Search />
+                <span>Search</span>
+              </SidebarMenuButton>
+            </div>
+          </DialogTrigger>
+        </SidebarGroupContent>
+      </SidebarGroup>
 
       <DialogContent className="sm:max-w-106.25">
         <DialogHeader>

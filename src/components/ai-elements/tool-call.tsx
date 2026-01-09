@@ -158,7 +158,7 @@ const defaultGetToolMessage = (
   const isCompleted = ["output-available", "output-error", "output-denied"].includes(state)
 
   if (!isCompleted) {
-    return <Shimmer duration={1}>{`${displayName}...`}</Shimmer>
+    return <Shimmer duration={1}>{displayName}</Shimmer>
   }
 
   // Completed states
@@ -351,7 +351,7 @@ export const ToolCallWebSearchResults = memo(({ results }: ToolCallWebSearchResu
         >
           {result.title}
         </a>
-        <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{result.snippet}</p>
+        <p className="mt-1 text-xs text-muted-foreground line-clamp-1">{result.snippet}</p>
       </div>
     ))}
   </div>

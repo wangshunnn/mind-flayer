@@ -8,7 +8,7 @@ import {
   WrenchIcon
 } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
-import { createContext, memo, useContext, useEffect, useState } from "react"
+import { createContext, memo, useContext, useEffect, useRef, useState } from "react"
 import { Streamdown } from "streamdown"
 import { Shimmer } from "@/components/ai-elements/shimmer"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -38,6 +38,7 @@ export type ThinkingProcessProps = ComponentProps<typeof Collapsible> & {
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
   totalDuration?: number
+  onDurationChange?: (duration: number) => void
 }
 
 const AUTO_CLOSE_DELAY = 1000
@@ -50,18 +51,24 @@ export const ThinkingProcess = memo(
     defaultOpen = true,
     onOpenChange,
     totalDuration: totalDurationProp,
+    onDurationChange,
     children,
     ...props
   }: ThinkingProcessProps) => {
+    // Store the initial defaultOpen value to determine if this component should auto-close
+    const initialDefaultOpen = useRef(defaultOpen)
+
     const [isOpen, setIsOpen] = useControllableState({
       prop: open,
       defaultProp: defaultOpen,
       onChange: onOpenChange
     })
-    const [totalDuration, setTotalDuration] = useControllableState({
-      prop: totalDurationProp,
-      defaultProp: totalDurationProp
-    })
+
+    // For totalDuration, use state directly since we need to track both prop and internal state
+    const [internalDuration, setInternalDuration] = useState<number | undefined>(totalDurationProp)
+
+    // Use prop if provided, otherwise use internal state
+    const totalDuration = totalDurationProp !== undefined ? totalDurationProp : internalDuration
 
     const [hasAutoClosed, setHasAutoClosed] = useState(false)
     const [startTime, setStartTime] = useState<number | null>(null)
@@ -75,14 +82,15 @@ export const ThinkingProcess = memo(
       } else if (startTime !== null) {
         const durationMs = Date.now() - startTime
         const durationS = Math.round((durationMs / 1000) * 10) / 10
-        setTotalDuration(durationS)
+        setInternalDuration(durationS)
+        onDurationChange?.(durationS)
         setStartTime(null)
       }
-    }, [isStreaming, startTime, setTotalDuration])
+    }, [isStreaming, startTime, onDurationChange])
 
-    // Auto-open when streaming starts, auto-close when streaming ends (once only)
+    // Auto-close when streaming ends (only if it was initially set to defaultOpen=true)
     useEffect(() => {
-      if (defaultOpen && !isStreaming && isOpen && !hasAutoClosed) {
+      if (initialDefaultOpen.current && !isStreaming && isOpen && !hasAutoClosed) {
         // Add a small delay before closing to allow user to see the content
         const timer = setTimeout(() => {
           setIsOpen(false)
@@ -91,7 +99,7 @@ export const ThinkingProcess = memo(
 
         return () => clearTimeout(timer)
       }
-    }, [isStreaming, isOpen, defaultOpen, setIsOpen, hasAutoClosed])
+    }, [isStreaming, isOpen, setIsOpen, hasAutoClosed])
 
     const handleOpenChange = (newOpen: boolean) => {
       setIsOpen(newOpen)

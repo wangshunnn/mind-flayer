@@ -48,6 +48,37 @@
   "plugins": {
     "shell": {
       "open": true
+    },
+    "sql": {
+      "preload": ["sqlite:chats.db"],
+      "scope": {
+        "allowed": [
+          {
+            "statement": "SELECT * FROM chats ORDER BY updated_at DESC"
+          },
+          {
+            "statement": "SELECT * FROM chats WHERE id = ?"
+          },
+          {
+            "statement": "SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at ASC"
+          },
+          {
+            "statement": "INSERT INTO chats (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)"
+          },
+          {
+            "statement": "INSERT INTO messages (id, chat_id, role, content_json, created_at) VALUES (?, ?, ?, ?, ?)"
+          },
+          {
+            "statement": "UPDATE chats SET title = ?, updated_at = ? WHERE id = ?"
+          },
+          {
+            "statement": "DELETE FROM chats WHERE id = ?"
+          },
+          {
+            "statement": "DELETE FROM messages WHERE chat_id = ?"
+          }
+        ]
+      }
     }
   }
 }

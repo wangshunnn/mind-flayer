@@ -37,6 +37,10 @@
     "core:webview:allow-webview-close",
     "opener:default",
     "shell:allow-open",
+    "sql:default",
+    "sql:allow-load",
+    "sql:allow-execute",
+    "sql:allow-select",
     {
       "identifier": "shell:allow-spawn",
       "allow": [

@@ -594,14 +594,15 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
                               // TODO: Implement dislike functionality
                             }}
                             onShare={() => {
-                              // TODO: Implement share functionality
-                            }}
-                            onRefresh={() => {
-                              regenerate({ messageId: message.id })
-                              // TODO update stored messages
-                            }}
-                          />
-                        )}
+                          // TODO: Implement share functionality
+                        }}
+                        onRefresh={() => {
+                          regenerate({ messageId: message.id })
+                          // TODO update stored messages
+                        }}
+                        showRefresh={isLastMessage}
+                      />
+                    )}
                     </Message>
                   </MessageBranchContent>
                 </MessageBranch>

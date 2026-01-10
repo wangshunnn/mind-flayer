@@ -92,7 +92,7 @@ export const UserMessageActionsBar = ({
       <Tooltip disableHoverableContent={true}>
         <TooltipTrigger asChild>
           <Button
-            size="icon-sm"
+            size="icon-xs"
             type="button"
             variant="ghost"
             className="text-muted-foreground hover:text-foreground"
@@ -117,6 +117,7 @@ export type AssistantMessageActionsBarProps = ComponentProps<"div"> & {
   onDislike?: () => void
   onShare?: () => void
   onRefresh?: () => void
+  showRefresh?: boolean
   tokenInfo?: {
     inputTokens: number
     outputTokens: number
@@ -130,6 +131,7 @@ export const AssistantMessageActionsBar = ({
   onDislike,
   onShare,
   onRefresh,
+  showRefresh = true,
   tokenInfo,
   className,
   ...props
@@ -140,7 +142,7 @@ export const AssistantMessageActionsBar = ({
       <Tooltip disableHoverableContent={true}>
         <TooltipTrigger asChild>
           <Button
-            size="icon-sm"
+            size="icon-xs"
             type="button"
             variant="ghost"
             className="text-muted-foreground hover:text-foreground"
@@ -159,7 +161,7 @@ export const AssistantMessageActionsBar = ({
       <Tooltip disableHoverableContent={true}>
         <TooltipTrigger asChild>
           <Button
-            size="icon-sm"
+            size="icon-xs"
             type="button"
             variant="ghost"
             className="text-muted-foreground hover:text-foreground"
@@ -178,7 +180,7 @@ export const AssistantMessageActionsBar = ({
       <Tooltip disableHoverableContent={true}>
         <TooltipTrigger asChild>
           <Button
-            size="icon-sm"
+            size="icon-xs"
             type="button"
             variant="ghost"
             className="text-muted-foreground hover:text-foreground"
@@ -193,25 +195,27 @@ export const AssistantMessageActionsBar = ({
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
-    <TooltipProvider>
-      <Tooltip disableHoverableContent={true}>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={onRefresh}
-          >
-            <RefreshCwIcon className="size-3.5" />
-            <span className="sr-only">Regenerate</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Regenerate</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    {showRefresh && (
+      <TooltipProvider>
+        <Tooltip disableHoverableContent={true}>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon-xs"
+              type="button"
+              variant="ghost"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={onRefresh}
+            >
+              <RefreshCwIcon className="size-3.5" />
+              <span className="sr-only">Regenerate</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Regenerate</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )}
     {tokenInfo && (
       <span className="ml-2 text-xs text-muted-foreground/70">
         {tokenInfo.inputTokens}/{tokenInfo.outputTokens} tokens

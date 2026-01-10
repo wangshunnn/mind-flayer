@@ -2,6 +2,7 @@ import { useControllableState } from "@radix-ui/react-use-controllable-state"
 import {
   BrainIcon,
   CheckCircle2,
+  CheckIcon,
   ChevronRightIcon,
   CircleIcon,
   GlobeIcon,
@@ -232,9 +233,12 @@ export const ReasoningSegment = memo(
             <div className="text-muted-foreground text-sm">
               <div className="mb-1">{toolDescription}</div>
               {isToolInProgress ? (
-                <Shimmer duration={1}>{toolResult || THINKING_CONSTANTS.working}</Shimmer>
+                toolResult || THINKING_CONSTANTS.toolWorking
               ) : (
-                toolResult || THINKING_CONSTANTS.done
+                <div className="flex items-center gap-1.5">
+                  <CheckIcon className="size-3" />
+                  <span>{toolResult || THINKING_CONSTANTS.toolDone}</span>
+                </div>
               )}
             </div>
           ) : (

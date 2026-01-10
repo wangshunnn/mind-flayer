@@ -405,7 +405,7 @@ function SidebarGroupLabel({
       data-sidebar="group-label"
       className={cn(
         "text-sidebar-foreground/50 ring-sidebar-ring flex h-6 shrink-0 items-center rounded-md",
-        "px-2 text-xs font-semibold",
+        "px-2 text-xs font-semibold pt-1 pb-3",
         className
       )}
       {...props}

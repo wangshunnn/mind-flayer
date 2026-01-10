@@ -14,18 +14,18 @@ import {
   SidebarMenuButton,
   SidebarMenuItem
 } from "@/components/ui/sidebar"
-import type { Chat } from "@/types/chat"
+import type { Chat, ChatId } from "@/types/chat"
 
 export function NavChats({
   chats,
-  activeChat,
+  activeChatId,
   onChatClick,
   onDeleteChat
 }: {
   chats: Chat[]
-  activeChat?: Chat | null
-  onChatClick: (chat: Chat) => void
-  onDeleteChat: (chatId: string) => void
+  activeChatId?: ChatId | null
+  onChatClick: (chatId: ChatId) => void
+  onDeleteChat: (chatId: ChatId) => void
 }) {
   console.log("[NavChats] Rendering with chats:", chats)
 
@@ -41,8 +41,8 @@ export function NavChats({
         {chats.map(chat => (
           <SidebarMenuItem key={chat.id}>
             <SidebarMenuButton
-              isActive={activeChat?.id === chat.id}
-              onClick={() => onChatClick(chat)}
+              isActive={activeChatId === chat.id}
+              onClick={() => onChatClick(chat.id)}
             >
               <span className="truncate">{chat.title}</span>
             </SidebarMenuButton>

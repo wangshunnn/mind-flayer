@@ -78,11 +78,11 @@ import {
   TOOLTIP_CONSTANTS
 } from "@/lib/constants"
 import { cn } from "@/lib/utils"
-import type { Chat, ChatId, MessageId } from "@/types/chat"
+import type { ChatId, MessageId } from "@/types/chat"
 
 interface AppChatProps {
-  activeChat?: Chat | null
-  onChatCreated?: (chat: Chat) => void
+  activeChatId?: ChatId | null
+  onChatCreated?: (chatId: ChatId) => void
 }
 
 interface StepSegment {
@@ -92,7 +92,7 @@ interface StepSegment {
   tool?: { type: string; state?: string; [key: string]: unknown }
 }
 
-const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
+const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   const [selectedModel, setSelectedModel] = useState<ModelOption>(MODEL_OPTIONS[0])
   const [useWebSearch, setUseWebSearch] = useState<boolean>(true)
   const [webSearchMode, setWebSearchMode] = useState<"auto" | "always">("auto")
@@ -107,7 +107,7 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
   const thinkingDurationsRef = useRef<Map<MessageId, number>>(new Map())
   const messagesRef = useRef<UIMessage[]>([])
   const storedMessageIdsRef = useRef<Set<MessageId>>(new Set())
-  const currentChatIdRef = useRef<ChatId | null>(activeChat?.id)
+  const currentChatIdRef = useRef<ChatId | null>(activeChatId)
 
   const { isCompact, open } = useSidebar()
   const { createChat, loadMessages, saveChatAllMessages } = useChatStorage()
@@ -145,10 +145,10 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
   }, [setMessages])
 
   const createNewChatAsync = useCallback(
-    async (title?: string): Promise<Chat> => {
-      const newChat = await createChat(title)
-      onChatCreated?.(newChat)
-      return newChat
+    async (title?: string): Promise<ChatId> => {
+      const newChatId = await createChat(title)
+      onChatCreated?.(newChatId)
+      return newChatId
     },
     [createChat, onChatCreated]
   )
@@ -174,10 +174,10 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
       let chatId = currentChatIdRef.current
       if (!chatId) {
         const title = allMessages[0].parts.find(part => part.type === "text")?.text
-        const newChat = await createNewChatAsync(title)
-        chatId = newChat.id
-        currentChatIdRef.current = chatId
-        console.log("[AppChat] createNewChatAsync id=", chatId)
+        const newChatId = await createNewChatAsync(title)
+        chatId = newChatId
+        currentChatIdRef.current = newChatId
+        console.log("[AppChat] createNewChatAsync id=", newChatId)
       }
       await saveChatAllMessages(chatId, allMessagesWithMetadata)
       for (const msg of allMessages) {
@@ -211,11 +211,11 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
   // Load messages when activeChat changes
   useEffect(() => {
     const changeActiveChat = async () => {
-      if (activeChat?.id) {
+      if (activeChatId) {
         try {
-          const msgs = await loadMessages(activeChat.id)
+          const msgs = await loadMessages(activeChatId)
           if (
-            activeChat.id === currentChatIdRef.current &&
+            activeChatId === currentChatIdRef.current &&
             messagesRef.current.length >= msgs.length
           ) {
             console.log("[AppChat] Active chat ID unchanged, skipping loadMessages")
@@ -229,7 +229,7 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
           cleanupChatState()
           console.error("[AppChat] Failed to load chat messages:", error)
         } finally {
-          currentChatIdRef.current = activeChat.id
+          currentChatIdRef.current = activeChatId
         }
       } else {
         // Start a new chat
@@ -238,7 +238,7 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
     }
 
     changeActiveChat()
-  }, [activeChat?.id, loadMessages, setMessages, cleanupChatState])
+  }, [activeChatId, loadMessages, setMessages, cleanupChatState])
 
   useEffect(() => {
     messagesRef.current = messages
@@ -594,15 +594,15 @@ const AppChat = ({ activeChat, onChatCreated }: AppChatProps) => {
                               // TODO: Implement dislike functionality
                             }}
                             onShare={() => {
-                          // TODO: Implement share functionality
-                        }}
-                        onRefresh={() => {
-                          regenerate({ messageId: message.id })
-                          // TODO update stored messages
-                        }}
-                        showRefresh={isLastMessage}
-                      />
-                    )}
+                              // TODO: Implement share functionality
+                            }}
+                            onRefresh={() => {
+                              regenerate({ messageId: message.id })
+                              // TODO update stored messages
+                            }}
+                            showRefresh={isLastMessage}
+                          />
+                        )}
                     </Message>
                   </MessageBranchContent>
                 </MessageBranch>

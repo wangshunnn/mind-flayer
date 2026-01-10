@@ -34,8 +34,9 @@ export const THINKING_CONSTANTS = {
   thoughtForFewSeconds: "Thought for a few seconds",
   for: "for",
   includingTools: "including tools",
-  working: "Working...",
-  done: "Done"
+  done: "Done",
+  toolWorking: "Working...",
+  toolDone: "Done"
 } as const
 
 // UI action constants

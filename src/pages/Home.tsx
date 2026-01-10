@@ -3,22 +3,22 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { NewChatTrigger } from "@/components/nav-top"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { useChatStorage } from "@/hooks/use-chat-storage"
-import type { Chat } from "@/types/chat"
+import type { ChatId } from "@/types/chat"
 
 export default function Page() {
-  const { chats, activeChat, switchChat, loadChats, deleteChat } = useChatStorage()
+  const { chats, activeChatId, switchChat, loadChats, deleteChat } = useChatStorage()
 
-  const handleChatClick = (chat: Chat) => {
-    switchChat(chat)
+  const handleChatClick = (chatId: ChatId) => {
+    switchChat(chatId)
   }
 
   const handleNewChat = () => {
     switchChat(null)
   }
 
-  const handleChatCreated = async (chat: Chat) => {
+  const handleChatCreated = async (chatId: ChatId) => {
     await loadChats()
-    switchChat(chat)
+    switchChat(chatId)
   }
 
   return (
@@ -26,7 +26,7 @@ export default function Page() {
       {/* Left sidebar */}
       <AppSidebar
         chats={chats}
-        activeChat={activeChat}
+        activeChatId={activeChatId}
         onChatClick={handleChatClick}
         onDeleteChat={deleteChat}
       />
@@ -42,7 +42,7 @@ export default function Page() {
 
       {/* Main content area */}
       <SidebarInset className="overflow-hidden">
-        <AppChat activeChat={activeChat} onChatCreated={handleChatCreated} />
+        <AppChat activeChatId={activeChatId} onChatCreated={handleChatCreated} />
       </SidebarInset>
     </SidebarProvider>
   )

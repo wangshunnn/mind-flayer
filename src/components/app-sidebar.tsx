@@ -5,7 +5,7 @@ import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar"
 import { SearchChat } from "@/components/ui/sidebar-search"
-import type { Chat } from "@/types/chat"
+import type { Chat, ChatId } from "@/types/chat"
 
 const data = {
   user: {
@@ -16,15 +16,15 @@ const data = {
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   chats: Chat[]
-  onChatClick: (chat: Chat) => void
-  onDeleteChat: (chatId: string) => Promise<void>
-  activeChat?: Chat | null
+  onChatClick: (chatId: ChatId) => void
+  onDeleteChat: (chatId: ChatId) => Promise<void>
+  activeChatId?: ChatId | null
   onNewChat?: () => void
 }
 
 export function AppSidebar({
   chats,
-  activeChat,
+  activeChatId,
   onChatClick,
   onNewChat,
   onDeleteChat,
@@ -49,7 +49,7 @@ export function AppSidebar({
         <NavMain />
         <NavChats
           chats={chats}
-          activeChat={activeChat}
+          activeChatId={activeChatId}
           onChatClick={onChatClick}
           onDeleteChat={handleDeleteChat}
         />

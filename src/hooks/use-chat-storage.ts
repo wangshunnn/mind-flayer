@@ -2,7 +2,7 @@ import type { UIMessage } from "ai"
 import { nanoid } from "nanoid"
 import { useCallback, useEffect, useState } from "react"
 import { getDatabase } from "@/lib/database"
-import type { Chat, ChatRow, MessageRow } from "@/types/chat"
+import type { Chat, ChatId, ChatRow, MessageRow } from "@/types/chat"
 import { generateChatTitle, storedMessageToUI, uiMessageToStored } from "@/types/chat"
 
 /**
@@ -10,7 +10,7 @@ import { generateChatTitle, storedMessageToUI, uiMessageToStored } from "@/types
  */
 export function useChatStorage() {
   const [chats, setChats] = useState<Chat[]>([])
-  const [activeChat, setActiveChat] = useState<Chat | null>(null)
+  const [activeChatId, setActiveChatId] = useState<ChatId | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
@@ -21,7 +21,7 @@ export function useChatStorage() {
     try {
       console.log("[ChatStorage] Loading chats...")
       const db = await getDatabase()
-      const result = await db.select<ChatRow[]>("SELECT * FROM chats ORDER BY updated_at DESC")
+      const result = await db.select<ChatRow[]>("SELECT * FROM chats ORDER BY created_at DESC")
       console.log("[ChatStorage] Loaded chats:", result.length)
       setChats(result)
       setError(null)
@@ -35,7 +35,7 @@ export function useChatStorage() {
    * Create a new chat
    */
   const createChat = useCallback(
-    async (title?: string): Promise<Chat> => {
+    async (title?: string): Promise<ChatId> => {
       try {
         console.log("[ChatStorage] Creating new chat...", title)
         const now = Date.now()
@@ -54,9 +54,9 @@ export function useChatStorage() {
 
         console.log("[ChatStorage] Chat created:", newChat.id)
         await loadChats()
-        setActiveChat(newChat)
+        setActiveChatId(newChat.id)
         setError(null)
-        return newChat
+        return newChat.id
       } catch (err) {
         console.error("Failed to create chat:", err)
         const error = err instanceof Error ? err : new Error("Failed to create chat")
@@ -82,10 +82,6 @@ export function useChatStorage() {
         ])
 
         await loadChats()
-
-        if (activeChat?.id === chatId) {
-          setActiveChat({ ...activeChat, title, updated_at: now })
-        }
         setError(null)
       } catch (err) {
         console.error("Failed to update chat title:", err)
@@ -94,7 +90,7 @@ export function useChatStorage() {
         throw error
       }
     },
-    [activeChat, loadChats]
+    [loadChats]
   )
 
   /**
@@ -114,8 +110,8 @@ export function useChatStorage() {
 
         await loadChats()
 
-        if (activeChat?.id === chatId) {
-          setActiveChat(null)
+        if (activeChatId === chatId) {
+          setActiveChatId(null)
         }
         setError(null)
       } catch (err) {
@@ -125,7 +121,7 @@ export function useChatStorage() {
         throw error
       }
     },
-    [activeChat, loadChats]
+    [activeChatId, loadChats]
   )
 
   /**
@@ -268,8 +264,8 @@ export function useChatStorage() {
   /**
    * Switch to a different chat
    */
-  const switchChat = useCallback((chat: Chat | null) => {
-    setActiveChat(chat)
+  const switchChat = useCallback((chatId: ChatId | null) => {
+    setActiveChatId(chatId)
   }, [])
 
   /**
@@ -290,9 +286,9 @@ export function useChatStorage() {
 
   return {
     chats,
-    activeChat,
-    isLoading,
+    activeChatId,
     error,
+    isLoading,
     createChat,
     deleteChat,
     updateChatTitle,

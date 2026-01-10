@@ -1,11 +1,3 @@
-<p align="center">
-  <strong>⚠️ This project is in early WIP (Work In Progress) stage</strong>
-</p>
-
-<p align="center">
-  <img width="350px" height="150px" src="public/tauri.svg"/>
-</p>
-
 <p align="center">> Logo design in progress (PR Welcome)</p>
 
 <h1 align="center">Mind Flayer</h1>
@@ -36,7 +28,46 @@
 
 <br>
 
-## 🚀 Tech Stack
+## Screenshots
+
+<p align="center">
+  <img height="400" alt="App Screenshot 1" src="https://github.com/user-attachments/assets/e6ca86e8-c854-4705-88de-130bf2f88051" />
+  <img height="400" alt="App Screenshot 2" src="https://github.com/user-attachments/assets/1e7e3569-17be-4654-b2b3-20407d34871c" />
+
+  <img height="400" alt="App Screenshot 3" src="https://github.com/user-attachments/assets/11ad5a84-cdee-4833-a1f5-c4212033ea25" />
+  <img height="400" alt="App Screenshot 4" src="https://github.com/user-attachments/assets/361c2f13-3758-456f-8fee-ae3b8c7b7630" />
+  <img height="400" alt="App Screenshot 5" src="https://github.com/user-attachments/assets/32815892-2a2f-4902-98e6-ae51d27133ac" />
+</p>
+
+<br>
+
+## Getting Started
+
+### Install Dependencies
+
+```sh
+pnpm install
+```
+
+### Dev
+
+Start the development server (launches both frontend and Tauri app):
+
+```sh
+pnpm dev
+```
+
+### Build
+
+Build for production:
+
+```sh
+pnpm build
+```
+
+<br>
+
+## Tech Stack
 
 ### Frontend
 
@@ -63,39 +94,3 @@
 - **[Lefthook](https://github.com/evilmartians/lefthook)** - Fast and powerful Git hooks manager
 - **[Commitlint](https://commitlint.js.org/)** - Lint commit messages according to conventional standards
 - **[Release-it](https://github.com/release-it/release-it)** - Automated versioning and package publishing
-
-<br>
-
-## 📦 Getting Started
-
-### Install Dependencies
-
-```sh
-pnpm install
-```
-
-### Development
-
-Start the development server (launches both frontend and Tauri app):
-
-```sh
-pnpm dev
-```
-
-### Build
-
-Build for production:
-
-```sh
-pnpm build
-```
-
-<br>
-
-## 💻 Screenshots
-
-<p align="center">
-  <!-- <img width="800" height="600" alt="App Screenshot" src="https://github.com/user-attachments/assets/0bad4f06-7acc-460f-8daf-5336b16fe9f5" /> -->
-</p>
-
-<br>

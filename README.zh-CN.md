@@ -1,11 +1,3 @@
-<p align="center">
-  <strong>⚠️ 项目处于早期 WIP（开发中）状态</strong>
-</p>
-
-<p align="center">
-  <img width="350px" height="150px" src="public/tauri.svg"/>
-</p>
-
 <p align="center">> Logo 设计中（欢迎 PR）</p>
 
 <h1 align="center">Mind Flayer</h1>
@@ -36,7 +28,46 @@
 
 <br>
 
-## 🚀 技术栈
+## 截图
+
+<p align="center">
+  <img height="400" alt="应用截图 1" src="https://github.com/user-attachments/assets/e6ca86e8-c854-4705-88de-130bf2f88051" />
+  <img height="400" alt="应用截图 2" src="https://github.com/user-attachments/assets/1e7e3569-17be-4654-b2b3-20407d34871c" />
+
+  <img height="400" alt="应用截图 3" src="https://github.com/user-attachments/assets/11ad5a84-cdee-4833-a1f5-c4212033ea25" />
+  <img height="400" alt="应用截图 4" src="https://github.com/user-attachments/assets/361c2f13-3758-456f-8fee-ae3b8c7b7630" />
+  <img height="400" alt="应用截图 5" src="https://github.com/user-attachments/assets/32815892-2a2f-4902-98e6-ae51d27133ac" />
+</p>
+
+<br>
+
+## 快速开始
+
+### 安装依赖
+
+```sh
+pnpm install
+```
+
+### 开发
+
+启动开发服务器（同时启动前端和 Tauri 应用）：
+
+```sh
+pnpm dev
+```
+
+### 构建
+
+生产环境构建：
+
+```sh
+pnpm build
+```
+
+<br>
+
+## 技术栈
 
 ### 前端
 
@@ -63,39 +94,5 @@
 - **[Lefthook](https://github.com/evilmartians/lefthook)** - 快速而强大的 Git hooks 管理器
 - **[Commitlint](https://commitlint.js.org/)** - 根据约定标准检查 commit 信息
 - **[Release-it](https://github.com/release-it/release-it)** - 自动化版本控制和包发布
-
-<br>
-
-## 📦 快速开始
-
-### 安装依赖
-
-```sh
-pnpm install
-```
-
-### 开发
-
-启动开发服务器（同时启动前端和 Tauri 应用）：
-
-```sh
-pnpm dev
-```
-
-### 构建
-
-生产环境构建：
-
-```sh
-pnpm build
-```
-
-<br>
-
-## 💻 截图
-
-<p align="center">
-  <!-- <img width="800" height="600" alt="应用截图" src="https://github.com/user-attachments/assets/0bad4f06-7acc-460f-8daf-5336b16fe9f5" /> -->
-</p>
 
 <br>

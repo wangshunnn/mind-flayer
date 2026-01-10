@@ -1,4 +1,5 @@
 import { useControllableState } from "@radix-ui/react-use-controllable-state"
+import type { ToolUIPart } from "ai"
 import {
   BrainIcon,
   CheckCircle2,
@@ -191,7 +192,7 @@ export type ReasoningSegmentProps = ComponentProps<"div"> & {
   segmentType?: "reasoning" | "tool-webSearch" | "tool-other"
   toolName?: string
   toolResult?: string
-  toolState?: string
+  toolState?: ToolUIPart["state"]
   toolDescription?: string
 }
 
@@ -236,7 +237,7 @@ export const ReasoningSegment = memo(
                 toolResult || THINKING_CONSTANTS.toolWorking
               ) : (
                 <div className="flex items-center gap-1.5">
-                  <CheckIcon className="size-3" />
+                  {toolState === "output-available" && <CheckIcon className="size-3" />}
                   <span>{toolResult || THINKING_CONSTANTS.toolDone}</span>
                 </div>
               )}

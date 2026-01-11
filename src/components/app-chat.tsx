@@ -6,7 +6,7 @@ import {
   type ToolUIPart,
   type UIMessage
 } from "ai"
-import { AtomIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
+import { AtomIcon, CircleIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
@@ -108,6 +108,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
     status,
     messages,
     error,
+    clearError,
     setMessages,
     sendMessage,
     addToolApprovalResponse,
@@ -132,7 +133,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
       saveAllMessagesAsync(messages, { isAbort, isDisconnect, isError })
     },
     onError: error => {
-      toast.error("Error", {
+      toast.error(TOAST_CONSTANTS.error, {
         description: error.message
       })
     }
@@ -215,7 +216,6 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   useEffect(() => {
     const lastMessage = messages[messages.length - 1]
     if (error && lastMessage?.parts.length === 0) {
-      const lastMessage = messages[messages.length - 1]
       lastMessage.parts = [
         {
           type: "text",
@@ -225,8 +225,9 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
       const messagesWithError = messages.slice(0, -1).concat([lastMessage])
       setMessages(messagesWithError)
       saveAllMessagesAsync(messagesWithError)
+      clearError()
     }
-  }, [error, messages, setMessages, saveAllMessagesAsync])
+  }, [error, messages, setMessages, saveAllMessagesAsync, clearError])
 
   useEffect(() => {
     const el = inputContainerRef.current
@@ -310,6 +311,12 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   const isStreaming = status === "streaming"
   const isSubmitDisabled = isStreaming ? false : !input.trim() || status !== "ready"
   const submitTooltip = isStreaming ? TOOLTIP_CONSTANTS.stop : TOOLTIP_CONSTANTS.submit
+
+  // Loading before reply from assistant
+  const lastMessage = messages[messages.length - 1]
+  const isAwaitingAssistantReply =
+    (status === "submitted" && lastMessage?.role === "user") ||
+    ((status === "streaming" || status === "error") && lastMessage?.parts.length === 0)
 
   return (
     <div className="flex h-full flex-col">
@@ -583,6 +590,20 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                 </MessageBranch>
               )
             })}
+
+            {isAwaitingAssistantReply && (
+              <MessageBranch defaultBranch={0}>
+                <MessageBranchContent>
+                  <Message from="assistant">
+                    <MessageContent>
+                      <div className="px-0.5 py-2 text-muted-foreground">
+                        <CircleIcon className="size-3 fill-current animate-pulse-scale" />
+                      </div>
+                    </MessageContent>
+                  </Message>
+                </MessageBranchContent>
+              </MessageBranch>
+            )}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>

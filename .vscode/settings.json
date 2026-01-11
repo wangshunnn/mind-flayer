@@ -14,7 +14,7 @@
     "editor.defaultFormatter": "rust-lang.rust-analyzer"
   },
   "[css]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "biomejs.biome"
   },
   "css.customData": [".vscode/tailwind.json"]
 }

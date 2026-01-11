@@ -2,6 +2,7 @@ import {
   convertToModelMessages,
   InvalidToolInputError,
   NoSuchToolError,
+  pruneMessages,
   stepCountIs,
   streamText,
   type UIMessage
@@ -76,9 +77,21 @@ app.post("/api/chat", async (req, res) => {
       toolChoice = { type: "tool", toolName: "webSearch" }
     }
 
+    const modelMessage = await convertToModelMessages(messages as UIMessage[])
+
+    // prune messages to reduce message context (to save tokens)
+    const prunedMessages = pruneMessages({
+      messages: modelMessage,
+      reasoning: "all",
+      toolCalls: "before-last-1-messages",
+      emptyMessages: "remove"
+    })
+
+    console.dir({ prunedMessages }, { depth: null })
+
     const result = streamText({
       model: minimax(modelId),
-      messages: await convertToModelMessages(messages as UIMessage[]),
+      messages: prunedMessages,
       tools,
       toolChoice,
       stopWhen: toolsCount ? stepCountIs(5) : stepCountIs(1)
@@ -104,7 +117,7 @@ app.post("/api/chat", async (req, res) => {
         } else if (InvalidToolInputError.isInstance(error)) {
           return "Error: The model called a tool with invalid inputs."
         } else {
-          return "Error: An unknown error occurred."
+          return "Error: An unknown error occurred111."
         }
       }
     })

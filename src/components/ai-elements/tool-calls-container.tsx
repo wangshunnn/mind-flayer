@@ -1,10 +1,20 @@
 import { useControllableState } from "@radix-ui/react-use-controllable-state"
+import type { ChatAddToolApproveResponseFunction, ToolUIPart } from "ai"
 import { ChevronRightIcon, WrenchIcon } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useContext } from "react"
-import { Shimmer } from "@/components/ai-elements/shimmer"
+import {
+  ToolCall,
+  ToolCallApprovalRequested,
+  ToolCallContent,
+  ToolCallInputStreaming,
+  ToolCallOutputDenied,
+  ToolCallOutputError,
+  ToolCallTrigger,
+  ToolCallWebSearchResults
+} from "@/components/ai-elements/tool-call"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { TEXT_UTILS } from "@/lib/constants"
+import { TOOL_CONSTANTS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
 type ToolCallsContainerContextValue = {
@@ -71,34 +81,12 @@ export type ToolCallsContainerTriggerProps = ComponentProps<typeof CollapsibleTr
   toolNames?: string[]
   isAnyToolInProgress?: boolean
   totalDuration?: number
-  getToolsMessage?: (
-    toolCount: number,
-    toolNames: string[],
-    isAnyToolInProgress: boolean,
-    totalDuration?: number
-  ) => ReactNode
+  getToolsMessage?: (toolCount: number) => ReactNode
 }
 
-const defaultGetToolsMessage = (
-  toolCount: number,
-  toolNames: string[],
-  isAnyToolInProgress: boolean,
-  totalDuration?: number
-) => {
-  const toolsText = TEXT_UTILS.pluralize(toolCount, "tool")
-  const namesText = toolNames.join(", ")
-  const durationText = totalDuration ? ` · ${TEXT_UTILS.formatDuration(totalDuration)}` : ""
-
-  if (isAnyToolInProgress) {
-    return <Shimmer duration={1}>{`Using ${toolsText} · ${namesText}`}</Shimmer>
-  }
-
-  return (
-    <span>
-      Used {toolsText} · {namesText}
-      {durationText}
-    </span>
-  )
+const defaultGetToolsMessage = (toolCount: number) => {
+  const toolsText = `${toolCount} ${toolCount > 1 ? TOOL_CONSTANTS.tools : TOOL_CONSTANTS.tool}`
+  return <span>Used {toolsText}</span>
 }
 
 export const ToolCallsContainerTrigger = memo(
@@ -106,7 +94,6 @@ export const ToolCallsContainerTrigger = memo(
     className,
     children,
     toolNames = [],
-    isAnyToolInProgress = false,
     totalDuration,
     getToolsMessage = defaultGetToolsMessage,
     ...props
@@ -124,9 +111,12 @@ export const ToolCallsContainerTrigger = memo(
         {children ?? (
           <>
             <WrenchIcon className="size-4" />
-            {getToolsMessage(toolCount, toolNames, isAnyToolInProgress, totalDuration)}
+            {getToolsMessage(toolCount)}
             <ChevronRightIcon
-              className={cn("size-4 transition-transform", isOpen ? "rotate-90" : "rotate-0")}
+              className={cn(
+                "size-3.5 transition-transform opacity-50",
+                isOpen ? "rotate-90" : "rotate-0"
+              )}
             />
           </>
         )}
@@ -157,6 +147,92 @@ export const ToolCallsContainerContent = memo(
   )
 )
 
+export type ToolCallsListProps = {
+  toolParts: ToolUIPart[]
+  onToolApprovalResponse: ChatAddToolApproveResponseFunction
+}
+
+const ToolCallWebSearch = ({
+  part,
+  onToolApprovalResponse
+}: {
+  part: ToolUIPart
+  onToolApprovalResponse: ToolCallsListProps["onToolApprovalResponse"]
+}) => {
+  const callId = part.toolCallId
+  const input = part.input as {
+    objective: string
+    searchQueries: string[]
+    maxResults?: number
+  }
+  const output =
+    part.state === "output-available"
+      ? (part.output as {
+          query: string
+          results: Array<{
+            title: string
+            url: string
+            snippet: string
+          }>
+          totalResults: number
+        })
+      : null
+
+  const approvalId = part.approval?.id
+
+  return (
+    <ToolCall
+      key={callId}
+      toolName="webSearch"
+      state={part.state}
+      resultCount={output?.totalResults}
+    >
+      <ToolCallTrigger />
+      <ToolCallContent>
+        {(part.state === "input-streaming" || part.state === "input-available") && (
+          <ToolCallInputStreaming
+            message={TOOL_CONSTANTS.webSearch.searching(input?.objective || "...")}
+          />
+        )}
+        {part.state === "approval-requested" && approvalId && (
+          <ToolCallApprovalRequested
+            description={
+              <>
+                The AI wants to search the web for: <strong>"{input?.objective ?? ""}"</strong>
+              </>
+            }
+            onApprove={() => onToolApprovalResponse({ id: approvalId, approved: true })}
+            onDeny={() => onToolApprovalResponse({ id: approvalId, approved: false })}
+          />
+        )}
+        {part.state === "output-available" && output && (
+          <ToolCallWebSearchResults results={output.results} />
+        )}
+        {part.state === "output-error" && <ToolCallOutputError errorText={part.errorText} />}
+        {part.state === "output-denied" && <ToolCallOutputDenied message={part.errorText} />}
+      </ToolCallContent>
+    </ToolCall>
+  )
+}
+
+export const ToolCallsList = memo(({ toolParts, onToolApprovalResponse }: ToolCallsListProps) => (
+  <ToolCallsContainerContent>
+    {toolParts.map(part => {
+      if (part.type === "tool-webSearch") {
+        return (
+          <ToolCallWebSearch
+            key={part.toolCallId}
+            part={part}
+            onToolApprovalResponse={onToolApprovalResponse}
+          />
+        )
+      }
+      return null
+    })}
+  </ToolCallsContainerContent>
+))
+
 ToolCallsContainer.displayName = "ToolCallsContainer"
 ToolCallsContainerTrigger.displayName = "ToolCallsContainerTrigger"
 ToolCallsContainerContent.displayName = "ToolCallsContainerContent"
+ToolCallsList.displayName = "ToolCallsList"

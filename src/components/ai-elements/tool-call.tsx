@@ -2,6 +2,7 @@ import { useControllableState } from "@radix-ui/react-use-controllable-state"
 import { CheckIcon, ChevronRightIcon, GlobeIcon, LoaderIcon, WrenchIcon, XIcon } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useContext, useEffect, useState } from "react"
+import { Streamdown } from "streamdown"
 import { Shimmer } from "@/components/ai-elements/shimmer"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -52,7 +53,7 @@ export const ToolCall = memo(
   ({
     className,
     open,
-    defaultOpen = true,
+    defaultOpen = false,
     onOpenChange,
     duration: durationProp,
     toolName,
@@ -126,7 +127,7 @@ export const ToolCall = memo(
  * Get the appropriate icon for the tool
  */
 const getToolIcon = (toolName: string) => {
-  const iconClass = "size-4 transition-colors"
+  const iconClass = "size-3.5 transition-colors"
 
   switch (toolName.toLowerCase()) {
     case "websearch":
@@ -186,7 +187,7 @@ const defaultGetToolMessage = (
     if (duration !== undefined && duration > 0) {
       parts.push(TEXT_UTILS.formatDuration(duration))
     }
-    return <span>{parts.join(" · ")}</span>
+    return <span>{parts.join(" - ")}</span>
   }
 
   return <span>{displayName}</span>
@@ -204,7 +205,7 @@ export const ToolCallTrigger = memo(
     return (
       <CollapsibleTrigger
         className={cn(
-          "group flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground",
+          "group flex w-full items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground",
           className
         )}
         {...props}
@@ -214,7 +215,10 @@ export const ToolCallTrigger = memo(
             {getToolIcon(toolName)}
             {getToolMessage(toolName, state, duration, resultCount)}
             <ChevronRightIcon
-              className={cn("size-4 transition-transform", isOpen ? "rotate-90" : "rotate-0")}
+              className={cn(
+                "size-3.5 transition-transform opacity-50",
+                isOpen ? "rotate-90" : "rotate-0"
+              )}
             />
           </>
         )}
@@ -238,7 +242,7 @@ export const ToolCallContent = memo(
       )}
       {...props}
     >
-      <div className="overflow-y-auto pr-2" style={{ maxHeight }}>
+      <div className={cn("overflow-y-auto pr-2")} style={{ maxHeight }}>
         <div className="space-y-2">{children}</div>
       </div>
     </CollapsibleContent>
@@ -340,18 +344,26 @@ export type ToolCallWebSearchResultsProps = {
 }
 
 export const ToolCallWebSearchResults = memo(({ results }: ToolCallWebSearchResultsProps) => (
-  <div className="space-y-2">
+  <div className="space-y-2 pr-2">
     {results.map(result => (
-      <div key={result.url} className="rounded-md border border-border/50 bg-muted/30 p-2.5">
+      <div key={result.url} className="rounded-md border border-border/50 bg-muted/30 py-1 px-2">
         <a
           href={result.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm font-medium text-foreground hover:underline"
+          className="text-xs font-medium text-foreground hover:underline"
         >
           {result.title}
         </a>
-        <p className="mt-1 text-xs text-muted-foreground line-clamp-1">{result.snippet}</p>
+        <Streamdown
+          mode="static"
+          className="streamdown-tool-call text-xs! font-light text-muted-foreground line-clamp-1"
+          components={{
+            a: ({ children }) => <span>{children}</span>
+          }}
+        >
+          {result.snippet[0]}
+        </Streamdown>
       </div>
     ))}
   </div>

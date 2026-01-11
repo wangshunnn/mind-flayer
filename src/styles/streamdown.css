@@ -28,7 +28,19 @@
   border-bottom-color: var(--color-brand-green);
 }
 
-.thinking-process [data-streamdown="strong"] {
+.streamdown-thinking-process [data-streamdown] {
   font-size: inherit;
   font-weight: inherit;
+}
+
+.streamdown-tool-call [data-streamdown="link"] {
+  text-decoration: none;
+  border-bottom: none;
+}
+
+.streamdown-tool-call [data-streamdown] {
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 1.2;
+  color: var(--muted-foreground);
 }

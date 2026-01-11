@@ -7,7 +7,7 @@
 export const TOOL_CONSTANTS = {
   // Tool display names (API name -> Display name mapping)
   names: {
-    webSearch: "Web Search"
+    webSearch: "Web search"
   } as const,
 
   // Tool state messages
@@ -24,7 +24,10 @@ export const TOOL_CONSTANTS = {
     searching: (objective: string) => `Searching "${objective}"`,
     searchedResults: (count: number) => `Searched ${count} results`,
     approvalText: (objective: string) => `The AI wants to search the web for: "${objective}"`
-  }
+  },
+
+  tool: "tool",
+  tools: "tools"
 } as const
 
 // Thinking process constants
@@ -37,6 +40,11 @@ export const THINKING_CONSTANTS = {
   done: "Done",
   toolWorking: "Working...",
   toolDone: "Done"
+} as const
+
+// Message-related constants
+export const MESSAGE_CONSTANTS = {
+  abortedMessage: "Generation paused."
 } as const
 
 // UI action constants
@@ -57,6 +65,7 @@ export const ACTION_CONSTANTS = {
 // Tooltip constants
 export const TOOLTIP_CONSTANTS = {
   submit: "Submit",
+  stop: "Stop",
   webSearch: "Web search",
   deepThinking: "Deep thinking",
   selectModel: "Select Model"
@@ -116,14 +125,6 @@ export const TEXT_UTILS = {
    */
   getToolDisplayName: (apiName: string): string => {
     return TOOL_CONSTANTS.names[apiName as keyof typeof TOOL_CONSTANTS.names] || apiName
-  },
-
-  /**
-   * Pluralize text based on count
-   */
-  pluralize: (count: number, singular: string, plural?: string): string => {
-    if (count === 1) return `${count} ${singular}`
-    return `${count} ${plural || `${singular}s`}`
   },
 
   /**

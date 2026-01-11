@@ -2,6 +2,7 @@ import { useChat } from "@ai-sdk/react"
 import {
   DefaultChatTransport,
   lastAssistantMessageIsCompleteWithApprovalResponses,
+  type TextUIPart,
   type ToolUIPart,
   type UIMessage
 } from "ai"
@@ -50,19 +51,9 @@ import {
   ThinkingProcessTrigger
 } from "@/components/ai-elements/thinking-process"
 import {
-  ToolCall,
-  ToolCallApprovalRequested,
-  ToolCallContent,
-  ToolCallInputStreaming,
-  ToolCallOutputDenied,
-  ToolCallOutputError,
-  ToolCallTrigger,
-  ToolCallWebSearchResults
-} from "@/components/ai-elements/tool-call"
-import {
   ToolCallsContainer,
-  ToolCallsContainerContent,
-  ToolCallsContainerTrigger
+  ToolCallsContainerTrigger,
+  ToolCallsList
 } from "@/components/ai-elements/tool-calls-container"
 import { MODEL_OPTIONS, type ModelOption, SelectModel } from "@/components/select-model"
 import { ToolButton } from "@/components/tool-button"
@@ -71,6 +62,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useChatStorage } from "@/hooks/use-chat-storage"
 import {
   FOOTER_CONSTANTS,
+  MESSAGE_CONSTANTS,
   TEXT_UTILS,
   TOAST_CONSTANTS,
   TOOL_BUTTON_CONSTANTS,
@@ -112,30 +104,39 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   const { isCompact, open } = useSidebar()
   const { createChat, loadMessages, saveChatAllMessages } = useChatStorage()
 
-  // TODO add: stop, regenerate
-  const { status, messages, setMessages, sendMessage, addToolApprovalResponse, regenerate } =
-    useChat({
-      transport: new DefaultChatTransport({
-        api: `http://localhost:${__SIDECAR_PORT__}/api/chat`,
-        headers: () => ({
-          "X-API-Key": import.meta.env.VITE_MINIMAX_API_KEY || "",
-          "X-Model-Provider": selectedModelRef.current.provider,
-          "X-Model-Id": selectedModelRef.current.api_id,
-          "X-Use-Web-Search": useWebSearchRef.current.toString(),
-          "X-Web-Search-Mode": webSearchModeRef.current
-        })
-      }),
-      sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
-      onFinish: ({ messages, finishReason }) => {
-        console.log("[AppChat] useChat-onFinish finishReason=", finishReason)
-        saveAllMessagesAsync(messages)
-      },
-      onError: error => {
-        toast.error("Error", {
-          description: error.message
-        })
+  const {
+    status,
+    messages,
+    error,
+    setMessages,
+    sendMessage,
+    addToolApprovalResponse,
+    regenerate,
+    stop
+  } = useChat({
+    transport: new DefaultChatTransport({
+      api: `http://localhost:${__SIDECAR_PORT__}/api/chat`,
+      headers: () => ({
+        "X-API-Key": import.meta.env.VITE_MINIMAX_API_KEY || "",
+        "X-Model-Provider": selectedModelRef.current.provider,
+        "X-Model-Id": selectedModelRef.current.api_id,
+        "X-Use-Web-Search": useWebSearchRef.current.toString(),
+        "X-Web-Search-Mode": webSearchModeRef.current
+      })
+    }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+    onFinish: ({ messages, isAbort, isDisconnect, isError }) => {
+      if (isError) {
+        return
       }
-    })
+      saveAllMessagesAsync(messages, { isAbort, isDisconnect, isError })
+    },
+    onError: error => {
+      toast.error("Error", {
+        description: error.message
+      })
+    }
+  })
 
   const cleanupChatState = useCallback(() => {
     currentChatIdRef.current = null
@@ -154,7 +155,10 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   )
 
   const saveAllMessagesAsync = useCallback(
-    async (allMessages: UIMessage[]) => {
+    async (
+      allMessages: UIMessage[],
+      options?: { isAbort?: boolean; isDisconnect?: boolean; isError?: boolean }
+    ) => {
       if (!allMessages || allMessages.length === 0) {
         return
       }
@@ -177,16 +181,52 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
         const newChatId = await createNewChatAsync(title)
         chatId = newChatId
         currentChatIdRef.current = newChatId
-        console.log("[AppChat] createNewChatAsync id=", newChatId)
+      }
+      const lastMessage = allMessagesWithMetadata[allMessagesWithMetadata.length - 1]
+      if (
+        lastMessage.role === "assistant" &&
+        (options?.isAbort || options?.isDisconnect || options?.isError)
+      ) {
+        lastMessage.metadata = {
+          ...(lastMessage.metadata || {}),
+          ...(options || {})
+        }
+        if (options?.isAbort) {
+          // clean tool parts if aborted, otherwise it may crashed the next request
+          lastMessage.parts = lastMessage.parts.filter(part => !part.type.startsWith("tool-"))
+          if (lastMessage.parts.filter(part => part.type === "text").length === 0) {
+            // update text if no parts text
+            lastMessage.parts.push({
+              type: "text",
+              text: MESSAGE_CONSTANTS.abortedMessage
+            } as TextUIPart)
+          }
+          setMessages?.(allMessagesWithMetadata)
+        }
       }
       await saveChatAllMessages(chatId, allMessagesWithMetadata)
       for (const msg of allMessages) {
         storedMessageIdsRef.current.add(msg.id)
       }
-      console.log("[AppChat] Saved new messages:", allMessages.length)
     },
-    [createNewChatAsync, saveChatAllMessages]
+    [createNewChatAsync, saveChatAllMessages, setMessages]
   )
+
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1]
+    if (error && lastMessage?.parts.length === 0) {
+      const lastMessage = messages[messages.length - 1]
+      lastMessage.parts = [
+        {
+          type: "text",
+          text: error?.message
+        } as TextUIPart
+      ]
+      const messagesWithError = messages.slice(0, -1).concat([lastMessage])
+      setMessages(messagesWithError)
+      saveAllMessagesAsync(messagesWithError)
+    }
+  }, [error, messages, setMessages, saveAllMessagesAsync])
 
   useEffect(() => {
     const el = inputContainerRef.current
@@ -218,7 +258,6 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
             activeChatId === currentChatIdRef.current &&
             messagesRef.current.length >= msgs.length
           ) {
-            console.log("[AppChat] Active chat ID unchanged, skipping loadMessages")
             return
           }
           messagesRef.current = msgs
@@ -262,7 +301,15 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
     }
   }
 
-  const isSubmitDisabled = !input.trim() || status !== "ready"
+  const handleStop = () => {
+    if (isStreaming) {
+      stop()
+    }
+  }
+
+  const isStreaming = status === "streaming"
+  const isSubmitDisabled = isStreaming ? false : !input.trim() || status !== "ready"
+  const submitTooltip = isStreaming ? TOOLTIP_CONSTANTS.stop : TOOLTIP_CONSTANTS.submit
 
   return (
     <div className="flex h-full flex-col">
@@ -359,7 +406,9 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                 lastStepInStep?.type === "reasoning" && !lastStepInStep.reasoning?.isStreaming
 
               // Collect tool information for detailed container (show as soon as there are tool calls)
-              const toolParts = message.parts.filter(part => part.type.startsWith("tool-"))
+              const toolParts = message.parts.filter((part): part is ToolUIPart =>
+                part.type.startsWith("tool-")
+              )
               const toolNames = toolParts.map(part => {
                 const toolType = part.type.replace("tool-", "")
                 return TEXT_UTILS.getToolDisplayName(toolType)
@@ -484,84 +533,10 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                       {message.role === "assistant" && hasTools && isThinkingComplete && (
                         <ToolCallsContainer toolCount={toolParts.length}>
                           <ToolCallsContainerTrigger toolNames={toolNames} />
-                          <ToolCallsContainerContent>
-                            {toolParts.map(part => {
-                              // Handle webSearch tool with approval
-                              if (part.type === "tool-webSearch") {
-                                const callId = part.toolCallId
-                                const input = part.input as {
-                                  objective: string
-                                  searchQueries: string[]
-                                  maxResults?: number
-                                }
-                                const output =
-                                  part.state === "output-available"
-                                    ? (part.output as {
-                                        query: string
-                                        results: Array<{
-                                          title: string
-                                          url: string
-                                          snippet: string
-                                        }>
-                                        totalResults: number
-                                      })
-                                    : null
-
-                                return (
-                                  <ToolCall
-                                    key={callId}
-                                    toolName="webSearch"
-                                    state={part.state}
-                                    resultCount={output?.totalResults}
-                                  >
-                                    <ToolCallTrigger />
-                                    <ToolCallContent>
-                                      {(part.state === "input-streaming" ||
-                                        part.state === "input-available") && (
-                                        <ToolCallInputStreaming
-                                          message={TOOL_CONSTANTS.webSearch.searching(
-                                            input?.objective || "..."
-                                          )}
-                                        />
-                                      )}
-                                      {part.state === "approval-requested" && (
-                                        <ToolCallApprovalRequested
-                                          description={
-                                            <>
-                                              The AI wants to search the web for:{" "}
-                                              <strong>"{input?.objective ?? ""}"</strong>
-                                            </>
-                                          }
-                                          onApprove={() =>
-                                            addToolApprovalResponse({
-                                              id: part.approval.id,
-                                              approved: true
-                                            })
-                                          }
-                                          onDeny={() =>
-                                            addToolApprovalResponse({
-                                              id: part.approval.id,
-                                              approved: false
-                                            })
-                                          }
-                                        />
-                                      )}
-                                      {part.state === "output-available" && output && (
-                                        <ToolCallWebSearchResults results={output.results} />
-                                      )}
-                                      {part.state === "output-error" && (
-                                        <ToolCallOutputError errorText={part.errorText} />
-                                      )}
-                                      {part.state === "output-denied" && (
-                                        <ToolCallOutputDenied message={part.errorText} />
-                                      )}
-                                    </ToolCallContent>
-                                  </ToolCall>
-                                )
-                              }
-                              return null
-                            })}
-                          </ToolCallsContainerContent>
+                          <ToolCallsList
+                            toolParts={toolParts}
+                            onToolApprovalResponse={addToolApprovalResponse}
+                          />
                         </ToolCallsContainer>
                       )}
 
@@ -695,10 +670,15 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                   <Tooltip disableHoverableContent={true} open={undefined}>
                     <TooltipTrigger asChild>
                       <div className={cn(isSubmitDisabled && "cursor-not-allowed")}>
-                        <PromptInputSubmit disabled={isSubmitDisabled} status={status} />
+                        <PromptInputSubmit
+                          disabled={isSubmitDisabled}
+                          status={status}
+                          type={isStreaming ? "button" : "submit"}
+                          onClick={isStreaming ? handleStop : undefined}
+                        />
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent>{TOOLTIP_CONSTANTS.submit}</TooltipContent>
+                    <TooltipContent>{submitTooltip}</TooltipContent>
                   </Tooltip>
                 </PromptInputTools>
               </PromptInputFooter>

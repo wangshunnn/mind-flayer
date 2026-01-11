@@ -158,7 +158,10 @@ export const ThinkingProcessTrigger = memo(
             <BrainIcon className="size-4" />
             {getThinkingMessage(isStreaming, totalDuration)}
             <ChevronRightIcon
-              className={cn("size-4 transition-transform", isOpen ? "rotate-90" : "rotate-0")}
+              className={cn(
+                "size-3.5 transition-transform opacity-50",
+                isOpen ? "rotate-90" : "rotate-0"
+              )}
             />
           </>
         )}
@@ -316,7 +319,7 @@ export type ReasoningSegmentContentProps = ComponentProps<"div"> & {
 export const ReasoningSegmentContent = memo(
   ({ className, children, ...props }: ReasoningSegmentContentProps) => (
     <div className={cn("text-muted-foreground pr-4 text-sm", className)} {...props}>
-      <Streamdown className="thinking-process space-y-2.5">{children}</Streamdown>
+      <Streamdown className="streamdown-thinking-process space-y-2.5">{children}</Streamdown>
     </div>
   )
 )

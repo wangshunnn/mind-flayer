@@ -17,7 +17,7 @@ export const Message = forwardRef<HTMLDivElement, MessageProps>(
     <div
       ref={ref}
       className={cn(
-        "group flex w-full max-w-[95%] flex-col gap-2",
+        "group flex w-full max-w-[95%] flex-col gap-2 px-2",
         from === "user" ? "is-user ml-auto justify-end pt-6 pb-1" : "is-assistant",
         className
       )}
@@ -34,10 +34,11 @@ export const MessageContent = ({ children, className, ...props }: MessageContent
   <div
     className={cn(
       "is-user:dark flex w-fit max-w-full min-w-0 flex-col gap-2 overflow-hidden",
-      "text-[15px] leading-[1.6] px-2",
-      "group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
+      "text-[15px] leading-[1.6] px-0",
+      "group-[.is-user]:ml-auto group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
       "group-[.is-assistant]:text-foreground",
       "group-[.is-user]:bg-brand-green-light",
+      "group-[.is-user]:rounded-lg",
       className
     )}
     {...props}

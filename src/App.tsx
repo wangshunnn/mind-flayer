@@ -2,8 +2,8 @@ import { createRootRoute, createRoute, createRouter, RouterProvider } from "@tan
 import { useEffect } from "react"
 import { ThemeProvider } from "@/components/theme-provider"
 import { initDatabase } from "@/lib/database"
-import About from "@/pages/About"
 import Home from "@/pages/Home"
+import Settings from "@/pages/Settings"
 
 import "@/styles/App.css"
 
@@ -15,13 +15,13 @@ const indexRoute = createRoute({
   component: Home
 })
 
-const aboutRoute = createRoute({
+const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/about",
-  component: About
+  path: "/settings",
+  component: Settings
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, aboutRoute])
+const routeTree = rootRoute.addChildren([indexRoute, settingsRoute])
 
 const router = createRouter({ routeTree })
 

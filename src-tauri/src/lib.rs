@@ -1,9 +1,59 @@
+mod keychain;
 mod setup;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+/// Save provider configuration to system keychain
+#[tauri::command]
+fn save_provider_config(
+    app: tauri::AppHandle,
+    provider: String,
+    api_key: String,
+    base_url: Option<String>,
+) -> Result<(), String> {
+    log::info!(
+        "[Command] save_provider_config called for provider: {}",
+        provider
+    );
+    log::debug!(
+        "[Command] API key length: {}, base_url: {:?}",
+        api_key.len(),
+        base_url
+    );
+
+    let config = keychain::ProviderConfig { api_key, base_url };
+
+    log::info!("[Command] Calling keychain::save_config...");
+    keychain::save_config(&provider, &config)?;
+    log::info!("[Command] Config saved to keychain successfully");
+
+    // Push updated configuration to sidecar via stdin
+    log::info!("[Command] Pushing config to sidecar...");
+    setup::push_config_to_sidecar(&app)?;
+    log::info!("[Command] Config pushed to sidecar successfully");
+
+    Ok(())
+}
+
+/// Delete provider configuration from system keychain
+#[tauri::command]
+fn delete_provider_config(app: tauri::AppHandle, provider: String) -> Result<(), String> {
+    keychain::delete_config(&provider)?;
+
+    // Push updated configuration to sidecar via stdin
+    setup::push_config_to_sidecar(&app)?;
+
+    Ok(())
+}
+
+/// List all configured providers
+#[tauri::command]
+fn list_all_providers() -> Vec<String> {
+    keychain::list_all_providers()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -51,7 +101,12 @@ pub fn run() {
                 )
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            save_provider_config,
+            delete_provider_config,
+            list_all_providers
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

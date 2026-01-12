@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { Separator } from "@/components/ui/separator"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useIsCompact } from "@/hooks/use-compact"
@@ -182,6 +182,8 @@ function Sidebar({
           overlayClassName={cn("bg-black/10")}
           {...props}
         >
+          <SheetTitle className="sr-only" />
+          <SheetDescription className="sr-only" />
           <div
             data-slot="sidebar-inner"
             className={cn(

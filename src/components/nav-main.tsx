@@ -6,12 +6,12 @@ import {
   SidebarMenuItem
 } from "@/components/ui/sidebar"
 
-export function NavMain() {
+export function NavMain({ onNewChat }: { onNewChat?: () => void }) {
   return (
     <SidebarGroup>
       <SidebarMenu>
         <SidebarMenuItem>
-          <SidebarMenuButton asChild className="text-sm font-normal">
+          <SidebarMenuButton asChild className="text-sm font-normal" onClick={onNewChat}>
             <div>
               <MessageSquarePlus className="size-4! opacity-80" />
               <span>New Chat</span>

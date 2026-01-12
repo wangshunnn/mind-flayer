@@ -35,10 +35,11 @@ export const MessageContent = ({ children, className, ...props }: MessageContent
     className={cn(
       "is-user:dark flex w-fit max-w-full min-w-0 flex-col gap-2 overflow-hidden",
       "text-[15px] leading-[1.6] px-0",
-      "group-[.is-user]:ml-auto group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
-      "group-[.is-assistant]:text-foreground",
+      "group-[.is-user]:ml-auto group-[.is-user]:bg-secondary group-[.is-user]:text-foreground",
+      "group-[.is-user]:px-4 group-[.is-user]:pt-2 group-[.is-user]:pb-2.25",
+      "group-[.is-user]:rounded-lg group-[.is-user]:rounded-tr-none",
       "group-[.is-user]:bg-brand-green-light",
-      "group-[.is-user]:rounded-lg",
+      "group-[.is-assistant]:text-foreground",
       className
     )}
     {...props}

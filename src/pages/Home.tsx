@@ -29,6 +29,7 @@ export default function Page() {
         activeChatId={activeChatId}
         onChatClick={handleChatClick}
         onDeleteChat={deleteChat}
+        onNewChat={handleNewChat}
       />
 
       {/* Top drag region */}

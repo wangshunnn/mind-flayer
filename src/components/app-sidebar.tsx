@@ -46,7 +46,7 @@ export function AppSidebar({
         <SearchChat />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain />
+        <NavMain onNewChat={onNewChat} />
         <NavChats
           chats={chats}
           activeChatId={activeChatId}

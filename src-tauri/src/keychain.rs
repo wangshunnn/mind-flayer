@@ -1,10 +1,23 @@
-use keyring::Entry;
+use aes_gcm::{
+    aead::{Aead, KeyInit},
+    Aes256Gcm, Nonce,
+};
+use base64::{engine::general_purpose, Engine as _};
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 
-const SERVICE_NAME: &str = "mind-flayer";
-const PROVIDER_LIST_KEY: &str = "__provider_list__";
+const CONFIG_FILE_NAME: &str = "provider_configs.dat";
+const NONCE: &[u8; 12] = b"mind-flayer!"; // Fixed nonce for simplicity
+
+#[cfg(test)]
+use std::sync::Mutex;
+
+#[cfg(test)]
+static TEST_FILE_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderConfig {
@@ -13,157 +26,184 @@ pub struct ProviderConfig {
     pub base_url: Option<String>,
 }
 
-/// Save provider configuration to system keychain
-pub fn save_config(provider: &str, config: &ProviderConfig) -> Result<(), String> {
-    info!("[Keychain] Saving config for provider: {}", provider);
-
-    let entry = Entry::new(SERVICE_NAME, provider).map_err(|e| {
-        error!(
-            "[Keychain] Failed to create keychain entry for {}: {}",
-            provider, e
-        );
-        e.to_string()
-    })?;
-
-    let config_json = serde_json::to_string(config).map_err(|e| {
-        error!(
-            "[Keychain] Failed to serialize config for {}: {}",
-            provider, e
-        );
-        e.to_string()
-    })?;
-
-    debug!("[Keychain] Config JSON for {}: {}", provider, config_json);
-
-    entry.set_password(&config_json).map_err(|e| {
-        error!("[Keychain] Failed to save password for {}: {}", provider, e);
-        e.to_string()
-    })?;
-
-    info!("[Keychain] Successfully saved config for {}", provider);
-
-    // Add provider to the list of configured providers
-    add_provider_to_list(provider)?;
-
-    Ok(())
-}
-
-/// Get provider configuration from system keychain
-pub fn get_config(provider: &str) -> Result<ProviderConfig, String> {
-    let entry = Entry::new(SERVICE_NAME, provider).map_err(|e| e.to_string())?;
-    let config_json = entry.get_password().map_err(|e| e.to_string())?;
-    let config: ProviderConfig = serde_json::from_str(&config_json).map_err(|e| e.to_string())?;
-    Ok(config)
-}
-
-/// Delete provider configuration from system keychain
-pub fn delete_config(provider: &str) -> Result<(), String> {
-    let entry = Entry::new(SERVICE_NAME, provider).map_err(|e| e.to_string())?;
-    entry.delete_credential().map_err(|e| e.to_string())?;
-
-    // Remove provider from the list of configured providers
-    remove_provider_from_list(provider)?;
-
-    Ok(())
-}
-
-/// Get all provider configurations from system keychain
-pub fn get_all_configs() -> HashMap<String, ProviderConfig> {
-    debug!("[Keychain] Getting all configs...");
-    let mut configs = HashMap::new();
-
-    // Get the list of configured providers
-    let providers = get_provider_list();
-    info!(
-        "[Keychain] Found {} providers in list: {:?}",
-        providers.len(),
-        providers
-    );
-
-    for provider in providers {
-        debug!("[Keychain] Attempting to load config for: {}", provider);
-        match get_config(&provider) {
-            Ok(config) => {
-                debug!("[Keychain] Successfully loaded config for {}", provider);
-                configs.insert(provider, config);
-            }
-            Err(e) => {
-                error!("[Keychain] Failed to load config for {}: {}", provider, e);
-            }
+/// Get the config file path
+fn get_config_file_path() -> Result<PathBuf, String> {
+    #[cfg(test)]
+    {
+        let guard = TEST_FILE_PATH.lock().unwrap();
+        if let Some(path) = guard.as_ref() {
+            return Ok(path.clone());
         }
     }
 
-    info!("[Keychain] Returning {} configs", configs.len());
-    configs
+    let app_dir = dirs::data_local_dir()
+        .ok_or_else(|| "Failed to get app data directory".to_string())?
+        .join("mind-flayer");
+
+    fs::create_dir_all(&app_dir).map_err(|e| {
+        error!("[Storage] Failed to create app directory: {}", e);
+        e.to_string()
+    })?;
+
+    Ok(app_dir.join(CONFIG_FILE_NAME))
+}
+
+/// Get encryption key derived from machine-specific data
+fn get_encryption_key() -> [u8; 32] {
+    // Derive a machine-specific key
+    let machine_id = whoami::devicename();
+    let mut hasher = Sha256::new();
+    hasher.update(b"mind-flayer-v1");
+    hasher.update(machine_id.as_bytes());
+    let result = hasher.finalize();
+    result.into()
+}
+
+/// Save provider configuration to encrypted local storage
+pub fn save_config(provider: &str, config: &ProviderConfig) -> Result<(), String> {
+    info!("[Storage] Saving config for provider: {}", provider);
+
+    let mut all_configs = get_all_configs_internal()?;
+    all_configs.insert(provider.to_string(), config.clone());
+    save_all_configs_internal(&all_configs)?;
+
+    info!("[Storage] Successfully saved config for {}", provider);
+    Ok(())
+}
+
+/// Get provider configuration from encrypted local storage
+#[allow(dead_code)]
+pub fn get_config(provider: &str) -> Result<ProviderConfig, String> {
+    let all_configs = get_all_configs_internal()?;
+    all_configs
+        .get(provider)
+        .cloned()
+        .ok_or_else(|| format!("Provider '{}' not found", provider))
+}
+
+/// Delete provider configuration from encrypted local storage
+pub fn delete_config(provider: &str) -> Result<(), String> {
+    info!("[Storage] Deleting config for provider: {}", provider);
+
+    let mut all_configs = get_all_configs_internal()?;
+    all_configs.remove(provider);
+    save_all_configs_internal(&all_configs)?;
+
+    info!("[Storage] Successfully deleted config for {}", provider);
+    Ok(())
+}
+
+/// Get all provider configurations from encrypted local storage
+pub fn get_all_configs() -> HashMap<String, ProviderConfig> {
+    debug!("[Storage] Getting all configs...");
+    match get_all_configs_internal() {
+        Ok(configs) => {
+            info!(
+                "[Storage] Retrieved configs from {} providers",
+                configs.len()
+            );
+            configs
+        }
+        Err(e) => {
+            error!("[Storage] Failed to get configs: {}", e);
+            HashMap::new()
+        }
+    }
 }
 
 /// List all configured providers
 pub fn list_all_providers() -> Vec<String> {
-    get_provider_list()
+    get_all_configs().keys().cloned().collect()
 }
 
-/// Get the list of configured provider names from keychain
-fn get_provider_list() -> Vec<String> {
-    let entry = match Entry::new(SERVICE_NAME, PROVIDER_LIST_KEY) {
-        Ok(e) => e,
-        Err(_) => return Vec::new(),
-    };
+/// Internal: Get all configs from encrypted file
+fn get_all_configs_internal() -> Result<HashMap<String, ProviderConfig>, String> {
+    let config_path = get_config_file_path()?;
 
-    match entry.get_password() {
-        Ok(json) => serde_json::from_str(&json).unwrap_or_else(|_| Vec::new()),
-        Err(_) => Vec::new(),
-    }
-}
-
-/// Add a provider to the list of configured providers
-fn add_provider_to_list(provider: &str) -> Result<(), String> {
-    debug!("[Keychain] Adding provider to list: {}", provider);
-    let mut providers = get_provider_list();
-    debug!("[Keychain] Current provider list: {:?}", providers);
-
-    if !providers.contains(&provider.to_string()) {
-        providers.push(provider.to_string());
-        info!(
-            "[Keychain] Added {} to provider list, new list: {:?}",
-            provider, providers
-        );
-        save_provider_list(&providers)?;
-    } else {
-        debug!("[Keychain] Provider {} already in list", provider);
+    if !config_path.exists() {
+        debug!("[Storage] Config file does not exist, returning empty map");
+        return Ok(HashMap::new());
     }
 
-    Ok(())
-}
-
-/// Remove a provider from the list of configured providers
-fn remove_provider_from_list(provider: &str) -> Result<(), String> {
-    let mut providers = get_provider_list();
-    providers.retain(|p| p != provider);
-    save_provider_list(&providers)?;
-    Ok(())
-}
-
-/// Save the list of configured providers to keychain
-fn save_provider_list(providers: &[String]) -> Result<(), String> {
-    debug!("[Keychain] Saving provider list: {:?}", providers);
-    let entry = Entry::new(SERVICE_NAME, PROVIDER_LIST_KEY).map_err(|e| {
-        error!("[Keychain] Failed to create entry for provider list: {}", e);
+    let encrypted_data = fs::read(&config_path).map_err(|e| {
+        error!("[Storage] Failed to read config file: {}", e);
         e.to_string()
     })?;
 
-    let json = serde_json::to_string(providers).map_err(|e| {
-        error!("[Keychain] Failed to serialize provider list: {}", e);
+    if encrypted_data.is_empty() {
+        debug!("[Storage] Config file is empty, returning empty map");
+        return Ok(HashMap::new());
+    }
+
+    // Decode from base64
+    let encrypted_bytes = general_purpose::STANDARD
+        .decode(&encrypted_data)
+        .map_err(|e| {
+            error!("[Storage] Failed to decode base64: {}", e);
+            e.to_string()
+        })?;
+
+    // Decrypt
+    let key = get_encryption_key();
+    let cipher = Aes256Gcm::new(&key.into());
+    let nonce = Nonce::from_slice(NONCE);
+
+    let decrypted_data = cipher
+        .decrypt(nonce, encrypted_bytes.as_ref())
+        .map_err(|e| {
+            error!("[Storage] Failed to decrypt config: {}", e);
+            "Failed to decrypt config, data may be corrupted".to_string()
+        })?;
+
+    // Parse JSON
+    let json_str = String::from_utf8(decrypted_data).map_err(|e| {
+        error!("[Storage] Failed to parse decrypted data as UTF-8: {}", e);
         e.to_string()
     })?;
 
-    entry.set_password(&json).map_err(|e| {
-        error!("[Keychain] Failed to save provider list to keychain: {}", e);
+    let configs: HashMap<String, ProviderConfig> =
+        serde_json::from_str(&json_str).map_err(|e| {
+            error!("[Storage] Failed to deserialize configs: {}", e);
+            e.to_string()
+        })?;
+
+    Ok(configs)
+}
+
+/// Internal: Save all configs to encrypted file
+fn save_all_configs_internal(configs: &HashMap<String, ProviderConfig>) -> Result<(), String> {
+    debug!("[Storage] Saving configs for {} providers", configs.len());
+
+    let config_path = get_config_file_path()?;
+
+    // Serialize to JSON
+    let json_str = serde_json::to_string(configs).map_err(|e| {
+        error!("[Storage] Failed to serialize configs: {}", e);
+        e.to_string()
+    })?;
+
+    // Encrypt
+    let key = get_encryption_key();
+    let cipher = Aes256Gcm::new(&key.into());
+    let nonce = Nonce::from_slice(NONCE);
+
+    let encrypted_data = cipher.encrypt(nonce, json_str.as_bytes()).map_err(|e| {
+        error!("[Storage] Failed to encrypt config: {}", e);
+        e.to_string()
+    })?;
+
+    // Encode to base64
+    let encoded_data = general_purpose::STANDARD.encode(&encrypted_data);
+
+    // Write to file
+    fs::write(&config_path, encoded_data).map_err(|e| {
+        error!("[Storage] Failed to write config file: {}", e);
         e.to_string()
     })?;
 
     info!(
-        "[Keychain] Successfully saved provider list with {} entries",
-        providers.len()
+        "[Storage] Successfully saved configs for {} providers to file",
+        configs.len()
     );
     Ok(())
 }
@@ -171,15 +211,44 @@ fn save_provider_list(providers: &[String]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    fn setup_test() -> std::sync::MutexGuard<'static, ()> {
+        let guard = TEST_LOCK.lock().unwrap();
+
+        // Create a temporary test file
+        let temp_dir = std::env::temp_dir();
+        let test_file = temp_dir.join(format!("mind_flayer_test_{}.dat", std::process::id()));
+
+        {
+            let mut path_guard = TEST_FILE_PATH.lock().unwrap();
+            *path_guard = Some(test_file.clone());
+        }
+
+        // Clean up existing test file if it exists
+        let _ = fs::remove_file(&test_file);
+
+        guard
+    }
+
+    fn cleanup_test() {
+        let guard = TEST_FILE_PATH.lock().unwrap();
+        if let Some(path) = guard.as_ref() {
+            let _ = fs::remove_file(path);
+        }
+    }
 
     #[test]
     fn test_save_and_get_config() {
+        let _guard = setup_test();
+
+        let provider = "test_provider";
         let config = ProviderConfig {
             api_key: "test_key_123".to_string(),
             base_url: Some("https://api.test.com".to_string()),
         };
-
-        let provider = "test_provider";
 
         // Save
         assert!(save_config(provider, &config).is_ok());
@@ -189,7 +258,35 @@ mod tests {
         assert_eq!(retrieved.api_key, config.api_key);
         assert_eq!(retrieved.base_url, config.base_url);
 
-        // Clean up
-        delete_config(provider).unwrap();
+        cleanup_test();
+    }
+
+    #[test]
+    fn test_multiple_providers() {
+        let _guard = setup_test();
+
+        let config1 = ProviderConfig {
+            api_key: "key1".to_string(),
+            base_url: None,
+        };
+        let config2 = ProviderConfig {
+            api_key: "key2".to_string(),
+            base_url: Some("https://api.example.com".to_string()),
+        };
+
+        // Save two providers
+        save_config("provider1", &config1).unwrap();
+        save_config("provider2", &config2).unwrap();
+
+        // Get all
+        let all_configs = get_all_configs();
+        assert_eq!(all_configs.len(), 2);
+
+        // Delete one
+        delete_config("provider1").unwrap();
+        let all_configs = get_all_configs();
+        assert_eq!(all_configs.len(), 1);
+
+        cleanup_test();
     }
 }

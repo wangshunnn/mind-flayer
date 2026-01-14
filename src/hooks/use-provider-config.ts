@@ -8,6 +8,7 @@ export interface ProviderConfig {
 
 export interface UseProviderConfigReturn {
   saveConfig: (provider: string, apiKey: string, baseUrl?: string) => Promise<void>
+  getConfig: (provider: string) => Promise<ProviderConfig | null>
   deleteConfig: (provider: string) => Promise<void>
   listProviders: () => Promise<string[]>
   isLoading: boolean
@@ -39,6 +40,23 @@ export function useProviderConfig(): UseProviderConfigReturn {
       const message = err instanceof Error ? err.message : "Failed to save configuration"
       setError(message)
       throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  const getConfig = useCallback(async (provider: string): Promise<ProviderConfig | null> => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const config = await invoke<ProviderConfig>("get_provider_config", { provider })
+      console.log(`[useProviderConfig] Retrieved config for ${provider}`)
+      return config
+    } catch {
+      // Don't treat "not found" as an error, just return null
+      console.log(`[useProviderConfig] No config found for ${provider}`)
+      return null
     } finally {
       setIsLoading(false)
     }
@@ -80,6 +98,7 @@ export function useProviderConfig(): UseProviderConfigReturn {
 
   return {
     saveConfig,
+    getConfig,
     deleteConfig,
     listProviders,
     isLoading,

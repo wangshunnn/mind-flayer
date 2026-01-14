@@ -100,6 +100,33 @@
 - Log errors appropriately
 - Use middleware pattern for request/response handling
 
+### Keychain & Secure Storage
+- **Always store API keys in encrypted local storage**, never in plain text or environment variables
+- Use the Rust keychain module (`src-tauri/src/keychain.rs`) for secure storage
+- Encryption uses AES-256-GCM with machine-specific keys derived from device name
+- Stored data format: Base64-encoded encrypted JSON in `provider_configs.dat`
+- Tauri commands for keychain operations:
+  - `save_provider_config`: Save API key and optional base URL
+  - `get_provider_config`: Retrieve provider configuration
+  - `delete_provider_config`: Remove provider configuration
+  - `list_all_providers`: List all configured providers
+- After keychain updates, configurations are automatically pushed to sidecar via stdin
+- Use the `useProviderConfig` hook for all frontend keychain operations
+
+### Settings Page
+- Multi-section layout with sidebar navigation (提供商/通用/高级/关于)
+- Provider configuration UI located at `/settings`
+- Supported providers: MiniMax, OpenAI, Anthropic, Parallel (Web Search)
+- Features:
+  - Password visibility toggle for API key input
+  - Optional base URL override with default values
+  - Real-time form validation
+  - Save/Delete operations with confirmation dialogs
+  - Proper loading states and error handling
+- UI components: Uses InputGroup with password toggle, responsive layout
+- macOS traffic lights support with drag region
+- Entry animation with smooth transitions
+
 ## Code Review Checklist
 - [ ] All comments are in English
 - [ ] TypeScript types are properly defined

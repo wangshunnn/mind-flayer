@@ -20,6 +20,7 @@ use std::sync::Mutex;
 static TEST_FILE_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProviderConfig {
     pub api_key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -72,7 +73,6 @@ pub fn save_config(provider: &str, config: &ProviderConfig) -> Result<(), String
 }
 
 /// Get provider configuration from encrypted local storage
-#[allow(dead_code)]
 pub fn get_config(provider: &str) -> Result<ProviderConfig, String> {
     let all_configs = get_all_configs_internal()?;
     all_configs

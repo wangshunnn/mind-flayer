@@ -13,7 +13,7 @@ import {
   Settings2,
   Sparkles
 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -52,7 +52,6 @@ const PROVIDERS = [
 const SECTIONS = [
   { id: "providers", name: "提供商", icon: Layers },
   { id: "general", name: "通用", icon: Settings2 },
-  { id: "appearance", name: "外观", icon: Palette },
   { id: "advanced", name: "高级", icon: Key },
   { id: "about", name: "关于", icon: Info }
 ]
@@ -68,7 +67,25 @@ export default function Settings() {
     parallel: { apiKey: "", baseUrl: PROVIDERS[3].defaultBaseUrl }
   })
 
-  const { saveConfig, deleteConfig, isLoading, error } = useProviderConfig()
+  const { saveConfig, getConfig, deleteConfig, isLoading, error } = useProviderConfig()
+
+  // Load saved config when provider changes
+  useEffect(() => {
+    const loadConfig = async () => {
+      const config = await getConfig(activeProvider)
+      if (config) {
+        setFormData(prev => ({
+          ...prev,
+          [activeProvider]: {
+            apiKey: config.apiKey,
+            baseUrl:
+              config.baseUrl || PROVIDERS.find(p => p.id === activeProvider)?.defaultBaseUrl || ""
+          }
+        }))
+      }
+    }
+    loadConfig()
+  }, [activeProvider, getConfig])
 
   const handleSave = async () => {
     const data = formData[activeProvider]
@@ -185,7 +202,7 @@ export default function Settings() {
 
                   <Separator />
 
-                  <div className="grid grid-cols-[200px_1fr] gap-8">
+                  <div className="grid grid-cols-[200px_1fr] gap-4">
                     {/* Provider List */}
                     <div className="space-y-1">
                       {PROVIDERS.map(provider => {
@@ -249,9 +266,9 @@ export default function Settings() {
                                 aria-label={showPassword ? "Hide password" : "Show password"}
                               >
                                 {showPassword ? (
-                                  <EyeOff className="size-4" />
-                                ) : (
                                   <Eye className="size-4" />
+                                ) : (
+                                  <EyeOff className="size-4" />
                                 )}
                               </InputGroupButton>
                             </InputGroupAddon>
@@ -314,19 +331,6 @@ export default function Settings() {
                   <div>
                     <div className="text-xl font-semibold">通用设置</div>
                     <p className="mt-1 text-sm text-muted-foreground">配置应用的基本设置和偏好。</p>
-                  </div>
-                  <Separator />
-                  <div className="max-w-2xl">
-                    <p className="text-sm text-muted-foreground">即将推出...</p>
-                  </div>
-                </div>
-              )}
-
-              {activeSection === "appearance" && (
-                <div className="space-y-6 pt-4">
-                  <div>
-                    <div className="text-xl font-semibold">外观设置</div>
-                    <p className="mt-1 text-sm text-muted-foreground">自定义应用的外观和主题。</p>
                   </div>
                   <Separator />
                   <div className="max-w-2xl">

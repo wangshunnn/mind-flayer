@@ -50,6 +50,16 @@ fn delete_provider_config(app: tauri::AppHandle, provider: String) -> Result<(),
     Ok(())
 }
 
+/// Get provider configuration from system keychain
+#[tauri::command]
+fn get_provider_config(provider: String) -> Result<keychain::ProviderConfig, String> {
+    log::info!(
+        "[Command] get_provider_config called for provider: {}",
+        provider
+    );
+    keychain::get_config(&provider)
+}
+
 /// List all configured providers
 #[tauri::command]
 fn list_all_providers() -> Vec<String> {
@@ -104,6 +114,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             save_provider_config,
+            get_provider_config,
             delete_provider_config,
             list_all_providers
         ])

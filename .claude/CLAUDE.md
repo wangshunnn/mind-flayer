@@ -257,6 +257,138 @@ const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat(
 - Implement retry logic for failed requests
 - Provide user feedback for long-running operations
 
+## Security & Keychain Management
+
+### Encrypted Storage Architecture
+
+Mind Flayer implements a secure keychain system for storing sensitive API keys and provider configurations:
+
+#### Storage Implementation
+
+**Backend (Rust)**:
+- Location: `src-tauri/src/keychain.rs`
+- Encryption: AES-256-GCM with machine-specific keys
+- Key derivation: SHA-256 hash of device name + salt
+- Storage format: Base64-encoded encrypted JSON
+- File location: `{LOCAL_DATA_DIR}/mind-flayer/provider_configs.dat`
+- Fixed nonce: `b"mind-flayer!"` (12 bytes)
+
+**Frontend (TypeScript)**:
+- Hook: `useProviderConfig` in `src/hooks/use-provider-config.ts`
+- Provides: `saveConfig`, `getConfig`, `deleteConfig`, `listProviders`
+- Automatic loading state and error handling
+- Types: `ProviderConfig { apiKey: string, baseUrl?: string }`
+
+#### Tauri Commands
+
+```rust
+// Save configuration (encrypts and stores locally, then pushes to sidecar)
+save_provider_config(provider: String, api_key: String, base_url: Option<String>) -> Result<(), String>
+
+// Retrieve configuration from encrypted storage
+get_provider_config(provider: String) -> Result<ProviderConfig, String>
+
+// Delete configuration and update sidecar
+delete_provider_config(provider: String) -> Result<(), String>
+
+// List all configured provider names
+list_all_providers() -> Vec<String>
+```
+
+#### Configuration Flow
+
+1. User enters API key in Settings page
+2. Frontend calls `saveConfig` via `useProviderConfig` hook
+3. Tauri invokes `save_provider_config` command
+4. Rust keychain module encrypts and saves to local file
+5. Configuration is automatically pushed to sidecar via stdin
+6. Sidecar updates in-memory provider configs
+
+#### Security Best Practices
+
+- **Never** store API keys in plain text, localStorage, or environment variables
+- Always use the keychain module for sensitive data
+- Keys are bound to the device (cannot be copied to another machine)
+- Use proper error handling; don't expose encryption details
+- Log operations but never log sensitive values
+- Implement proper cleanup on application uninstall (future enhancement)
+
+### Settings Page Implementation
+
+#### Page Structure
+
+**Location**: `src/pages/Settings.tsx`
+
+**Layout**:
+- Left sidebar: Section navigation (提供商/通用/高级/关于)
+- Main content: Section-specific forms and controls
+- macOS traffic lights support with drag region
+- Inset background design with smooth animations
+
+#### Provider Configuration Section
+
+**Supported Providers**:
+```typescript
+const PROVIDERS = [
+  { id: "minimax", name: "MiniMax", defaultBaseUrl: "https://api.minimaxi.com/anthropic/v1" },
+  { id: "openai", name: "OpenAI", defaultBaseUrl: "https://api.openai.com/v1" },
+  { id: "anthropic", name: "Anthropic", defaultBaseUrl: "https://api.anthropic.com/v1" },
+  { id: "parallel", name: "Parallel (Web Search)", defaultBaseUrl: "" }
+]
+```
+
+**Form Fields**:
+1. **API Key** (required):
+   - Password input with visibility toggle (Eye/EyeOff icons)
+   - Uses `InputGroup` with `InputGroupButton` for toggle
+   - Validation: Cannot be empty
+
+2. **Base URL** (optional):
+   - Text input for custom endpoints
+   - Shows default value as placeholder/hint
+   - Useful for proxy servers or alternative endpoints
+
+**User Interactions**:
+- Select provider from left list
+- Form auto-loads saved configuration for selected provider
+- Save button: Validates and saves to keychain
+- Delete button: Shows confirmation dialog before deletion
+- Success/error feedback via alerts (consider replacing with toast notifications)
+
+#### State Management
+
+```typescript
+const [formData, setFormData] = useState<Record<string, ProviderFormData>>({...})
+const { saveConfig, getConfig, deleteConfig, isLoading, error } = useProviderConfig()
+
+// Load config when provider changes
+useEffect(() => {
+  const loadConfig = async () => {
+    const config = await getConfig(activeProvider)
+    if (config) {
+      setFormData(prev => ({ ...prev, [activeProvider]: config }))
+    }
+  }
+  loadConfig()
+}, [activeProvider])
+```
+
+#### UI Components Used
+
+- `InputGroup`, `InputGroupInput`, `InputGroupButton`: Password field with toggle
+- `Button`: Save/Delete actions with loading states
+- `Label`: Form field labels with required indicators
+- `Separator`: Visual section dividers
+- `Lucide Icons`: Eye, EyeOff, Key, Bot, Brain, etc.
+
+#### Future Enhancements
+
+- Replace `alert()` with toast notifications
+- Add form-level validation
+- Implement settings export/import
+- Add connection testing for providers
+- Implement "通用", "高级", and "关于" sections
+
 ## Documentation
 
 ### Code Documentation

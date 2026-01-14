@@ -23,7 +23,6 @@ import {
   InputGroupButton,
   InputGroupInput
 } from "@/components/ui/input-group"
-import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { useProviderConfig } from "@/hooks/use-provider-config"
@@ -60,7 +59,7 @@ const ALL_PROVIDERS = [...MODEL_PROVIDERS, ...WEB_SEARCH_PROVIDERS]
 
 const DEFAULT_FORM_DATA = ALL_PROVIDERS.reduce(
   (acc, provider) => {
-    acc[provider.id] = { apiKey: "", baseUrl: provider.defaultBaseUrl, enabled: true }
+    acc[provider.id] = { apiKey: "", baseUrl: provider.defaultBaseUrl, enabled: false }
     return acc
   },
   {} as Record<string, ProviderFormData>
@@ -113,10 +112,7 @@ export default function Settings() {
           [activeProvider]: {
             ...prev[activeProvider],
             apiKey: config.apiKey,
-            baseUrl:
-              config.baseUrl ||
-              ALL_PROVIDERS.find(p => p.id === activeProvider)?.defaultBaseUrl ||
-              ""
+            baseUrl: config.baseUrl || ""
           }
         }))
         setStoredProviders(prev => ({ ...prev, [activeProvider]: true }))
@@ -167,7 +163,7 @@ export default function Settings() {
       if (successTimeoutRef.current) {
         clearTimeout(successTimeoutRef.current)
       }
-      await saveConfig(providerId, data.apiKey, data.baseUrl.trim() || undefined)
+      await saveConfig(providerId, data.apiKey.trim(), data.baseUrl.trim() || undefined)
       setStoredProviders(prev => ({ ...prev, [providerId]: true }))
       setSaveStatus("success")
       successTimeoutRef.current = setTimeout(() => {
@@ -306,7 +302,7 @@ export default function Settings() {
 
                   <div className="grid grid-cols-[180px_1fr] gap-4 flex-1 min-h-0">
                     {/* Provider List */}
-                    <div className="space-y-1 rounded-lg border border-border/70 bg-muted p-2 h-full overflow-y-auto">
+                    <div className="space-y-2 rounded-lg border border-border/70 bg-muted p-2 h-full overflow-y-auto">
                       {MODEL_PROVIDERS.map(provider => {
                         const ProviderIcon = provider.icon
                         const providerEnabled = formData[provider.id]?.enabled ?? true
@@ -319,10 +315,10 @@ export default function Settings() {
                               setShowPassword(false)
                             }}
                             className={cn(
-                              "flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors",
+                              "flex w-full items-center justify-between gap-2 rounded-md border px-3 py-3 text-left text-sm font-medium transition-colors",
                               activeProvider === provider.id
-                                ? "bg-accent text-accent-foreground"
-                                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                                ? "bg-accent text-accent-foreground border-accent-foreground/20"
+                                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border-border/40"
                             )}
                           >
                             <div className="flex items-center gap-2">
@@ -340,7 +336,7 @@ export default function Settings() {
                     {/* Provider Form */}
                     <div
                       className={cn(
-                        "max-w-2xl space-y-6 transition-opacity",
+                        "max-w-2xl space-y-8 transition-opacity",
                         !isProviderEnabled && "opacity-60"
                       )}
                     >
@@ -350,7 +346,7 @@ export default function Settings() {
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">启用</span>
                             <Switch
-                              checked={currentData?.enabled ?? true}
+                              checked={currentData?.enabled ?? false}
                               onCheckedChange={checked => {
                                 resetSaveFeedback()
                                 setFormData(prev => ({
@@ -369,12 +365,12 @@ export default function Settings() {
                         </p>
                       </div>
 
-                      <div className="space-y-4">
+                      <div className="space-y-8">
                         {/* API Key Input with Password Toggle */}
-                        <div className="space-y-2">
-                          <Label htmlFor="apiKey">
+                        <div className="space-y-2 [&>div]:pl-1">
+                          <div className="text-sm font-medium leading-none">
                             API Key <span className="text-red-500">*</span>
-                          </Label>
+                          </div>
                           <InputGroup>
                             <InputGroupInput
                               id="apiKey"
@@ -408,16 +404,17 @@ export default function Settings() {
                         </div>
 
                         {/* Base URL Input */}
-                        <div className="space-y-2">
-                          <Label htmlFor="baseUrl">
-                            Base URL <span className="text-muted-foreground">(可选)</span>
-                          </Label>
+                        <div className="space-y-2 [&>div]:pl-1">
+                          <div className="text-sm font-medium leading-none">
+                            Base URL
+                            <span className={cn("pl-2 text-muted-foreground/60 text-xs")}>
+                              Option
+                            </span>
+                          </div>
                           <Input
                             id="baseUrl"
                             type="url"
-                            placeholder={
-                              currentProvider?.defaultBaseUrl || "https://api.example.com"
-                            }
+                            placeholder={currentProvider?.defaultBaseUrl}
                             value={currentData?.baseUrl || ""}
                             onChange={e => {
                               resetSaveFeedback()
@@ -430,11 +427,6 @@ export default function Settings() {
                               }))
                             }}
                           />
-                          {currentProvider?.defaultBaseUrl && (
-                            <p className="text-xs text-muted-foreground">
-                              默认: {currentProvider.defaultBaseUrl}
-                            </p>
-                          )}
                         </div>
                       </div>
 
@@ -474,61 +466,87 @@ export default function Settings() {
               )}
 
               {activeSection === "web-search" && (
-                <div className="space-y-6 pt-4">
+                <div className="space-y-6 pt-4 flex-1 flex flex-col min-h-0">
                   <div>
-                    <div className="text-xl font-semibold">网络搜索</div>
+                    <div className="text-xl font-semibold">网络搜索配置</div>
                     <p className="mt-3 text-sm text-muted-foreground">
-                      配置网络搜索工具的提供商与访问凭证。
+                      配置网络搜索工具的提供商与访问凭证。密钥将安全存储在系统密钥链中。
                     </p>
                   </div>
 
                   <Separator />
 
-                  <div className="max-w-2xl space-y-6">
-                    <div className="rounded-lg border border-border/70 bg-muted p-4">
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <h2 className="text-lg font-medium">提供商</h2>
-                          <p className="mt-1 text-sm text-muted-foreground">选择网络搜索的提供商</p>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {WEB_SEARCH_PROVIDERS.map(provider => {
-                          const ProviderIcon = provider.icon
-                          const isActive = activeWebSearchProvider === provider.id
-                          return (
-                            <button
-                              key={provider.id}
-                              type="button"
-                              onClick={() => {
-                                setActiveWebSearchProvider(provider.id)
-                                setShowPassword(false)
-                              }}
-                              className={cn(
-                                "flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                                isActive
-                                  ? "border-brand-green bg-brand-green/10 text-foreground"
-                                  : "border-border/60 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-                              )}
-                            >
-                              <ProviderIcon className="size-3.5 shrink-0" />
+                  <div className="grid grid-cols-[180px_1fr] gap-4 flex-1 min-h-0">
+                    {/* Provider List */}
+                    <div className="space-y-2 rounded-lg border border-border/70 bg-muted p-2 h-full overflow-y-auto">
+                      {WEB_SEARCH_PROVIDERS.map(provider => {
+                        const ProviderIcon = provider.icon
+                        const providerEnabled = formData[provider.id]?.enabled ?? true
+                        return (
+                          <button
+                            key={provider.id}
+                            type="button"
+                            onClick={() => {
+                              setActiveWebSearchProvider(provider.id)
+                              setShowPassword(false)
+                            }}
+                            className={cn(
+                              "flex w-full items-center justify-between gap-2 rounded-md border px-3 py-3 text-left text-sm font-medium transition-colors",
+                              activeWebSearchProvider === provider.id
+                                ? "bg-accent text-accent-foreground border-accent-foreground/20"
+                                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border-border/40"
+                            )}
+                          >
+                            <div className="flex items-center gap-2">
+                              <ProviderIcon className="size-4 shrink-0" />
                               <span>{provider.name}</span>
-                              {isActive && (
-                                <CircleIcon className="size-2 fill-current text-brand-green" />
-                              )}
-                            </button>
-                          )
-                        })}
-                      </div>
+                            </div>
+                            {providerEnabled && (
+                              <CircleIcon className="size-2 fill-current text-brand-green" />
+                            )}
+                          </button>
+                        )
+                      })}
                     </div>
 
-                    <div className="space-y-6 transition-opacity">
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="webSearchApiKey">
+                    {/* Provider Form */}
+                    <div
+                      className={cn(
+                        "max-w-2xl space-y-8 transition-opacity",
+                        !(currentWebSearchData?.enabled ?? true) && "opacity-60"
+                      )}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-4">
+                          <h2 className="text-lg font-medium">{currentWebSearchProvider?.name}</h2>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">启用</span>
+                            <Switch
+                              checked={currentWebSearchData?.enabled ?? false}
+                              onCheckedChange={checked => {
+                                resetSaveFeedback()
+                                setFormData(prev => ({
+                                  ...prev,
+                                  [activeWebSearchProvider]: {
+                                    ...prev[activeWebSearchProvider],
+                                    enabled: checked
+                                  }
+                                }))
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          配置 {currentWebSearchProvider?.name} 的 API 凭证和端点设置
+                        </p>
+                      </div>
+
+                      <div className="space-y-8">
+                        {/* API Key Input with Password Toggle */}
+                        <div className="space-y-2 [&>div]:pl-1">
+                          <div className="text-sm font-medium leading-none">
                             API Key <span className="text-red-500">*</span>
-                          </Label>
+                          </div>
                           <InputGroup>
                             <InputGroupInput
                               id="webSearchApiKey"
@@ -560,14 +578,44 @@ export default function Settings() {
                             </InputGroupAddon>
                           </InputGroup>
                         </div>
+
+                        {/* Base URL Input (if needed) */}
+                        {currentWebSearchProvider?.defaultBaseUrl !== undefined && (
+                          <div className="space-y-2 [&>div]:pl-1">
+                            <div className="text-sm font-medium leading-none">
+                              Base URL
+                              <span className={cn("pl-2 text-muted-foreground/60 text-xs")}>
+                                Option
+                              </span>
+                            </div>
+                            <Input
+                              id="webSearchBaseUrl"
+                              type="url"
+                              placeholder={currentWebSearchProvider?.defaultBaseUrl}
+                              value={currentWebSearchData?.baseUrl || ""}
+                              onChange={e => {
+                                resetSaveFeedback()
+                                setFormData(prev => ({
+                                  ...prev,
+                                  [activeWebSearchProvider]: {
+                                    ...prev[activeWebSearchProvider],
+                                    baseUrl: e.target.value
+                                  }
+                                }))
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
 
+                      {/* Error Display */}
                       {activeError && (
                         <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                           {activeError}
                         </div>
                       )}
 
+                      {/* Action Buttons */}
                       <div className="flex justify-end gap-2 pt-4">
                         <Button
                           variant="destructive"

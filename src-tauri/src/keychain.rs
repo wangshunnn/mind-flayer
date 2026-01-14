@@ -125,7 +125,8 @@ fn get_all_configs_internal() -> Result<HashMap<String, ProviderConfig>, String>
         return Ok(HashMap::new());
     }
 
-    let encrypted_data = fs::read(&config_path).map_err(|e| {
+    // Read as string (base64 encoded text)
+    let encrypted_data = fs::read_to_string(&config_path).map_err(|e| {
         error!("[Storage] Failed to read config file: {}", e);
         e.to_string()
     })?;
@@ -137,10 +138,13 @@ fn get_all_configs_internal() -> Result<HashMap<String, ProviderConfig>, String>
 
     // Decode from base64
     let encrypted_bytes = general_purpose::STANDARD
-        .decode(&encrypted_data)
+        .decode(encrypted_data.trim())
         .map_err(|e| {
             error!("[Storage] Failed to decode base64: {}", e);
-            e.to_string()
+            error!("[Storage] Config file may be corrupted, deleting and starting fresh");
+            // Delete corrupted file
+            let _ = fs::remove_file(&config_path);
+            "Config file corrupted, please try again".to_string()
         })?;
 
     // Decrypt
@@ -152,7 +156,10 @@ fn get_all_configs_internal() -> Result<HashMap<String, ProviderConfig>, String>
         .decrypt(nonce, encrypted_bytes.as_ref())
         .map_err(|e| {
             error!("[Storage] Failed to decrypt config: {}", e);
-            "Failed to decrypt config, data may be corrupted".to_string()
+            error!("[Storage] Config file may be corrupted, deleting and starting fresh");
+            // Delete corrupted file
+            let _ = fs::remove_file(&config_path);
+            "Failed to decrypt config, please try again".to_string()
         })?;
 
     // Parse JSON

@@ -4,7 +4,7 @@ import {
   ChevronRightIcon,
   CircleXIcon,
   GlobeIcon,
-  LoaderIcon,
+  Loader2Icon,
   WrenchIcon,
   XIcon
 } from "lucide-react"
@@ -266,7 +266,7 @@ export type ToolCallInputStreamingProps = {
 export const ToolCallInputStreaming = memo(
   ({ message = TOOL_CONSTANTS.states.working }: ToolCallInputStreamingProps) => (
     <div className="flex items-center gap-2 py-1">
-      <LoaderIcon className="size-3.5 animate-spin" />
+      <Loader2Icon className="size-3.5 animate-spin" />
       <span className="text-sm text-muted-foreground">{message}</span>
     </div>
   )

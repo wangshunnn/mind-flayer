@@ -1,4 +1,5 @@
-import { CirclePlus, Settings, User } from "lucide-react"
+import { Link } from "@tanstack/react-router"
+import { Settings, User } from "lucide-react"
 import { SiderbarDarkModeToggle } from "@/components/nav-top"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -58,17 +59,15 @@ export function NavUser({
             sideOffset={8}
           >
             <DropdownMenuGroup>
-              <DropdownMenuItem>
+              <DropdownMenuItem disabled>
                 <User />
                 My Account
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Settings />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CirclePlus />
-                Create Team
+              <DropdownMenuItem asChild>
+                <Link to="/settings" className="cursor-pointer">
+                  <Settings />
+                  Settings
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
 

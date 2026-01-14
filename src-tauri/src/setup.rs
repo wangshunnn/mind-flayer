@@ -18,6 +18,61 @@ pub struct SidecarState {
     pub child: Arc<Mutex<Option<CommandChild>>>,
 }
 
+/// Push API keys configuration to sidecar via stdin
+pub fn push_config_to_sidecar(app: &tauri::AppHandle) -> Result<(), String> {
+    let configs = crate::keychain::get_all_configs();
+
+    info!("Retrieved {} configs from keychain", configs.len());
+    for (provider, _) in &configs {
+        info!("  - {}", provider);
+    }
+
+    // Convert to JSON format for sidecar
+    let mut json_configs = serde_json::Map::new();
+    for (provider, config) in configs {
+        json_configs.insert(
+            provider,
+            serde_json::json!({
+                "apiKey": config.api_key,
+                "baseUrl": config.base_url,
+            }),
+        );
+    }
+
+    let message = serde_json::json!({
+        "type": "config_update",
+        "configs": json_configs
+    });
+
+    let message_str = format!("{}\n", message.to_string());
+    debug!(
+        "Pushing config message: {}",
+        &message_str[0..message_str.len().min(200)]
+    );
+    let message_bytes = message_str.as_bytes();
+
+    let state = app.state::<SidecarState>();
+    let mut guard = state
+        .child
+        .lock()
+        .map_err(|e| format!("Failed to acquire sidecar lock: {}", e))?;
+
+    if let Some(child) = guard.as_mut() {
+        child.write(message_bytes).map_err(|e| {
+            let err = format!("Failed to write to sidecar stdin: {}", e);
+            error!("{}", err);
+            err
+        })?;
+        info!(
+            "Pushed config update to sidecar: {} providers",
+            json_configs.len()
+        );
+        Ok(())
+    } else {
+        Err("Sidecar process not running".to_string())
+    }
+}
+
 /// setup window vibrancy effects and start sidecar
 pub fn init(app: &mut App) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let window = app.get_webview_window("main").unwrap();
@@ -49,9 +104,18 @@ pub fn init(app: &mut App) -> std::result::Result<(), Box<dyn std::error::Error>
 
     // Start sidecar service
     let app_handle = app.handle().clone();
+    let app_handle_for_push = app.handle().clone();
     tauri::async_runtime::spawn(async move {
         match start_sidecar_internal(app_handle, child_ref).await {
-            Ok(port) => info!("Sidecar started successfully on port {}", port),
+            Ok(port) => {
+                info!("Sidecar started successfully on port {}", port);
+
+                // Push initial API keys configuration to sidecar via stdin
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                if let Err(e) = push_config_to_sidecar(&app_handle_for_push) {
+                    error!("Failed to push initial config to sidecar: {}", e);
+                }
+            }
             Err(e) => error!("Failed to start sidecar: {}", e),
         }
     });

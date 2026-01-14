@@ -118,7 +118,6 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
     transport: new DefaultChatTransport({
       api: `http://localhost:${__SIDECAR_PORT__}/api/chat`,
       headers: () => ({
-        "X-API-Key": import.meta.env.VITE_MINIMAX_API_KEY || "",
         "X-Model-Provider": selectedModelRef.current.provider,
         "X-Model-Id": selectedModelRef.current.api_id,
         "X-Use-Web-Search": useWebSearchRef.current.toString(),
@@ -133,9 +132,16 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
       saveAllMessagesAsync(messages, { isAbort, isDisconnect, isError })
     },
     onError: error => {
-      toast.error(TOAST_CONSTANTS.error, {
-        description: error.message
-      })
+      // Check if this is a 401 error (API key not configured)
+      if (error.message.includes("API key not configured") || error.message.includes("401")) {
+        toast.error("API Key Required", {
+          description: "Please configure your API key in Settings to continue chatting."
+        })
+      } else {
+        toast.error(TOAST_CONSTANTS.error, {
+          description: error.message
+        })
+      }
     }
   })
 

@@ -21,8 +21,8 @@ interface ModelOption {
 
 // Provider logo components - can be replaced with actual SVG logos
 const ProviderIcons: Record<string, React.ReactNode> = {
-  Minimax: <span className="flex size-5 items-center justify-center text-[10px] font-bold">M</span>,
-  Anthropic: (
+  minimax: <span className="flex size-5 items-center justify-center text-[10px] font-bold">M</span>,
+  anthropic: (
     <span className="flex size-5 items-center justify-center text-[10px] font-bold">A</span>
   )
 }
@@ -38,27 +38,27 @@ function getProviderIcon(provider: string) {
 
 const MODEL_OPTIONS: ModelOption[] = [
   {
-    provider: "Minimax",
+    provider: "minimax",
     label: "MiniMax M2.1",
     api_id: "MiniMax-M2.1"
   },
   {
-    provider: "Minimax",
+    provider: "minimax",
     label: "MiniMax M2.1 lightning",
     api_id: "MiniMax-M2.1-lightning"
   },
   {
-    provider: "Minimax",
+    provider: "minimax",
     label: "MiniMax M2",
     api_id: "MiniMax-M2"
   }
   // {
-  //   provider: "Anthropic",
+  //   provider: "anthropic",
   //   label: "Claude Sonnet 4.5",
   //   api_id: "claude-haiku-4-5-20251001"
   // },
   // {
-  //   provider: "Anthropic",
+  //   provider: "anthropic",
   //   label: "Claude Opus 4.5",
   //   api_id: "claude-opus-4-5-20251101"
   // }
@@ -122,7 +122,7 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
               // TODO: Navigate to model configuration page
             }}
           >
-            <span>More Models</span>
+            <span>Configure Models</span>
             <ArrowRightIcon className="size-4" />
           </DropdownMenuItem>
         </DropdownMenuGroup>

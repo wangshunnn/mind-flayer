@@ -6,7 +6,9 @@ import {
   CheckIcon,
   ChevronRightIcon,
   CircleIcon,
+  CircleXIcon,
   GlobeIcon,
+  Loader2Icon,
   WrenchIcon
 } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
@@ -237,10 +239,14 @@ export const ReasoningSegment = memo(
             <div className="text-muted-foreground text-sm">
               <div className="mb-1">{toolDescription}</div>
               {isToolInProgress ? (
-                toolResult || THINKING_CONSTANTS.toolWorking
+                <div className="flex items-center gap-1.5">
+                  <Loader2Icon className="size-3 animate-spin" />
+                  <span>{toolResult || THINKING_CONSTANTS.toolWorking}</span>
+                </div>
               ) : (
                 <div className="flex items-center gap-1.5">
                   {toolState === "output-available" && <CheckIcon className="size-3" />}
+                  {toolState === "output-error" && <CircleXIcon className="size-3" />}
                   <span>{toolResult || THINKING_CONSTANTS.toolDone}</span>
                 </div>
               )}

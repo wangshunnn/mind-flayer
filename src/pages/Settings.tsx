@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import {
-  ArrowLeft,
+  ArrowLeftToLineIcon,
   Bot,
   Brain,
   Eye,
@@ -160,7 +160,7 @@ export default function Settings() {
                   type="button"
                   className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
                 >
-                  <ArrowLeft className="size-4.5 shrink-0" />
+                  <ArrowLeftToLineIcon className="size-4.5 shrink-0" />
                   <span>返回</span>
                 </button>
               </Link>

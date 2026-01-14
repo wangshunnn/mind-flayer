@@ -1,5 +1,13 @@
 import { useControllableState } from "@radix-ui/react-use-controllable-state"
-import { CheckIcon, ChevronRightIcon, GlobeIcon, LoaderIcon, WrenchIcon, XIcon } from "lucide-react"
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  CircleXIcon,
+  GlobeIcon,
+  LoaderIcon,
+  WrenchIcon,
+  XIcon
+} from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useContext, useEffect, useState } from "react"
 import { Streamdown } from "streamdown"
@@ -313,7 +321,7 @@ export type ToolCallOutputErrorProps = {
 export const ToolCallOutputError = memo(
   ({ errorText = ERROR_CONSTANTS.toolCallError }: ToolCallOutputErrorProps) => (
     <div className="flex items-center gap-2 py-1">
-      <XIcon className="size-3.5 text-destructive" />
+      <CircleXIcon className="size-3.5 text-destructive" />
       <span className="text-sm text-destructive">{errorText}</span>
     </div>
   )

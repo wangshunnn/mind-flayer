@@ -172,6 +172,9 @@ app.post("/api/chat", async (req, res) => {
         } else if (InvalidToolInputError.isInstance(error)) {
           return "Error: The model called a tool with invalid inputs."
         } else {
+          if (error instanceof Error && error.message) {
+            return `Error: ${error?.message}`
+          }
           return "Error: An unknown error occurred."
         }
       }

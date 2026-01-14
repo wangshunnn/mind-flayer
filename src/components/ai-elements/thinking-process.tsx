@@ -6,6 +6,7 @@ import {
   CheckIcon,
   ChevronRightIcon,
   CircleIcon,
+  CircleXIcon,
   GlobeIcon,
   WrenchIcon
 } from "lucide-react"
@@ -241,6 +242,7 @@ export const ReasoningSegment = memo(
               ) : (
                 <div className="flex items-center gap-1.5">
                   {toolState === "output-available" && <CheckIcon className="size-3" />}
+                  {toolState === "output-error" && <CircleXIcon className="size-3" />}
                   <span>{toolResult || THINKING_CONSTANTS.toolDone}</span>
                 </div>
               )}

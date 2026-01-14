@@ -122,7 +122,7 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
               // TODO: Navigate to model configuration page
             }}
           >
-            <span>More Models</span>
+            <span>Configure Models</span>
             <ArrowRightIcon className="size-4" />
           </DropdownMenuItem>
         </DropdownMenuGroup>

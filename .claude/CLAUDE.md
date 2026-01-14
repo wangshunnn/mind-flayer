@@ -397,6 +397,7 @@ useEffect(() => {
 - Document component props with TypeScript interfaces
 - Include usage examples for reusable components
 - Keep README files updated with current project state
+- Avoid adding excessive comments unless necessary
 
 ```typescript
 /**

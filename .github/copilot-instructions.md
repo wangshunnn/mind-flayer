@@ -61,6 +61,7 @@
 - Document component props with TypeScript interfaces
 - Include usage examples for reusable components
 - Keep README files updated
+- Avoid adding excessive comments unless necessary
 
 ### Performance
 - Memoize expensive computations with `useMemo`

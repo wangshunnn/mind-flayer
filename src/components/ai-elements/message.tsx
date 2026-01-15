@@ -279,6 +279,7 @@ export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => (
     <Streamdown
       className={cn(
+        "app-chat",
         "size-full space-y-2.5",
         "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         className

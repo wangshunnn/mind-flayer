@@ -91,6 +91,7 @@
   --chat-input-placeholder-color: oklch(0.683 0 271.152);
   --brand-green-color: oklch(0.62117 0.17972 148.03);
   --brand-green-color-light: oklch(0.45467 0.1285 148.952);
+  --shiki-dark-bg: oklch(0.24776 0 271.152);
 }
 
 @theme {

@@ -348,7 +348,6 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                 .filter(part => part.type === "text")
                 .map(part => part.text)
                 .join("")
-
               const metadata = message.metadata as
                 | {
                     totalUsage?: {
@@ -359,17 +358,14 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                     thinkingDuration?: number
                   }
                 | undefined
-
               const isLastMessage = index === messages.length - 1
               const isCurrentlyStreaming = status === "streaming" && isLastMessage
-
               const lastPart = message.parts[message.parts.length - 1]
               const isThinkingStreaming =
                 isCurrentlyStreaming &&
                 (lastPart?.type === "reasoning" ||
                   lastPart?.type === "step-start" ||
                   lastPart?.type.startsWith("tool-"))
-
               const steps: StepSegment[][] = []
               let currentStep: StepSegment[] = []
 
@@ -401,7 +397,6 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                   })
                 }
               })
-
               // Add the last step
               if (currentStep.length > 0) {
                 steps.push(currentStep)
@@ -412,12 +407,10 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                 steps.some(step =>
                   step.some(segment => segment.type === "reasoning" || segment.type === "tool")
                 )
-
               const lastStepInStep = currentStep.at(-1)
               // Check if thinking process is complete (all reasoning and tools are done)
               const isThinkingComplete =
                 lastStepInStep?.type === "reasoning" && !lastStepInStep.reasoning?.isStreaming
-
               // Collect tool information for detailed container (show as soon as there are tool calls)
               const toolParts = message.parts.filter((part): part is ToolUIPart =>
                 part.type.startsWith("tool-")
@@ -426,15 +419,16 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                 const toolType = part.type.replace("tool-", "")
                 return TEXT_UTILS.getToolDisplayName(toolType)
               })
-
               const hasTools = toolParts.length > 0
+              const isUserMessage = message.role === "user"
+              const isAssistantMessage = message.role === "assistant"
 
               return (
                 <MessageBranch defaultBranch={0} key={message.id}>
                   <MessageBranchContent>
                     <Message from={message.role} key={message.id}>
                       {/* Thinking Process - organized by steps */}
-                      {message.role === "assistant" && hasThinkingProcess && (
+                      {isAssistantMessage && hasThinkingProcess && (
                         <ThinkingProcess
                           isStreaming={isThinkingStreaming}
                           defaultOpen={isThinkingStreaming}
@@ -543,7 +537,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                       )}
 
                       {/* Tool Calls Container - only show after thinking is done */}
-                      {message.role === "assistant" && hasTools && isThinkingComplete && (
+                      {isAssistantMessage && hasTools && isThinkingComplete && (
                         <ToolCallsContainer toolCount={toolParts.length}>
                           <ToolCallsContainerTrigger toolNames={toolNames} />
                           <ToolCallsList
@@ -555,9 +549,13 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
 
                       {/* Message content */}
                       <MessageContent>
-                        <MessageResponse>{messageText}</MessageResponse>
+                        {isUserMessage ? (
+                          <div className="whitespace-pre-wrap wrap-break-word">{messageText}</div>
+                        ) : (
+                          <MessageResponse>{messageText}</MessageResponse>
+                        )}
                       </MessageContent>
-                      {message.role === "user" && (
+                      {isUserMessage && (
                         <UserMessageActionsBar
                           messageText={messageText}
                           onEdit={() => {
@@ -565,7 +563,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                           }}
                         />
                       )}
-                      {message.role === "assistant" &&
+                      {isAssistantMessage &&
                         !isCurrentlyStreaming &&
                         !message.parts.some(
                           part =>

@@ -40,6 +40,16 @@
           "url": "https://tailwindcss.com/docs/adding-custom-styles#adding-base-styles"
         }
       ]
+    },
+    {
+      "name": "@source",
+      "description": "The `@source` directive is used internally by Tailwind CSS to manage source maps for better debugging of your CSS.",
+      "references": [
+        {
+          "name": "Tailwind Documentation",
+          "url": "https://tailwindcss.com/docs/functions-and-directives#source-directive"
+        }
+      ]
     }
   ]
 }

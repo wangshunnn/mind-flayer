@@ -1,3 +1,5 @@
+@source "../../node_modules/streamdown/dist/*.js";
+
 /* Headings */
 [data-streamdown="heading-1"] {
   font-size: 1.4rem;
@@ -28,28 +30,15 @@
   border-bottom-color: var(--color-brand-green);
 }
 
-[data-streamdown="li"]::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: calc(50% - 2px);
-  width: 4px;
-  height: 4px;
-  background: var(--muted-foreground);
-  opacity: 0.6;
-  border-radius: 50%;
-}
-
 .app-chat {
   [data-streamdown] {
     letter-spacing: trim-start ideograph-alpha;
   }
 
-  .katex {
-    display: flex;
+  /* p > .katex {
+    display: inline-flex;
     justify-content: center;
-    padding: 10px;
-  }
+  } */
 
   ul {
     list-style: none;

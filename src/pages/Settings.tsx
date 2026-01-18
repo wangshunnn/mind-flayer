@@ -51,8 +51,7 @@ const MODEL_PROVIDERS = [
 ]
 
 const WEB_SEARCH_PROVIDERS = [
-  { id: "parallel", name: "Parallel", defaultBaseUrl: "", icon: Search },
-  { id: "parallel1", name: "Parallel1", defaultBaseUrl: "", icon: Search }
+  { id: "parallel", name: "Parallel", defaultBaseUrl: "", icon: Search }
 ]
 
 const ALL_PROVIDERS = [...MODEL_PROVIDERS, ...WEB_SEARCH_PROVIDERS]

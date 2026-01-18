@@ -35,28 +35,25 @@
     letter-spacing: trim-start ideograph-alpha;
   }
 
-  /* p > .katex {
-    display: inline-flex;
-    justify-content: center;
-  } */
-
   ul {
     list-style: none;
     padding-left: 0;
-  }
-  li {
-    position: relative;
-    padding-left: 14px;
-  }
-  li::before {
-    content: "";
-    position: absolute;
-    left: 2px;
-    top: calc(50% - 1px);
-    width: 3px;
-    height: 3px;
-    background: var(--foreground);
-    border-radius: 50%;
+
+    li {
+      position: relative;
+      padding-left: 14px;
+    }
+
+    li::before {
+      content: "";
+      position: absolute;
+      left: 2px;
+      top: calc(50% - 1px);
+      width: 3px;
+      height: 3px;
+      background: var(--foreground);
+      border-radius: 50%;
+    }
   }
 }
 
@@ -73,21 +70,23 @@
   ul {
     list-style: none;
     padding-left: 0;
-  }
-  li {
-    position: relative;
-    padding-left: 14px;
-  }
-  li::before {
-    content: "";
-    position: absolute;
-    left: 2px;
-    top: calc(50% - 1px);
-    width: 3px;
-    height: 3px;
-    background: var(--muted-foreground);
-    opacity: 0.6;
-    border-radius: 50%;
+
+    li {
+      position: relative;
+      padding-left: 14px;
+    }
+
+    li::before {
+      content: "";
+      position: absolute;
+      left: 2px;
+      top: calc(50% - 1px);
+      width: 3px;
+      height: 3px;
+      background: var(--muted-foreground);
+      opacity: 0.6;
+      border-radius: 50%;
+    }
   }
 }
 

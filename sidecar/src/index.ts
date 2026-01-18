@@ -5,13 +5,14 @@ import {
   pruneMessages,
   stepCountIs,
   streamText,
-  type Tool,
+  type ToolChoice,
   type UIMessage
 } from "ai"
 import cors from "cors"
 import express from "express"
 import { createMinimax } from "vercel-minimax-ai-provider"
-import { webSearchTool } from "./tools"
+import { type AllTools, webSearchTool } from "./tools"
+import type { ProviderConfig, WebSearchMode } from "./type"
 
 // if you need to use a proxy, uncomment the following lines
 // import { ProxyAgent, setGlobalDispatcher } from "undici"
@@ -19,14 +20,12 @@ import { webSearchTool } from "./tools"
 // const dispatcher = new ProxyAgent(proxy)
 // setGlobalDispatcher(dispatcher)
 
-interface ProviderConfig {
-  apiKey: string
-  baseUrl?: string
-}
-
 const app = express()
 const PORT = process.env.PORT || 3737
 const apiKeyCache = new Map<string, ProviderConfig>()
+const allTools: AllTools = {
+  webSearch: webSearchTool("")
+}
 
 // Listen to stdin for configuration updates from Tauri
 process.stdin.setEncoding("utf8")
@@ -39,18 +38,23 @@ process.stdin.on("data", (data: string) => {
 
       const message = JSON.parse(line)
       console.log("[sidecar] Parsed message type:", message.type)
+
       if (message.type === "config_update" && message.configs) {
-        console.log("[sidecar] Config update with providers:", Object.keys(message.configs))
-        // Update API key cache
+        const lastParallelApiKey = apiKeyCache.get("parallel")?.apiKey ?? ""
+        const newParallelApiKey = message.configs.parallel?.apiKey ?? ""
+
+        if (newParallelApiKey && lastParallelApiKey !== newParallelApiKey) {
+          console.log("[sidecar] Parallel API key updated, refreshing web search tool")
+          allTools.webSearch = webSearchTool(newParallelApiKey)
+        }
+
         apiKeyCache.clear()
         for (const [provider, config] of Object.entries(message.configs) as [
           string,
           ProviderConfig
         ][]) {
           apiKeyCache.set(provider, config)
-          console.log(`[sidecar] Updated API key for provider: ${provider}`)
         }
-        console.log(`[sidecar] API key cache updated with ${apiKeyCache.size} providers`)
       }
     }
   } catch (error) {
@@ -85,7 +89,7 @@ app.post("/api/chat", async (req, res) => {
     ).toLowerCase()
     const modelId = (req.headers["x-model-id"] as string) || req.body.model
     const useWebSearch = req.headers["x-use-web-search"] === "true" || req.body.useWebSearch
-    const webSearchMode = (req.headers["x-web-search-mode"] as string) || "auto"
+    const webSearchMode = (req.headers["x-web-search-mode"] as WebSearchMode) || "auto"
     const messages = req.body?.messages as UIMessage[]
 
     if (!modelId) {
@@ -115,24 +119,26 @@ app.post("/api/chat", async (req, res) => {
       apiKey
     })
 
-    // Build tools object based on user preferences
-    const tools: Record<string, Tool> = {}
+    /** Tools */
+    let toolChoice: ToolChoice<AllTools> = "auto"
+
     if (useWebSearch) {
-      const parallelConfig = apiKeyCache.get("parallel")
-      if (parallelConfig) {
-        tools.webSearch = webSearchTool(parallelConfig.apiKey)
-      } else {
-        console.warn("[sidecar] Parallel API key not configured, web search disabled")
+      if (!allTools.webSearch) {
+        allTools.webSearch = webSearchTool(apiKeyCache.get("parallel")?.apiKey ?? "")
+      }
+      if (webSearchMode === "always") {
+        const isUserFirstAsking = messages.at(-1)?.role === "user"
+        if (isUserFirstAsking) {
+          toolChoice = { type: "tool", toolName: "webSearch" }
+        }
+      }
+    } else {
+      if (allTools.webSearch) {
+        delete allTools.webSearch
       }
     }
 
-    const toolsCount = Object.keys(tools).length
-    let toolChoice: "auto" | { type: "tool"; toolName: string } = "auto"
-
-    if (useWebSearch && webSearchMode === "always") {
-      toolChoice = { type: "tool", toolName: "webSearch" }
-    }
-
+    /** Messages */
     const modelMessage = await convertToModelMessages(messages, {
       ignoreIncompleteToolCalls: true
     })
@@ -147,9 +153,9 @@ app.post("/api/chat", async (req, res) => {
     const result = streamText({
       model: minimax(modelId),
       messages: prunedMessages,
-      tools,
+      tools: allTools,
       toolChoice,
-      stopWhen: toolsCount ? stepCountIs(5) : stepCountIs(1)
+      stopWhen: Object.keys(allTools).length ? stepCountIs(5) : stepCountIs(1)
     })
 
     const response = result.toUIMessageStreamResponse({

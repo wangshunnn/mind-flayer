@@ -10,11 +10,12 @@ import {
 } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useContext, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Streamdown } from "streamdown"
 import { Shimmer } from "@/components/ai-elements/shimmer"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ACTION_CONSTANTS, ERROR_CONSTANTS, TEXT_UTILS, TOOL_CONSTANTS } from "@/lib/constants"
+import { useActionConstants, useErrorConstants, useToolConstants } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
 type ToolCallState =
@@ -154,50 +155,37 @@ export type ToolCallTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {
   ) => ReactNode
 }
 
-const defaultGetToolMessage = (
-  toolName: string,
-  state: ToolCallState,
-  duration?: number,
-  resultCount?: number
-) => {
-  // Display tool name in a readable format
-  const displayName = TEXT_UTILS.getToolDisplayName(toolName)
-
-  // Show shimmer for all in-progress states (not completed)
+const defaultGetToolMessage = (toolName: string, state: ToolCallState, resultCount?: number) => {
+  const toolConstants = useToolConstants()
+  const { t } = useTranslation("tools")
   const isCompleted = ["output-available", "output-error", "output-denied"].includes(state)
+  // Use translation if exists, otherwise fallback to original toolName
+  const displayName = t(`names.${toolName}`, { defaultValue: toolName })
 
   if (!isCompleted) {
     return <Shimmer duration={1}>{displayName}</Shimmer>
   }
-
-  // Completed states
   if (state === "output-error") {
     return (
       <span>
-        {displayName} {TOOL_CONSTANTS.states.failed.toLowerCase()}
+        {displayName} {toolConstants.states.failed.toLowerCase()}
       </span>
     )
   }
-
   if (state === "output-denied") {
     return (
       <span>
-        {displayName} {TOOL_CONSTANTS.states.cancelled.toLowerCase()}
+        {displayName} {toolConstants.states.cancelled.toLowerCase()}
       </span>
     )
   }
-
   if (state === "output-available") {
     const parts: string[] = [displayName]
     if (resultCount !== undefined) {
-      parts.push(`${resultCount} results`)
-    }
-    if (duration !== undefined && duration > 0) {
-      parts.push(TEXT_UTILS.formatDuration(duration))
+      parts.push(t("results", { count: resultCount }))
     }
     return <span>{parts.join(" - ")}</span>
   }
-
   return <span>{displayName}</span>
 }
 
@@ -208,7 +196,7 @@ export const ToolCallTrigger = memo(
     getToolMessage = defaultGetToolMessage,
     ...props
   }: ToolCallTriggerProps) => {
-    const { isOpen, duration, toolName, resultCount, state } = useToolCall()
+    const { isOpen, toolName, resultCount, state } = useToolCall()
 
     return (
       <CollapsibleTrigger
@@ -221,7 +209,7 @@ export const ToolCallTrigger = memo(
         {children ?? (
           <>
             {getToolIcon(toolName)}
-            {getToolMessage(toolName, state, duration, resultCount)}
+            {getToolMessage(toolName, state, resultCount)}
             <ChevronRightIcon
               className={cn(
                 "size-3.5 transition-transform opacity-50",
@@ -263,14 +251,17 @@ export type ToolCallInputStreamingProps = {
   message?: string
 }
 
-export const ToolCallInputStreaming = memo(
-  ({ message = TOOL_CONSTANTS.states.working }: ToolCallInputStreamingProps) => (
+export const ToolCallInputStreaming = memo(({ message }: ToolCallInputStreamingProps) => {
+  const toolConstants = useToolConstants()
+  return (
     <div className="flex items-center gap-2 py-1">
       <Loader2Icon className="size-3.5 animate-spin" />
-      <span className="text-sm text-muted-foreground">{message}</span>
+      <span className="text-sm text-muted-foreground">
+        {message ?? toolConstants.states.working}
+      </span>
     </div>
   )
-)
+})
 
 export type ToolCallInputAvailableProps = {
   children: ReactNode
@@ -287,58 +278,65 @@ export type ToolCallApprovalRequestedProps = {
 }
 
 export const ToolCallApprovalRequested = memo(
-  ({ description, onApprove, onDeny }: ToolCallApprovalRequestedProps) => (
-    <div className="py-1">
-      <p className="mb-3 text-sm text-muted-foreground">{description}</p>
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          variant="default"
-          className="h-7 text-xs bg-primary hover:bg-primary/90"
-          onClick={onApprove}
-        >
-          <CheckIcon className="mr-1 size-3" />
-          {ACTION_CONSTANTS.approve}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 text-xs text-muted-foreground hover:text-foreground"
-          onClick={onDeny}
-        >
-          <XIcon className="mr-1 size-3" />
-          {ACTION_CONSTANTS.deny}
-        </Button>
+  ({ description, onApprove, onDeny }: ToolCallApprovalRequestedProps) => {
+    const actionConstants = useActionConstants()
+    return (
+      <div className="py-1">
+        <p className="mb-3 text-sm text-muted-foreground">{description}</p>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="default"
+            className="h-7 text-xs bg-primary hover:bg-primary/90"
+            onClick={onApprove}
+          >
+            <CheckIcon className="mr-1 size-3" />
+            {actionConstants.approve}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs text-muted-foreground hover:text-foreground"
+            onClick={onDeny}
+          >
+            <XIcon className="mr-1 size-3" />
+            {actionConstants.deny}
+          </Button>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 )
 
 export type ToolCallOutputErrorProps = {
   errorText?: string
 }
 
-export const ToolCallOutputError = memo(
-  ({ errorText = ERROR_CONSTANTS.toolCallError }: ToolCallOutputErrorProps) => (
+export const ToolCallOutputError = memo(({ errorText }: ToolCallOutputErrorProps) => {
+  const errorConstants = useErrorConstants()
+  return (
     <div className="flex items-center gap-2 py-1">
       <CircleXIcon className="size-3.5 text-destructive" />
-      <span className="text-sm text-destructive">{errorText}</span>
+      <span className="text-sm text-destructive">{errorText ?? errorConstants.toolCallError}</span>
     </div>
   )
-)
+})
 
 export type ToolCallOutputDeniedProps = {
   message?: string
 }
 
-export const ToolCallOutputDenied = memo(
-  ({ message = ERROR_CONSTANTS.toolExecutionDenied }: ToolCallOutputDeniedProps) => (
+export const ToolCallOutputDenied = memo(({ message }: ToolCallOutputDeniedProps) => {
+  const errorConstants = useErrorConstants()
+  return (
     <div className="flex items-center gap-2 py-1">
       <XIcon className="size-3.5 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">{message}</span>
+      <span className="text-sm text-muted-foreground">
+        {message ?? errorConstants.toolExecutionDenied}
+      </span>
     </div>
   )
-)
+})
 
 // Web Search specific result component
 export type WebSearchResult = {

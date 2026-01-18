@@ -34,6 +34,7 @@ import {
   useRef,
   useState
 } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -267,6 +268,7 @@ export type PromptInputAttachmentProps = HTMLAttributes<HTMLDivElement> & {
 }
 
 export function PromptInputAttachment({ data, className, ...props }: PromptInputAttachmentProps) {
+  const { t } = useTranslation("chat")
   const attachments = usePromptInputAttachments()
 
   const filename = data.filename || ""
@@ -274,7 +276,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
   const mediaType = data.mediaType?.startsWith("image/") && data.url ? "image" : "file"
   const isImage = mediaType === "image"
 
-  const attachmentLabel = filename || (isImage ? "Image" : "Attachment")
+  const attachmentLabel = filename || (isImage ? t("input.image") : t("input.attachment"))
 
   return (
     <PromptInputHoverCard>
@@ -304,7 +306,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
               )}
             </div>
             <Button
-              aria-label="Remove attachment"
+              aria-label={t("input.removeAttachment")}
               className="absolute inset-0 size-5 cursor-pointer rounded p-0 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 [&>svg]:size-2.5"
               onClick={e => {
                 e.stopPropagation()
@@ -314,7 +316,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
               variant="ghost"
             >
               <XIcon />
-              <span className="sr-only">Remove</span>
+              <span className="sr-only">{t("input.removeAttachment")}</span>
             </Button>
           </div>
 
@@ -379,9 +381,10 @@ export type PromptInputActionAddAttachmentsProps = ComponentProps<typeof Dropdow
 }
 
 export const PromptInputActionAddAttachments = ({
-  label = "Add photos or files",
+  label,
   ...props
 }: PromptInputActionAddAttachmentsProps) => {
+  const { t } = useTranslation("chat")
   const attachments = usePromptInputAttachments()
 
   return (
@@ -392,7 +395,7 @@ export const PromptInputActionAddAttachments = ({
         attachments.openFileDialog()
       }}
     >
-      <ImageIcon className="size-4" /> {label}
+      <ImageIcon className="size-4" /> {label ?? t("input.addPhotosOrFiles")}
     </DropdownMenuItem>
   )
 }
@@ -762,7 +765,8 @@ export type PromptInputTextareaHandle = {
 }
 
 export const PromptInputTextarea = forwardRef<PromptInputTextareaHandle, PromptInputTextareaProps>(
-  ({ onChange, className, placeholder = "Chat with mind flayer", ...props }, ref) => {
+  ({ onChange, className, placeholder, ...props }, ref) => {
+    const { t } = useTranslation("chat")
     const controller = useOptionalPromptInputController()
     const attachments = usePromptInputAttachments()
     const [isComposing, setIsComposing] = useState(false)
@@ -890,7 +894,7 @@ export const PromptInputTextarea = forwardRef<PromptInputTextareaHandle, PromptI
         onCompositionStart={() => setIsComposing(true)}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t("input.placeholder")}
         {...props}
         {...controlledProps}
       />

@@ -1,5 +1,6 @@
 import { ArrowRightIcon, BotIcon, ChevronDown, CircleIcon } from "lucide-react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -70,6 +71,7 @@ interface SelectModelProps extends Omit<React.ComponentProps<typeof Button>, "on
 }
 
 function SelectModel({ className, value, onChange, ...props }: SelectModelProps) {
+  const { t } = useTranslation("chat")
   const [open, setOpen] = useState(false)
   // Use controlled state if provided, otherwise use internal state
   const [internalModel, setInternalModel] = useState(MODEL_OPTIONS[0])
@@ -91,11 +93,11 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
               <ChevronDown
                 className={cn("size-3.5 transition-transform duration-300", open && "-rotate-180")}
               />
-              <span className="sr-only">Select Model</span>
+              <span className="sr-only">{t("model.selectModel")}</span>
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
-        <TooltipContent>Switch Model</TooltipContent>
+        <TooltipContent>{t("model.switchModel")}</TooltipContent>
       </Tooltip>
 
       <DropdownMenuContent align="start" sideOffset={6}>
@@ -122,7 +124,7 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
               // TODO: Navigate to model configuration page
             }}
           >
-            <span>Configure Models</span>
+            <span>{t("model.configureModels")}</span>
             <ArrowRightIcon className="size-4" />
           </DropdownMenuItem>
         </DropdownMenuGroup>

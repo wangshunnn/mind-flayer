@@ -35,4 +35,5 @@ base64 = "0.22"
 sha2 = "0.10"
 dirs = "5.0"
 whoami = "1.5"
+tauri-plugin-os = "2"
 

@@ -1,0 +1,46 @@
+{
+  "usedTools": "使用了 {{count}} 个工具",
+  "results": "{{count}} 条结果",
+  "names": {
+    "webSearch": "联网搜索"
+  },
+  "states": {
+    "working": "工作中...",
+    "done": "完成",
+    "failed": "失败",
+    "cancelled": "已取消",
+    "awaitingApproval": "等待批准..."
+  },
+  "webSearch": {
+    "searching": "正在搜索 \"{{objective}}\"",
+    "searchedResults": "搜索到 {{count}} 条结果",
+    "approvalText": "AI 想要搜索网络：\"{{objective}}\""
+  },
+  "buttons": {
+    "search": {
+      "label": "联网搜索",
+      "tooltip": "联网搜索",
+      "modes": {
+        "auto": {
+          "label": "自动",
+          "badge": "推荐",
+          "description": "仅在需要时搜索"
+        },
+        "always": {
+          "label": "始终",
+          "description": "每次查询都会尽量先使用搜索"
+        }
+      }
+    },
+    "deepThink": {
+      "label": "深度思考",
+      "tooltip": "深度思考"
+    }
+  },
+  "errors": {
+    "toolCallError": "发生错误",
+    "toolExecutionDenied": "用户拒绝执行工具",
+    "invalidToolName": "无效的工具名称：{{name}}",
+    "invalidSegmentType": "无效的片段类型：{{type}}"
+  }
+}

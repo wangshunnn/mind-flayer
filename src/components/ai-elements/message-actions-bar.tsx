@@ -11,6 +11,7 @@ import type { ComponentProps } from "react"
 import { useCallback, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useActionConstants } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
 // Copy button with feedback
@@ -21,12 +22,13 @@ export type CopyButtonProps = ComponentProps<typeof Button> & {
 
 export const CopyButton = ({
   text,
-  tooltip = "Copy",
+  tooltip,
   size = "icon-sm",
   variant = "ghost",
   className,
   ...props
 }: CopyButtonProps) => {
+  const { copy, copied: copiedText, copiedSuccess } = useActionConstants()
   const [copied, setCopied] = useState(false)
 
   const handleCopy = useCallback(async () => {
@@ -38,6 +40,8 @@ export const CopyButton = ({
       console.error("Failed to copy text:", err)
     }
   }, [text])
+
+  const displayTooltip = tooltip ?? copy
 
   return (
     <TooltipProvider>
@@ -56,11 +60,11 @@ export const CopyButton = ({
             ) : (
               <CopyIcon className="size-3.5" />
             )}
-            <span className="sr-only">{copied ? "Copied" : tooltip}</span>
+            <span className="sr-only">{copied ? copiedText : displayTooltip}</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>{copied ? "Copied!" : tooltip}</p>
+          <p>{copied ? copiedSuccess : displayTooltip}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -78,37 +82,41 @@ export const UserMessageActionsBar = ({
   onEdit,
   className,
   ...props
-}: UserMessageActionsBarProps) => (
-  <div
-    className={cn(
-      "flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100",
-      "justify-end",
-      className
-    )}
-    {...props}
-  >
-    <CopyButton text={messageText} tooltip="Copy" />
-    <TooltipProvider>
-      <Tooltip disableHoverableContent={true}>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon-xs"
-            type="button"
-            variant="ghost"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={onEdit}
-          >
-            <PencilIcon className="size-3.5" />
-            <span className="sr-only">Edit</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Edit</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  </div>
-)
+}: UserMessageActionsBarProps) => {
+  const { edit } = useActionConstants()
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100",
+        "justify-end",
+        className
+      )}
+      {...props}
+    >
+      <CopyButton text={messageText} />
+      <TooltipProvider>
+        <Tooltip disableHoverableContent={true}>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon-xs"
+              type="button"
+              variant="ghost"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={onEdit}
+            >
+              <PencilIcon className="size-3.5" />
+              <span className="sr-only">{edit}</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{edit}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  )
+}
 
 // Assistant message actions bar (always visible)
 export type AssistantMessageActionsBarProps = ComponentProps<"div"> & {
@@ -135,67 +143,12 @@ export const AssistantMessageActionsBar = ({
   tokenInfo,
   className,
   ...props
-}: AssistantMessageActionsBarProps) => (
-  <div className={cn("flex items-center gap-0.5 text-muted-foreground", className)} {...props}>
-    <CopyButton text={messageText} tooltip="Copy" />
-    <TooltipProvider>
-      <Tooltip disableHoverableContent={true}>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon-xs"
-            type="button"
-            variant="ghost"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={onLike}
-          >
-            <ThumbsUpIcon className="size-3.5" />
-            <span className="sr-only">Like</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Like</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-    <TooltipProvider>
-      <Tooltip disableHoverableContent={true}>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon-xs"
-            type="button"
-            variant="ghost"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={onDislike}
-          >
-            <ThumbsDownIcon className="size-3.5" />
-            <span className="sr-only">Dislike</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Dislike</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-    <TooltipProvider>
-      <Tooltip disableHoverableContent={true}>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon-xs"
-            type="button"
-            variant="ghost"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={onShare}
-          >
-            <ShareIcon className="size-3.5" />
-            <span className="sr-only">Share</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Share</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-    {showRefresh && (
+}: AssistantMessageActionsBarProps) => {
+  const { like, dislike, share, regenerate } = useActionConstants()
+
+  return (
+    <div className={cn("flex items-center gap-0.5 text-muted-foreground", className)} {...props}>
+      <CopyButton text={messageText} />
       <TooltipProvider>
         <Tooltip disableHoverableContent={true}>
           <TooltipTrigger asChild>
@@ -204,22 +157,81 @@ export const AssistantMessageActionsBar = ({
               type="button"
               variant="ghost"
               className="text-muted-foreground hover:text-foreground"
-              onClick={onRefresh}
+              onClick={onLike}
             >
-              <RefreshCwIcon className="size-3.5" />
-              <span className="sr-only">Regenerate</span>
+              <ThumbsUpIcon className="size-3.5" />
+              <span className="sr-only">{like}</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Regenerate</p>
+            <p>{like}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
-    )}
-    {tokenInfo && (
-      <span className="ml-2 text-xs text-muted-foreground/70">
-        {tokenInfo.inputTokens}/{tokenInfo.outputTokens} tokens
-      </span>
-    )}
-  </div>
-)
+      <TooltipProvider>
+        <Tooltip disableHoverableContent={true}>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon-xs"
+              type="button"
+              variant="ghost"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={onDislike}
+            >
+              <ThumbsDownIcon className="size-3.5" />
+              <span className="sr-only">{dislike}</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{dislike}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <TooltipProvider>
+        <Tooltip disableHoverableContent={true}>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon-xs"
+              type="button"
+              variant="ghost"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={onShare}
+            >
+              <ShareIcon className="size-3.5" />
+              <span className="sr-only">{share}</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{share}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      {showRefresh && (
+        <TooltipProvider>
+          <Tooltip disableHoverableContent={true}>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon-xs"
+                type="button"
+                variant="ghost"
+                className="text-muted-foreground hover:text-foreground"
+                onClick={onRefresh}
+              >
+                <RefreshCwIcon className="size-3.5" />
+                <span className="sr-only">{regenerate}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{regenerate}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+      {tokenInfo && (
+        <span className="ml-2 text-xs text-muted-foreground/70">
+          {tokenInfo.inputTokens}/{tokenInfo.outputTokens} tokens
+        </span>
+      )}
+    </div>
+  )
+}

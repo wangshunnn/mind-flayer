@@ -1,0 +1,50 @@
+{
+  "sections": {
+    "providers": "提供商",
+    "web-search": "联网搜索",
+    "general": "通用",
+    "advanced": "高级",
+    "about": "关于",
+    "back": "返回"
+  },
+  "providers": {
+    "title": "提供商配置",
+    "description": "配置不同 AI 提供商的 API 密钥。密钥将安全存储在系统密钥链中。",
+    "enable": "启用",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "输入您的 {{provider}} API 密钥",
+    "baseUrl": "Base URL",
+    "baseUrlOptional": "可选",
+    "baseUrlPlaceholder": "默认：{{defaultUrl}}",
+    "clear": "清除",
+    "save": "保存",
+    "saving": "保存中…",
+    "saved": "已保存 ✓",
+    "configureDescription": "配置 {{provider}} 的 API 凭证和端点设置"
+  },
+  "webSearch": {
+    "title": "网络搜索配置",
+    "description": "配置网络搜索工具的提供商与访问凭证。密钥将安全存储在系统密钥链中。"
+  },
+  "general": {
+    "title": "通用设置",
+    "description": "配置应用的基本设置和偏好。",
+    "language": "语言",
+    "languageDescription": "选择您偏好的语言",
+    "languageSystem": "跟随系统",
+    "theme": "主题",
+    "themeDescription": "选择您偏好的主题外观",
+    "themeLight": "浅色模式",
+    "themeDark": "深色模式",
+    "themeSystem": "跟随系统"
+  },
+  "advanced": {
+    "title": "高级设置",
+    "description": "配置高级功能和开发者选项。"
+  },
+  "about": {
+    "title": "关于",
+    "description": "应用信息和版本详情。"
+  },
+  "comingSoon": "即将推出..."
+}

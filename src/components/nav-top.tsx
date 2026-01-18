@@ -1,5 +1,6 @@
 import { CircleIcon, MessageSquarePlus, Monitor, MoonStar, Sun } from "lucide-react"
 import type * as React from "react"
+import { useTranslation } from "react-i18next"
 import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
 import {
@@ -13,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils"
 
 function NewChatTrigger({ className, ...props }: React.ComponentProps<typeof Button>) {
+  const { t } = useTranslation("common")
   return (
     <Tooltip disableHoverableContent={true}>
       <TooltipTrigger asChild>
@@ -26,42 +28,16 @@ function NewChatTrigger({ className, ...props }: React.ComponentProps<typeof But
           {...props}
         >
           <MessageSquarePlus className="cursor-pointer size-4.5" />
-          <span className="sr-only">New Chat</span>
+          <span className="sr-only">{t("nav.newChat")}</span>
         </Button>
       </TooltipTrigger>
-      <TooltipContent>New Chat</TooltipContent>
-    </Tooltip>
-  )
-}
-
-function DarkModeToggle({ className, ...props }: React.ComponentProps<typeof Button>) {
-  const { resolvedTheme, setTheme } = useTheme()
-
-  return (
-    <Tooltip disableHoverableContent={true}>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "size-8 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-            className
-          )}
-          onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-          {...props}
-        >
-          <Sun className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-          <MoonStar className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
-          <span className="sr-only">Toggle theme</span>
-          <span className="sr-only">Toggle Dark Mode</span>
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Toggle Dark Mode</TooltipContent>
+      <TooltipContent>{t("nav.newChat")}</TooltipContent>
     </Tooltip>
   )
 }
 
 function SiderbarDarkModeToggle({ className, ...props }: React.ComponentProps<typeof Button>) {
+  const { t } = useTranslation("common")
   const { theme, setTheme } = useTheme()
 
   return (
@@ -97,14 +73,14 @@ function SiderbarDarkModeToggle({ className, ...props }: React.ComponentProps<ty
                   "data-[theme=system]:scale-100 data-[theme=system]:rotate-0"
                 )}
               />
-              <span className="sr-only">Toggle theme</span>
-              <span className="sr-only">Toggle Dark Mode</span>
+              <span className="sr-only">{t("nav.toggleTheme")}</span>
+              <span className="sr-only">{t("nav.toggleDarkMode")}</span>
             </SidebarMenuAction>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="end" sideOffset={8} className="rounded-lg">
             <DropdownMenuItem onClick={() => setTheme("light")}>
               <Sun className="text-muted-foreground" />
-              <span>Light</span>
+              <span>{t("theme.light")}</span>
               <CircleIcon
                 data-theme={theme}
                 className="ml-auto size-2 fill-current hidden data-[theme=light]:block text-brand-green"
@@ -112,7 +88,7 @@ function SiderbarDarkModeToggle({ className, ...props }: React.ComponentProps<ty
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setTheme("dark")}>
               <MoonStar className="text-muted-foreground" />
-              <span>Dark</span>
+              <span>{t("theme.dark")}</span>
               <CircleIcon
                 data-theme={theme}
                 className="ml-auto size-2 fill-current hidden data-[theme=dark]:block text-brand-green"
@@ -120,7 +96,7 @@ function SiderbarDarkModeToggle({ className, ...props }: React.ComponentProps<ty
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setTheme("system")}>
               <Monitor className="text-muted-foreground" />
-              <span>Device</span>
+              <span>{t("theme.system")}</span>
               <CircleIcon
                 data-theme={theme}
                 className="ml-auto size-2 fill-current hidden data-[theme=system]:block text-brand-green"
@@ -129,9 +105,9 @@ function SiderbarDarkModeToggle({ className, ...props }: React.ComponentProps<ty
           </DropdownMenuContent>
         </DropdownMenu>
       </TooltipTrigger>
-      <TooltipContent>Toggle Dark Mode</TooltipContent>
+      <TooltipContent>{t("nav.toggleDarkMode")}</TooltipContent>
     </Tooltip>
   )
 }
 
-export { DarkModeToggle, NewChatTrigger, SiderbarDarkModeToggle }
+export { NewChatTrigger, SiderbarDarkModeToggle }

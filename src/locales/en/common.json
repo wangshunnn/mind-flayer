@@ -1,0 +1,41 @@
+{
+  "nav": {
+    "newChat": "New Chat",
+    "recentChats": "Recent Chats",
+    "noChatsYet": "No chats yet. Start a new chat!",
+    "more": "More",
+    "myAccount": "My Account",
+    "settings": "Settings",
+    "toggleTheme": "Toggle theme",
+    "toggleDarkMode": "Toggle Dark Mode"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "Device"
+  },
+  "menu": {
+    "viewProject": "View Project",
+    "shareProject": "Share Project",
+    "deleteChat": "Delete Chat"
+  },
+  "toast": {
+    "chatDeleted": "Chat deleted",
+    "failedToDeleteChat": "Failed to delete chat",
+    "error": "Error",
+    "filesAttached": "Files attached",
+    "filesAttachedDescription": "{{count}} file(s) attached to message"
+  },
+  "sidebar": {
+    "search": "Search",
+    "searchChat": "Search Chat",
+    "comingSoon": "This feature is coming soon. Stay tuned!",
+    "showSidebar": "Show Sidebar",
+    "hideSidebar": "Hide Sidebar",
+    "toggleSidebar": "Toggle Sidebar"
+  },
+  "footer": {
+    "disclaimer": "AI-generated content, for reference only. Star at",
+    "github": "Github"
+  }
+}

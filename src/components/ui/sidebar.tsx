@@ -2,6 +2,7 @@ import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import { PanelLeftIcon } from "lucide-react"
 import * as React from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
@@ -249,9 +250,12 @@ function Sidebar({
 }
 
 function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<typeof Button>) {
+  const { t } = useTranslation("common")
   const { toggleSidebar, open, isCompact, openCompact } = useSidebar()
   const tooltip =
-    (isCompact && openCompact) || (!isCompact && open) ? "Hide Sidebar" : "Show Sidebar"
+    (isCompact && openCompact) || (!isCompact && open)
+      ? t("sidebar.hideSidebar")
+      : t("sidebar.showSidebar")
 
   return (
     <Tooltip disableHoverableContent={true}>
@@ -272,7 +276,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
           {...props}
         >
           <PanelLeftIcon className="size-4.5" />
-          <span className="sr-only">Toggle Sidebar</span>
+          <span className="sr-only">{t("sidebar.toggleSidebar")}</span>
         </Button>
       </TooltipTrigger>
       <TooltipContent>

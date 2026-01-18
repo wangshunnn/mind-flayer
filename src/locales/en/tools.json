@@ -1,0 +1,48 @@
+{
+  "usedTools_one": "Used {{count}} tool",
+  "usedTools_other": "Used {{count}} tools",
+  "results_one": "{{count}} result",
+  "results_other": "{{count}} results",
+  "names": {
+    "webSearch": "Web search"
+  },
+  "states": {
+    "working": "Working...",
+    "done": "Done",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "awaitingApproval": "Awaiting approval..."
+  },
+  "webSearch": {
+    "searching": "Searching \"{{objective}}\"",
+    "searchedResults": "Searched {{count}} results",
+    "approvalText": "The AI wants to search the web for: \"{{objective}}\""
+  },
+  "buttons": {
+    "search": {
+      "label": "Web Search",
+      "tooltip": "Web search",
+      "modes": {
+        "auto": {
+          "label": "Auto",
+          "badge": "Recommended",
+          "description": "Search only when needed"
+        },
+        "always": {
+          "label": "Always",
+          "description": "Search for every query"
+        }
+      }
+    },
+    "deepThink": {
+      "label": "DeepThink",
+      "tooltip": "Deep thinking"
+    }
+  },
+  "errors": {
+    "toolCallError": "An error occurred",
+    "toolExecutionDenied": "Tool execution was denied by user",
+    "invalidToolName": "Invalid tool name: {{name}}",
+    "invalidSegmentType": "Invalid segment type: {{type}}"
+  }
+}

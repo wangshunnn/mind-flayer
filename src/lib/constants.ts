@@ -1,136 +1,149 @@
+import { useTranslation } from "react-i18next"
+
 /**
- * Centralized text constants for UI components
- * Structured for future i18n/multi-language support
+ * Hooks for accessing translated text constants
+ * Replaces static constants with i18n-powered hooks
  */
 
-// Tool-related constants
-export const TOOL_CONSTANTS = {
-  // Tool display names (API name -> Display name mapping)
-  names: {
-    webSearch: "Web search"
-  } as const,
+// Tool-related constants hook
+export function useToolConstants() {
+  const { t } = useTranslation("tools")
 
-  // Tool state messages
-  states: {
-    working: "Working...",
-    done: "Done",
-    failed: "Failed",
-    cancelled: "Cancelled",
-    awaitingApproval: "Awaiting approval..."
-  } as const,
-
-  // Tool-specific messages
-  webSearch: {
-    searching: (objective: string) => `Searching "${objective}"`,
-    searchedResults: (count: number) => `Searched ${count} results`,
-    approvalText: (objective: string) => `The AI wants to search the web for: "${objective}"`
-  },
-
-  tool: "tool",
-  tools: "tools"
-} as const
-
-// Thinking process constants
-export const THINKING_CONSTANTS = {
-  thinking: "Thinking...",
-  thoughtForSeconds: (duration: number) => `Thought for ${duration}s`,
-  thoughtForFewSeconds: "Thought for a few seconds",
-  for: "for",
-  includingTools: "including tools",
-  done: "Done",
-  toolWorking: "Working...",
-  toolDone: "Done"
-} as const
-
-// Message-related constants
-export const MESSAGE_CONSTANTS = {
-  abortedMessage: "Generation paused."
-} as const
-
-// UI action constants
-export const ACTION_CONSTANTS = {
-  approve: "Approve",
-  deny: "Deny",
-  submit: "Submit",
-  copy: "Copy",
-  copied: "Copied",
-  copiedSuccess: "Copied!",
-  edit: "Edit",
-  like: "Like",
-  dislike: "Dislike",
-  share: "Share",
-  regenerate: "Regenerate"
-} as const
-
-// Tooltip constants
-export const TOOLTIP_CONSTANTS = {
-  submit: "Submit",
-  stop: "Stop",
-  webSearch: "Web search",
-  deepThinking: "Deep thinking",
-  selectModel: "Select Model"
-} as const
-
-// Tool button configuration
-export const TOOL_BUTTON_CONSTANTS = {
-  webSearch: {
-    label: "Search",
-    tooltip: "Web search",
-    modes: {
-      auto: {
-        value: "auto" as const,
-        label: "Auto",
-        badge: "Recommended",
-        description: "Search only when needed"
-      },
-      always: {
-        value: "always" as const,
-        label: "Always",
-        description: "Search for every query"
-      }
+  return {
+    names: {
+      webSearch: t("names.webSearch")
+    },
+    states: {
+      working: t("states.working"),
+      done: t("states.done"),
+      failed: t("states.failed"),
+      cancelled: t("states.cancelled"),
+      awaitingApproval: t("states.awaitingApproval")
+    },
+    webSearch: {
+      searching: (objective: string) => t("webSearch.searching", { objective }),
+      searchedResults: (count: number) => t("webSearch.searchedResults", { count }),
+      approvalText: (objective: string) => t("webSearch.approvalText", { objective })
     }
-  },
-  deepThink: {
-    label: "DeepThink",
-    tooltip: "Deep thinking"
   }
-} as const
+}
 
-// Toast messages
-export const TOAST_CONSTANTS = {
-  error: "Error",
-  filesAttached: "Files attached",
-  filesAttachedDescription: (count: number) => `${count} file(s) attached to message`
-} as const
+// Thinking process constants hook
+export function useThinkingConstants() {
+  const { t } = useTranslation(["chat", "tools"])
 
-// Error messages
-export const ERROR_CONSTANTS = {
-  toolCallError: "An error occurred",
-  toolExecutionDenied: "Tool execution was denied by user",
-  invalidToolName: (name: string) => `Invalid tool name: ${name}`,
-  invalidSegmentType: (type: string) => `Invalid segment type: ${type}`
-} as const
-
-// Footer/Copyright constants
-export const FOOTER_CONSTANTS = {
-  disclaimer: "AI-generated content, for reference only. Star at",
-  github: "Github",
-  githubUrl: "https://github.com/wangshunnn/mind-flayer"
-} as const
-
-// Utility functions for text formatting
-export const TEXT_UTILS = {
-  /**
-   * Get display name for a tool based on its API identifier
-   */
-  getToolDisplayName: (apiName: string): string => {
-    return TOOL_CONSTANTS.names[apiName as keyof typeof TOOL_CONSTANTS.names] || apiName
-  },
-
-  /**
-   * Format duration in seconds
-   */
-  formatDuration: (seconds: number): string => {
-    return `${seconds}s`
+  return {
+    thinking: t("message.thinking"),
+    thoughtForSeconds: (duration: number) => t("message.thoughtForSeconds", { duration }),
+    thoughtForFewSeconds: t("message.thoughtForFewSeconds"),
+    for: t("message.for"),
+    includingTools: t("message.includingTools"),
+    done: t("message.done"),
+    toolWorking: t("tools:states.working"),
+    toolDone: t("tools:states.done")
   }
-} as const
+}
+
+// Message-related constants hook
+export function useMessageConstants() {
+  const { t } = useTranslation("chat")
+
+  return {
+    abortedMessage: t("message.aborted")
+  }
+}
+
+// UI action constants hook
+export function useActionConstants() {
+  const { t } = useTranslation("actions")
+
+  return {
+    approve: t("approve"),
+    deny: t("deny"),
+    submit: t("submit"),
+    copy: t("copy"),
+    copied: t("copied"),
+    copiedSuccess: t("copiedSuccess"),
+    edit: t("edit"),
+    like: t("like"),
+    dislike: t("dislike"),
+    share: t("share"),
+    regenerate: t("regenerate")
+  }
+}
+
+// Tooltip constants hook
+export function useTooltipConstants() {
+  const { t } = useTranslation(["actions", "tools", "chat"])
+
+  return {
+    submit: t("actions:submit"),
+    stop: t("actions:stop"),
+    webSearch: t("tools:buttons.search.tooltip"),
+    deepThinking: t("tools:buttons.deepThink.tooltip"),
+    selectModel: t("chat:model.selectModel")
+  }
+}
+
+// Tool button configuration hook
+export function useToolButtonConstants() {
+  const { t } = useTranslation("tools")
+
+  return {
+    webSearch: {
+      label: t("buttons.search.label"),
+      tooltip: t("buttons.search.tooltip"),
+      modes: {
+        auto: {
+          value: "auto" as const,
+          label: t("buttons.search.modes.auto.label"),
+          badge: t("buttons.search.modes.auto.badge"),
+          description: t("buttons.search.modes.auto.description")
+        },
+        always: {
+          value: "always" as const,
+          label: t("buttons.search.modes.always.label"),
+          description: t("buttons.search.modes.always.description")
+        }
+      }
+    },
+    deepThink: {
+      label: t("buttons.deepThink.label"),
+      tooltip: t("buttons.deepThink.tooltip")
+    }
+  }
+}
+
+// Toast messages hook
+export function useToastConstants() {
+  const { t } = useTranslation("common")
+
+  return {
+    error: t("toast.error"),
+    filesAttached: t("toast.filesAttached"),
+    filesAttachedDescription: (count: number) => t("toast.filesAttachedDescription", { count })
+  }
+}
+
+// Error messages hook
+export function useErrorConstants() {
+  const { t } = useTranslation("tools")
+
+  return {
+    toolCallError: t("errors.toolCallError"),
+    toolExecutionDenied: t("errors.toolExecutionDenied"),
+    invalidToolName: (name: string) => t("errors.invalidToolName", { name }),
+    invalidSegmentType: (type: string) => t("errors.invalidSegmentType", { type })
+  }
+}
+
+// Footer/Copyright constants hook
+export function useFooterConstants() {
+  const { t } = useTranslation("common")
+
+  return {
+    disclaimer: t("footer.disclaimer"),
+    github: t("footer.github"),
+    githubUrl: "https://github.com/wangshunnn/mind-flayer"
+  }
+}

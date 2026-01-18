@@ -1,0 +1,50 @@
+{
+  "sections": {
+    "providers": "Providers",
+    "web-search": "Web Search",
+    "general": "General",
+    "advanced": "Advanced",
+    "about": "About",
+    "back": "Back"
+  },
+  "providers": {
+    "title": "Provider Configuration",
+    "description": "Configure API keys for different AI providers. Keys are securely stored in the system keychain.",
+    "enable": "Enable",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "Enter your {{provider}} API key",
+    "baseUrl": "Base URL",
+    "baseUrlOptional": "Optional",
+    "baseUrlPlaceholder": "Default: {{defaultUrl}}",
+    "clear": "Clear",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved ✓",
+    "configureDescription": "Configure {{provider}} API credentials and endpoint settings"
+  },
+  "webSearch": {
+    "title": "Web Search Configuration",
+    "description": "Configure web search tool providers and access credentials. Keys are securely stored in the system keychain."
+  },
+  "general": {
+    "title": "General Settings",
+    "description": "Configure basic app settings and preferences.",
+    "language": "Language",
+    "languageDescription": "Select your preferred language",
+    "languageSystem": "System",
+    "theme": "Theme",
+    "themeDescription": "Select your preferred theme appearance",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System"
+  },
+  "advanced": {
+    "title": "Advanced Settings",
+    "description": "Configure advanced features and developer options."
+  },
+  "about": {
+    "title": "About",
+    "description": "Application information and version details."
+  },
+  "comingSoon": "Coming soon..."
+}

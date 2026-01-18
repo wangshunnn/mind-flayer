@@ -1,5 +1,6 @@
 import { DialogClose } from "@radix-ui/react-dialog"
 import { Search } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,8 @@ import { SidebarGroup, SidebarGroupContent, SidebarMenuButton } from "@/componen
 import { cn } from "@/lib/utils"
 
 export function SearchChat() {
+  const { t } = useTranslation("common")
+
   return (
     <Dialog>
       <SidebarGroup>
@@ -21,7 +24,7 @@ export function SearchChat() {
           <DialogTrigger asChild className="flex-1">
             <div>
               <Label htmlFor="search" className="sr-only">
-                Search
+                {t("sidebar.search")}
               </Label>
               <SidebarMenuButton
                 className={cn(
@@ -31,7 +34,7 @@ export function SearchChat() {
                 )}
               >
                 <Search />
-                <span>Search</span>
+                <span>{t("sidebar.search")}</span>
               </SidebarMenuButton>
             </div>
           </DialogTrigger>
@@ -40,8 +43,8 @@ export function SearchChat() {
 
       <DialogContent className="sm:max-w-106.25">
         <DialogHeader>
-          <DialogTitle>Search Chat</DialogTitle>
-          <DialogDescription>This feature is coming soon. Stay tuned!</DialogDescription>
+          <DialogTitle>{t("sidebar.searchChat")}</DialogTitle>
+          <DialogDescription>{t("sidebar.comingSoon")}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose />

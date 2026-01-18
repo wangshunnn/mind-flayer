@@ -13,10 +13,11 @@ import {
 } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useContext, useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Streamdown } from "streamdown"
 import { Shimmer } from "@/components/ai-elements/shimmer"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { TEXT_UTILS, THINKING_CONSTANTS } from "@/lib/constants"
+import { useThinkingConstants, useToolConstants } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
 type ThinkingProcessContextValue = {
@@ -128,23 +129,26 @@ export type ThinkingProcessTriggerProps = ComponentProps<typeof CollapsibleTrigg
   getThinkingMessage?: (isStreaming: boolean, totalDuration?: number) => ReactNode
 }
 
-const defaultGetThinkingMessage = (isStreaming: boolean, totalDuration?: number) => {
+const DefaultThinkingMessage = ({
+  isStreaming,
+  totalDuration
+}: {
+  isStreaming: boolean
+  totalDuration?: number
+}) => {
+  const { thinking, thoughtForSeconds, thoughtForFewSeconds } = useThinkingConstants()
+
   if (isStreaming || totalDuration === 0) {
-    return <Shimmer duration={1}>{THINKING_CONSTANTS.thinking}</Shimmer>
+    return <Shimmer duration={1}>{thinking}</Shimmer>
   }
   if (totalDuration === undefined) {
-    return <p>{THINKING_CONSTANTS.thoughtForFewSeconds}</p>
+    return <p>{thoughtForFewSeconds}</p>
   }
-  return <p>{THINKING_CONSTANTS.thoughtForSeconds(totalDuration)}</p>
+  return <p>{thoughtForSeconds(totalDuration)}</p>
 }
 
 export const ThinkingProcessTrigger = memo(
-  ({
-    className,
-    children,
-    getThinkingMessage = defaultGetThinkingMessage,
-    ...props
-  }: ThinkingProcessTriggerProps) => {
+  ({ className, children, getThinkingMessage, ...props }: ThinkingProcessTriggerProps) => {
     const { isStreaming, isOpen, totalDuration } = useThinkingProcess()
 
     return (
@@ -155,18 +159,30 @@ export const ThinkingProcessTrigger = memo(
         )}
         {...props}
       >
-        {children ?? (
-          <>
-            <BrainIcon className="size-4" />
-            {getThinkingMessage(isStreaming, totalDuration)}
-            <ChevronRightIcon
-              className={cn(
-                "size-3.5 transition-transform opacity-50",
-                isOpen ? "rotate-90" : "rotate-0"
-              )}
-            />
-          </>
-        )}
+        {children ??
+          (getThinkingMessage ? (
+            <>
+              <BrainIcon className="size-4" />
+              {getThinkingMessage(isStreaming, totalDuration)}
+              <ChevronRightIcon
+                className={cn(
+                  "size-3.5 transition-transform opacity-50",
+                  isOpen ? "rotate-90" : "rotate-0"
+                )}
+              />
+            </>
+          ) : (
+            <>
+              <BrainIcon className="size-4" />
+              <DefaultThinkingMessage isStreaming={isStreaming} totalDuration={totalDuration} />
+              <ChevronRightIcon
+                className={cn(
+                  "size-3.5 transition-transform opacity-50",
+                  isOpen ? "rotate-90" : "rotate-0"
+                )}
+              />
+            </>
+          ))}
       </CollapsibleTrigger>
     )
   }
@@ -213,6 +229,8 @@ export const ReasoningSegment = memo(
     children,
     ...props
   }: ReasoningSegmentProps) => {
+    const { toolWorking, toolDone } = useThinkingConstants()
+
     // Determine if tool is in progress
     const isToolInProgress = Boolean(
       toolState &&
@@ -241,13 +259,13 @@ export const ReasoningSegment = memo(
               {isToolInProgress ? (
                 <div className="flex items-center gap-1.5">
                   <Loader2Icon className="size-3 animate-spin" />
-                  <span>{toolResult || THINKING_CONSTANTS.toolWorking}</span>
+                  <span>{toolResult || toolWorking}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5">
                   {toolState === "output-available" && <CheckIcon className="size-3" />}
                   {toolState === "output-error" && <CircleXIcon className="size-3" />}
-                  <span>{toolResult || THINKING_CONSTANTS.toolDone}</span>
+                  <span>{toolResult || toolDone}</span>
                 </div>
               )}
             </div>
@@ -275,6 +293,9 @@ export const ReasoningSegmentHeader = memo(
     isToolInProgress = false,
     ...props
   }: ReasoningSegmentHeaderProps) => {
+    const { names } = useToolConstants()
+    const { t } = useTranslation("chat")
+
     const getIcon = () => {
       if (segmentType === "tool-webSearch") {
         return <GlobeIcon className="ml-px size-3" />
@@ -287,14 +308,12 @@ export const ReasoningSegmentHeader = memo(
 
     const getLabel = () => {
       if (segmentType === "tool-webSearch") {
-        return toolName
-          ? TEXT_UTILS.getToolDisplayName(toolName)
-          : TEXT_UTILS.getToolDisplayName("webSearch")
+        return names.webSearch
       }
       if (segmentType === "tool-other") {
-        return toolName || "Tool"
+        return toolName || t("message.usingTool")
       }
-      return "Reasoning"
+      return t("message.reasoning")
     }
 
     return (
@@ -336,17 +355,21 @@ export type ThinkingProcessCompletionProps = ComponentProps<"div"> & {
 }
 
 export const ThinkingProcessCompletion = memo(
-  ({ className, stepCount, ...props }: ThinkingProcessCompletionProps) => (
-    <div className={cn("relative my-0", className)} {...props}>
-      <div className={cn("flex items-center gap-2 text-xs text-muted-foreground", "relative my-2")}>
-        <CheckCircle2 className="ml-px size-3" />
-        <span>
-          {THINKING_CONSTANTS.done}
-          {stepCount && ` in ${stepCount} ${stepCount > 1 ? "steps" : "step"}`}
-        </span>
+  ({ className, stepCount, ...props }: ThinkingProcessCompletionProps) => {
+    const { done } = useThinkingConstants()
+    const { t } = useTranslation("chat")
+
+    return (
+      <div className={cn("relative my-0", className)} {...props}>
+        <div
+          className={cn("flex items-center gap-2 text-xs text-muted-foreground", "relative my-2")}
+        >
+          <CheckCircle2 className="ml-px size-3" />
+          <span>{stepCount ? t("message.doneInSteps", { count: stepCount }) : done}</span>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 )
 
 ThinkingProcess.displayName = "ThinkingProcess"

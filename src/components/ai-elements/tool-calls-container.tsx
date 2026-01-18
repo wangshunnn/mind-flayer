@@ -3,6 +3,7 @@ import type { ChatAddToolApproveResponseFunction, ToolUIPart } from "ai"
 import { ChevronRightIcon, WrenchIcon } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useContext } from "react"
+import { useTranslation } from "react-i18next"
 import {
   ToolCall,
   ToolCallApprovalRequested,
@@ -14,7 +15,7 @@ import {
   ToolCallWebSearchResults
 } from "@/components/ai-elements/tool-call"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { TOOL_CONSTANTS } from "@/lib/constants"
+import { useToolConstants } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
 type ToolCallsContainerContextValue = {
@@ -85,8 +86,8 @@ export type ToolCallsContainerTriggerProps = ComponentProps<typeof CollapsibleTr
 }
 
 const defaultGetToolsMessage = (toolCount: number) => {
-  const toolsText = `${toolCount} ${toolCount > 1 ? TOOL_CONSTANTS.tools : TOOL_CONSTANTS.tool}`
-  return <span>Used {toolsText}</span>
+  const { t } = useTranslation("tools")
+  return <span>{t("usedTools", { count: toolCount })}</span>
 }
 
 export const ToolCallsContainerTrigger = memo(
@@ -159,6 +160,7 @@ const ToolCallWebSearch = ({
   part: ToolUIPart
   onToolApprovalResponse: ToolCallsListProps["onToolApprovalResponse"]
 }) => {
+  const toolConstants = useToolConstants()
   const callId = part.toolCallId
   const input = part.input as {
     objective: string
@@ -191,7 +193,7 @@ const ToolCallWebSearch = ({
       <ToolCallContent>
         {(part.state === "input-streaming" || part.state === "input-available") && (
           <ToolCallInputStreaming
-            message={TOOL_CONSTANTS.webSearch.searching(input?.objective || "...")}
+            message={toolConstants.webSearch.searching(input?.objective || "...")}
           />
         )}
         {part.state === "approval-requested" && approvalId && (

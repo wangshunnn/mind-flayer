@@ -1,4 +1,5 @@
 import { Folder, MoreVertical, Share, Trash2 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,15 +28,16 @@ export function NavChats({
   onChatClick: (chatId: ChatId) => void
   onDeleteChat: (chatId: ChatId) => void
 }) {
+  const { t } = useTranslation("common")
   console.log("[NavChats] Rendering with chats:", chats)
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Recent Chats</SidebarGroupLabel>
+      <SidebarGroupLabel>{t("nav.recentChats")}</SidebarGroupLabel>
       <SidebarMenu>
         {chats.length === 0 && (
           <div className="px-2 py-4 text-xs text-muted-foreground/50 text-center">
-            No chats yet. Start a new chat!
+            {t("nav.noChatsYet")}
           </div>
         )}
         {chats.map(chat => (
@@ -50,17 +52,17 @@ export function NavChats({
               <DropdownMenuTrigger asChild>
                 <SidebarMenuAction showOnHover>
                   <MoreVertical />
-                  <span className="sr-only">More</span>
+                  <span className="sr-only">{t("nav.more")}</span>
                 </SidebarMenuAction>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-44" side="bottom" align="start">
                 <DropdownMenuItem disabled>
                   <Folder className="text-muted-foreground" />
-                  <span>View Project</span>
+                  <span>{t("menu.viewProject")}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem disabled>
                   <Share className="text-muted-foreground" />
-                  <span>Share Project</span>
+                  <span>{t("menu.shareProject")}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -70,7 +72,7 @@ export function NavChats({
                   }}
                 >
                   <Trash2 className="text-muted-foreground" />
-                  <span>Delete Chat</span>
+                  <span>{t("menu.deleteChat")}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

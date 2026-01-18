@@ -1,0 +1,36 @@
+{
+  "message": {
+    "aborted": "Generation paused.",
+    "thinking": "Thinking...",
+    "thoughtForSeconds": "Thought for {{duration}}s",
+    "thoughtForFewSeconds": "Thought for a few seconds",
+    "for": "for",
+    "includingTools": "including tools",
+    "done": "Done",
+    "doneInSteps_one": "Done in {{count}} step",
+    "doneInSteps_other": "Done in {{count}} steps",
+    "reasoning": "Reasoning",
+    "usingTool": "Using Tool"
+  },
+  "input": {
+    "placeholder": "Type your message...",
+    "addPhotosOrFiles": "Add photos or files",
+    "image": "Image",
+    "attachment": "Attachment",
+    "removeAttachment": "Remove attachment",
+    "uploadFiles": "Upload files"
+  },
+  "tokens": {
+    "input": "{{count}} input",
+    "output": "{{count}} output",
+    "tokens": "tokens"
+  },
+  "sources": {
+    "used": "Used {{count}} sources"
+  },
+  "model": {
+    "selectModel": "Select Model",
+    "switchModel": "Switch Model",
+    "configureModels": "Configure Models"
+  }
+}

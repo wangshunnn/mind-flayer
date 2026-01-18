@@ -15,6 +15,8 @@ import {
   Sparkles
 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -23,8 +25,16 @@ import {
   InputGroupButton,
   InputGroupInput
 } from "@/components/ui/input-group"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
+import { useLanguage } from "@/hooks/use-language"
 import { useProviderConfig } from "@/hooks/use-provider-config"
 import { cn } from "@/lib/utils"
 
@@ -64,15 +74,12 @@ const DEFAULT_FORM_DATA = ALL_PROVIDERS.reduce(
   {} as Record<string, ProviderFormData>
 )
 
-const SECTIONS = [
-  { id: "providers", name: "提供商", icon: Layers },
-  { id: "web-search", name: "网络搜索", icon: Search },
-  { id: "general", name: "通用", icon: Settings2 },
-  { id: "advanced", name: "高级", icon: Key },
-  { id: "about", name: "关于", icon: Info }
-]
+// Sections will use translations dynamically in component
 
 export default function Settings() {
+  const { t } = useTranslation("settings")
+  const { language, changeLanguage } = useLanguage()
+  const { theme, setTheme } = useTheme()
   const [activeSection, setActiveSection] = useState("providers")
   const [activeProvider, setActiveProvider] = useState("minimax")
   const [activeWebSearchProvider, setActiveWebSearchProvider] = useState("parallel")
@@ -247,7 +254,13 @@ export default function Settings() {
             <div className="h-14.5" />
             {/* Section Navigation */}
             <nav className="flex-1 space-y-1 p-4">
-              {SECTIONS.map(section => {
+              {[
+                { id: "providers", icon: Layers },
+                { id: "web-search", icon: Search },
+                { id: "general", icon: Settings2 },
+                { id: "advanced", icon: Key },
+                { id: "about", icon: Info }
+              ].map(section => {
                 const Icon = section.icon
                 return (
                   <button
@@ -262,7 +275,16 @@ export default function Settings() {
                     )}
                   >
                     <Icon className="size-4.5 shrink-0" />
-                    <span>{section.name}</span>
+                    <span>
+                      {t(
+                        `sections.${section.id}` as
+                          | "sections.providers"
+                          | "sections.web-search"
+                          | "sections.general"
+                          | "sections.advanced"
+                          | "sections.about"
+                      )}
+                    </span>
                   </button>
                 )
               })}
@@ -275,7 +297,7 @@ export default function Settings() {
                   className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
                 >
                   <ArrowLeftToLineIcon className="size-4.5 shrink-0" />
-                  <span>返回</span>
+                  <span>{t("sections.back")}</span>
                 </button>
               </Link>
             </div>
@@ -291,9 +313,9 @@ export default function Settings() {
               {activeSection === "providers" && (
                 <div className="space-y-6 pt-4 flex-1 flex flex-col min-h-0">
                   <div>
-                    <div className="text-xl font-semibold">提供商配置</div>
+                    <div className="text-xl font-semibold">{t("providers.title")}</div>
                     <p className="mt-3 text-sm text-muted-foreground">
-                      配置不同 AI 提供商的 API 密钥。密钥将安全存储在系统密钥链中。
+                      {t("providers.description")}
                     </p>
                   </div>
 
@@ -343,7 +365,9 @@ export default function Settings() {
                         <div className="flex items-center justify-between gap-4">
                           <h2 className="text-lg font-medium">{currentProvider?.name}</h2>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">启用</span>
+                            <span className="text-xs text-muted-foreground">
+                              {t("providers.enable")}
+                            </span>
                             <Switch
                               checked={currentData?.enabled ?? false}
                               onCheckedChange={checked => {
@@ -360,7 +384,7 @@ export default function Settings() {
                           </div>
                         </div>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          配置 {currentProvider?.name} 的 API 凭证和端点设置
+                          {t("providers.configureDescription", { provider: currentProvider?.name })}
                         </p>
                       </div>
 
@@ -374,7 +398,9 @@ export default function Settings() {
                             <InputGroupInput
                               id="apiKey"
                               type={showPassword ? "text" : "password"}
-                              placeholder={`Enter your ${currentProvider?.name} API key`}
+                              placeholder={t("providers.apiKeyPlaceholder", {
+                                provider: currentProvider?.name
+                              })}
                               value={currentData?.apiKey || ""}
                               onChange={e => {
                                 resetSaveFeedback()
@@ -407,7 +433,7 @@ export default function Settings() {
                           <div className="text-sm font-medium leading-none">
                             Base URL
                             <span className={cn("pl-2 text-muted-foreground/60 text-xs")}>
-                              Option
+                              {t("providers.baseUrlOptional")}
                             </span>
                           </div>
                           <Input
@@ -443,7 +469,7 @@ export default function Settings() {
                           onClick={() => handleClear(activeProvider)}
                           disabled={isClearDisabled}
                         >
-                          清除
+                          {t("providers.clear")}
                         </Button>
                         <Button
                           onClick={() => handleSave(activeProvider)}
@@ -453,10 +479,10 @@ export default function Settings() {
                             <Loader2Icon className="mr-2 size-4 animate-spin" />
                           )}
                           {saveStatus === "success"
-                            ? "Saved ✓"
+                            ? t("providers.saved")
                             : saveStatus === "submitting"
-                              ? "Saving…"
-                              : "Save"}
+                              ? t("providers.saving")
+                              : t("providers.save")}
                         </Button>
                       </div>
                     </div>
@@ -467,9 +493,9 @@ export default function Settings() {
               {activeSection === "web-search" && (
                 <div className="space-y-6 pt-4 flex-1 flex flex-col min-h-0">
                   <div>
-                    <div className="text-xl font-semibold">网络搜索配置</div>
+                    <div className="text-xl font-semibold">{t("webSearch.title")}</div>
                     <p className="mt-3 text-sm text-muted-foreground">
-                      配置网络搜索工具的提供商与访问凭证。密钥将安全存储在系统密钥链中。
+                      {t("webSearch.description")}
                     </p>
                   </div>
 
@@ -519,7 +545,9 @@ export default function Settings() {
                         <div className="flex items-center justify-between gap-4">
                           <h2 className="text-lg font-medium">{currentWebSearchProvider?.name}</h2>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">启用</span>
+                            <span className="text-xs text-muted-foreground">
+                              {t("providers.enable")}
+                            </span>
                             <Switch
                               checked={currentWebSearchData?.enabled ?? false}
                               onCheckedChange={checked => {
@@ -536,7 +564,9 @@ export default function Settings() {
                           </div>
                         </div>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          配置 {currentWebSearchProvider?.name} 的 API 凭证和端点设置
+                          {t("providers.configureDescription", {
+                            provider: currentWebSearchProvider?.name
+                          })}
                         </p>
                       </div>
 
@@ -550,7 +580,9 @@ export default function Settings() {
                             <InputGroupInput
                               id="webSearchApiKey"
                               type={showPassword ? "text" : "password"}
-                              placeholder={`Enter your ${currentWebSearchProvider?.name} API key`}
+                              placeholder={t("providers.apiKeyPlaceholder", {
+                                provider: currentWebSearchProvider?.name
+                              })}
                               value={currentWebSearchData?.apiKey || ""}
                               onChange={e => {
                                 resetSaveFeedback()
@@ -584,7 +616,7 @@ export default function Settings() {
                             <div className="text-sm font-medium leading-none">
                               Base URL
                               <span className={cn("pl-2 text-muted-foreground/60 text-xs")}>
-                                Option
+                                {t("providers.baseUrlOptional")}
                               </span>
                             </div>
                             <Input
@@ -621,7 +653,7 @@ export default function Settings() {
                           onClick={() => handleClear(activeWebSearchProvider)}
                           disabled={isWebSearchClearDisabled}
                         >
-                          清除
+                          {t("providers.clear")}
                         </Button>
                         <Button
                           onClick={() => handleSave(activeWebSearchProvider)}
@@ -631,10 +663,10 @@ export default function Settings() {
                             <Loader2Icon className="mr-2 size-4 animate-spin" />
                           )}
                           {saveStatus === "success"
-                            ? "Saved ✓"
+                            ? t("providers.saved")
                             : saveStatus === "submitting"
-                              ? "Saving…"
-                              : "Save"}
+                              ? t("providers.saving")
+                              : t("providers.save")}
                         </Button>
                       </div>
                     </div>
@@ -645,12 +677,56 @@ export default function Settings() {
               {activeSection === "general" && (
                 <div className="space-y-6 pt-4">
                   <div>
-                    <div className="text-xl font-semibold">通用设置</div>
-                    <p className="mt-1 text-sm text-muted-foreground">配置应用的基本设置和偏好。</p>
+                    <div className="text-xl font-semibold">{t("general.title")}</div>
+                    <p className="mt-1 text-sm text-muted-foreground">{t("general.description")}</p>
                   </div>
                   <Separator />
-                  <div className="max-w-2xl">
-                    <p className="text-sm text-muted-foreground">即将推出...</p>
+                  <div className="max-w-2xl space-y-6">
+                    {/* Language Selector */}
+                    <div className="space-y-3">
+                      <div>
+                        <h3 className="text-sm font-medium">{t("general.language")}</h3>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {t("general.languageDescription")}
+                        </p>
+                      </div>
+                      <Select
+                        value={language}
+                        onValueChange={value => changeLanguage(value as "en" | "zh-CN" | "system")}
+                      >
+                        <SelectTrigger className="w-48">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="zh-CN">简体中文</SelectItem>
+                          <SelectItem value="en">English</SelectItem>
+                          <SelectItem value="system">{t("general.languageSystem")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Theme Selector */}
+                    <div className="space-y-3">
+                      <div>
+                        <h3 className="text-sm font-medium">{t("general.theme")}</h3>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {t("general.themeDescription")}
+                        </p>
+                      </div>
+                      <Select
+                        value={theme}
+                        onValueChange={value => setTheme(value as "light" | "dark" | "system")}
+                      >
+                        <SelectTrigger className="w-48">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="light">{t("general.themeLight")}</SelectItem>
+                          <SelectItem value="dark">{t("general.themeDark")}</SelectItem>
+                          <SelectItem value="system">{t("general.themeSystem")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               )}
@@ -658,12 +734,14 @@ export default function Settings() {
               {activeSection === "advanced" && (
                 <div className="space-y-6 pt-4">
                   <div>
-                    <div className="text-xl font-semibold">高级设置</div>
-                    <p className="mt-1 text-sm text-muted-foreground">配置高级功能和开发者选项。</p>
+                    <div className="text-xl font-semibold">{t("advanced.title")}</div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {t("advanced.description")}
+                    </p>
                   </div>
                   <Separator />
                   <div className="max-w-2xl">
-                    <p className="text-sm text-muted-foreground">即将推出...</p>
+                    <p className="text-sm text-muted-foreground">{t("comingSoon")}</p>
                   </div>
                 </div>
               )}
@@ -671,12 +749,12 @@ export default function Settings() {
               {activeSection === "about" && (
                 <div className="space-y-6 pt-4">
                   <div>
-                    <div className="text-xl font-semibold">关于</div>
-                    <p className="mt-1 text-sm text-muted-foreground">应用信息和版本详情。</p>
+                    <div className="text-xl font-semibold">{t("about.title")}</div>
+                    <p className="mt-1 text-sm text-muted-foreground">{t("about.description")}</p>
                   </div>
                   <Separator />
                   <div className="max-w-2xl">
-                    <p className="text-sm text-muted-foreground">即将推出...</p>
+                    <p className="text-sm text-muted-foreground">{t("comingSoon")}</p>
                   </div>
                 </div>
               )}

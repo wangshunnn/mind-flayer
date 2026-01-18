@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { Settings, User } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { SiderbarDarkModeToggle } from "@/components/nav-top"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -21,6 +22,8 @@ export function NavUser({
     avatar?: string
   }
 }) {
+  const { t } = useTranslation("common")
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -61,12 +64,12 @@ export function NavUser({
             <DropdownMenuGroup>
               <DropdownMenuItem disabled>
                 <User />
-                My Account
+                {t("nav.myAccount")}
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to="/settings" className="cursor-pointer">
                   <Settings />
-                  Settings
+                  {t("nav.settings")}
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>

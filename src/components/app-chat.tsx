@@ -8,6 +8,7 @@ import {
 } from "ai"
 import { AtomIcon, CircleIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
   Conversation,
@@ -61,13 +62,10 @@ import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useChatStorage } from "@/hooks/use-chat-storage"
 import {
-  FOOTER_CONSTANTS,
-  MESSAGE_CONSTANTS,
-  TEXT_UTILS,
-  TOAST_CONSTANTS,
-  TOOL_BUTTON_CONSTANTS,
-  TOOL_CONSTANTS,
-  TOOLTIP_CONSTANTS
+  useMessageConstants,
+  useToolButtonConstants,
+  useToolConstants,
+  useTooltipConstants
 } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import type { ChatId, MessageId } from "@/types/chat"
@@ -85,6 +83,12 @@ interface StepSegment {
 }
 
 const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
+  const { t } = useTranslation(["common", "chat"])
+  const messageConstants = useMessageConstants()
+  const toolConstants = useToolConstants()
+  const toolButtonConstants = useToolButtonConstants()
+  const tooltipConstants = useTooltipConstants()
+
   const [selectedModel, setSelectedModel] = useState<ModelOption>(MODEL_OPTIONS[0])
   const [useWebSearch, setUseWebSearch] = useState<boolean>(true)
   const [webSearchMode, setWebSearchMode] = useState<"auto" | "always">("auto")
@@ -134,11 +138,11 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
     onError: error => {
       // Check if this is a 401 error (API key not configured)
       if (error.message.includes("API key not configured") || error.message.includes("401")) {
-        toast.error("API Key Required", {
+        toast.error(t("common:toast.error"), {
           description: "Please configure your API key in Settings to continue chatting."
         })
       } else {
-        toast.error(TOAST_CONSTANTS.error, {
+        toast.error(t("common:toast.error"), {
           description: error.message
         })
       }
@@ -205,7 +209,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
             // update text if no parts text
             lastMessage.parts.push({
               type: "text",
-              text: MESSAGE_CONSTANTS.abortedMessage
+              text: messageConstants.abortedMessage
             } as TextUIPart)
           }
           setMessages?.(allMessagesWithMetadata)
@@ -216,7 +220,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
         storedMessageIdsRef.current.add(msg.id)
       }
     },
-    [createNewChatAsync, saveChatAllMessages, setMessages]
+    [createNewChatAsync, saveChatAllMessages, setMessages, messageConstants.abortedMessage]
   )
 
   useEffect(() => {
@@ -297,8 +301,8 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
       return
     }
     if (message.files?.length) {
-      toast.success(TOAST_CONSTANTS.filesAttached, {
-        description: TOAST_CONSTANTS.filesAttachedDescription(message.files.length)
+      toast.success(t("common:toast.filesAttached"), {
+        description: t("common:toast.filesAttachedDescription", { count: message.files.length })
       })
     }
     if (message.text) {
@@ -316,7 +320,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
 
   const isStreaming = status === "streaming"
   const isSubmitDisabled = isStreaming ? false : !input.trim() || status !== "ready"
-  const submitTooltip = isStreaming ? TOOLTIP_CONSTANTS.stop : TOOLTIP_CONSTANTS.submit
+  const submitTooltip = isStreaming ? tooltipConstants.stop : tooltipConstants.submit
 
   // Loading before reply from assistant
   const lastMessage = messages[messages.length - 1]
@@ -417,7 +421,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
               )
               const toolNames = toolParts.map(part => {
                 const toolType = part.type.replace("tool-", "")
-                return TEXT_UTILS.getToolDisplayName(toolType)
+                return toolType // Direct display, tool names are not translated
               })
               const hasTools = toolParts.length > 0
               const isUserMessage = message.role === "user"
@@ -473,41 +477,43 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                                   const toolType = tool.type.replace("tool-", "")
                                   const isWebSearch = toolType === "webSearch"
                                   const segmentType = isWebSearch ? "tool-webSearch" : "tool-other"
-                                  const toolDisplayName = TEXT_UTILS.getToolDisplayName(toolType)
-                                  let toolResult: string = TOOL_CONSTANTS.states.working
+                                  const toolDisplayName = isWebSearch
+                                    ? toolConstants.names.webSearch
+                                    : toolType
+                                  let toolResult: string = toolConstants.states.working
 
                                   switch (tool.state) {
                                     case "output-available": {
                                       if (tool.output) {
                                         if (isWebSearch && tool.output.totalResults !== undefined) {
-                                          toolResult = TOOL_CONSTANTS.webSearch.searchedResults(
+                                          toolResult = toolConstants.webSearch.searchedResults(
                                             tool.output.totalResults
                                           )
                                         } else {
-                                          toolResult = TOOL_CONSTANTS.states.done
+                                          toolResult = toolConstants.states.done
                                         }
                                       }
                                       break
                                     }
                                     case "output-error": {
-                                      toolResult = TOOL_CONSTANTS.states.failed
+                                      toolResult = toolConstants.states.failed
                                       break
                                     }
                                     case "output-denied": {
-                                      toolResult = TOOL_CONSTANTS.states.cancelled
+                                      toolResult = toolConstants.states.cancelled
                                       break
                                     }
                                     case "input-streaming":
                                     case "input-available": {
-                                      toolResult = TOOL_CONSTANTS.states.working
+                                      toolResult = toolConstants.states.working
                                       break
                                     }
                                     case "approval-requested": {
-                                      toolResult = TOOL_CONSTANTS.states.awaitingApproval
+                                      toolResult = toolConstants.states.awaitingApproval
                                       break
                                     }
                                     default: {
-                                      toolResult = TOOL_CONSTANTS.states.working
+                                      toolResult = toolConstants.states.working
                                     }
                                   }
 
@@ -652,18 +658,18 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                 <PromptInputTools className="-ml-1.5">
                   <ToolButton
                     icon={GlobeIcon}
-                    label={TOOL_BUTTON_CONSTANTS.webSearch.label}
-                    tooltip={TOOL_BUTTON_CONSTANTS.webSearch.tooltip}
+                    label={toolButtonConstants.webSearch.label}
+                    tooltip={toolButtonConstants.webSearch.tooltip}
                     enabled={useWebSearch}
                     onEnabledChange={setUseWebSearch}
                     collapsed={isCondensed}
                     modes={[
                       {
-                        ...TOOL_BUTTON_CONSTANTS.webSearch.modes.auto,
+                        ...toolButtonConstants.webSearch.modes.auto,
                         icon: SparklesIcon
                       },
                       {
-                        ...TOOL_BUTTON_CONSTANTS.webSearch.modes.always,
+                        ...toolButtonConstants.webSearch.modes.always,
                         icon: ZapIcon
                       }
                     ]}
@@ -673,8 +679,8 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
 
                   <ToolButton
                     icon={AtomIcon}
-                    label={TOOL_BUTTON_CONSTANTS.deepThink.label}
-                    tooltip={TOOL_BUTTON_CONSTANTS.deepThink.tooltip}
+                    label={toolButtonConstants.deepThink.label}
+                    tooltip={toolButtonConstants.deepThink.tooltip}
                     enabled={useDeepThink}
                     onEnabledChange={setUseDeepThink}
                     collapsed={isCondensed}
@@ -721,14 +727,14 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
           "overflow-hidden whitespace-nowrap text-ellipsis"
         )}
       >
-        {FOOTER_CONSTANTS.disclaimer}{" "}
+        {t("common:footer.disclaimer")}{" "}
         <a
-          href={FOOTER_CONSTANTS.githubUrl}
+          href="https://github.com/wangshunnn/mind-flayer"
           target="_blank"
           rel="noopener noreferrer"
           className="ml-1 text-muted-foreground/50 hover:text-muted-foreground transition-colors underline"
         >
-          {FOOTER_CONSTANTS.github}
+          {t("common:footer.github")}
         </a>
         {"."}
       </div>

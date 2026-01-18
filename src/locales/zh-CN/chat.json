@@ -1,0 +1,35 @@
+{
+  "message": {
+    "aborted": "生成已暂停。",
+    "thinking": "思考中...",
+    "thoughtForSeconds": "思考了 {{duration}} 秒",
+    "thoughtForFewSeconds": "思考了几秒钟",
+    "for": "用时",
+    "includingTools": "包括工具",
+    "done": "完成",
+    "doneInSteps": "{{count}} 步完成",
+    "reasoning": "思考",
+    "usingTool": "使用工具"
+  },
+  "input": {
+    "placeholder": "输入您的消息...",
+    "addPhotosOrFiles": "添加照片或文件",
+    "image": "图片",
+    "attachment": "附件",
+    "removeAttachment": "移除附件",
+    "uploadFiles": "上传文件"
+  },
+  "tokens": {
+    "input": "{{count}} 输入",
+    "output": "{{count}} 输出",
+    "tokens": "token"
+  },
+  "sources": {
+    "used": "使用了 {{count}} 个来源"
+  },
+  "model": {
+    "selectModel": "选择模型",
+    "switchModel": "切换模型",
+    "configureModels": "配置模型"
+  }
+}

@@ -50,6 +50,7 @@
           "args": false
         }
       ]
-    }
+    },
+    "os:default"
   ]
 }

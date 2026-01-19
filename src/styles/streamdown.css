@@ -11,6 +11,8 @@
 
 [data-streamdown="heading-3"] {
   font-size: 1rem;
+  margin-top: 16px;
+  margin-bottom: 8px;
 }
 
 [data-streamdown="heading-4"],

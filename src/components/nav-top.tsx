@@ -77,7 +77,7 @@ function SiderbarDarkModeToggle({ className, ...props }: React.ComponentProps<ty
               <span className="sr-only">{t("nav.toggleDarkMode")}</span>
             </SidebarMenuAction>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="top" align="end" sideOffset={8} className="rounded-lg">
+          <DropdownMenuContent side="top" align="end" sideOffset={8} className="rounded-lg w-36">
             <DropdownMenuItem onClick={() => setTheme("light")}>
               <Sun className="text-muted-foreground" />
               <span>{t("theme.light")}</span>

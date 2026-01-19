@@ -63,7 +63,7 @@ export const CopyButton = ({
             <span className="sr-only">{copied ? copiedText : displayTooltip}</span>
           </Button>
         </TooltipTrigger>
-        <TooltipContent>
+        <TooltipContent side="bottom">
           <p>{copied ? copiedSuccess : displayTooltip}</p>
         </TooltipContent>
       </Tooltip>
@@ -109,7 +109,7 @@ export const UserMessageActionsBar = ({
               <span className="sr-only">{edit}</span>
             </Button>
           </TooltipTrigger>
-          <TooltipContent>
+          <TooltipContent side="bottom">
             <p>{edit}</p>
           </TooltipContent>
         </Tooltip>
@@ -163,7 +163,7 @@ export const AssistantMessageActionsBar = ({
               <span className="sr-only">{like}</span>
             </Button>
           </TooltipTrigger>
-          <TooltipContent>
+          <TooltipContent side="bottom">
             <p>{like}</p>
           </TooltipContent>
         </Tooltip>
@@ -182,7 +182,7 @@ export const AssistantMessageActionsBar = ({
               <span className="sr-only">{dislike}</span>
             </Button>
           </TooltipTrigger>
-          <TooltipContent>
+          <TooltipContent side="bottom">
             <p>{dislike}</p>
           </TooltipContent>
         </Tooltip>
@@ -201,7 +201,7 @@ export const AssistantMessageActionsBar = ({
               <span className="sr-only">{share}</span>
             </Button>
           </TooltipTrigger>
-          <TooltipContent>
+          <TooltipContent side="bottom">
             <p>{share}</p>
           </TooltipContent>
         </Tooltip>
@@ -221,7 +221,7 @@ export const AssistantMessageActionsBar = ({
                 <span className="sr-only">{regenerate}</span>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>
+            <TooltipContent side="bottom">
               <p>{regenerate}</p>
             </TooltipContent>
           </Tooltip>

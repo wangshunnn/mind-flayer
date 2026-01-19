@@ -35,7 +35,7 @@
     "toggleSidebar": "切换侧栏"
   },
   "footer": {
-    "disclaimer": "AI 生成的内容，仅供参考。给个 Star 吧",
+    "disclaimer": "AI 生成的内容，仅供参考。",
     "github": "Github"
   }
 }

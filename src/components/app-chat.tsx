@@ -92,7 +92,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   const [selectedModel, setSelectedModel] = useState<ModelOption>(MODEL_OPTIONS[0])
   const [useWebSearch, setUseWebSearch] = useState<boolean>(true)
   const [webSearchMode, setWebSearchMode] = useState<"auto" | "always">("auto")
-  const [useDeepThink, setUseDeepThink] = useState<boolean>(false)
+  const [useDeepThink, setUseDeepThink] = useState<boolean>(true)
   const [isCondensed, setIsCondensed] = useState(false)
   const [input, setInput] = useState("")
   const selectedModelRef = useRef(selectedModel)

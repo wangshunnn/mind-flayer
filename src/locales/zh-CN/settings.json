@@ -18,8 +18,14 @@
     "baseUrlPlaceholder": "默认：{{defaultUrl}}",
     "clear": "清除",
     "save": "保存",
-    "saving": "保存中…",
-    "saved": "已保存 ✓",
+    "saving": "保存中",
+    "saved": "已保存",
+    "toast": {
+      "saved": "设置已保存",
+      "saveError": "保存设置失败",
+      "deleted": "设置已清除",
+      "deleteError": "清除设置失败"
+    },
     "configureDescription": "配置 {{provider}} 的 API 凭证和端点设置"
   },
   "webSearch": {

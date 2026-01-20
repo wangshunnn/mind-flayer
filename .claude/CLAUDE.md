@@ -501,6 +501,452 @@ Before submitting code, ensure:
 - [ ] Cross-platform compatibility is verified (macOS, Windows, Linux)
 - [ ] No hardcoded values; use configuration/environment variables
 
+## Internationalization (i18n)
+
+### Architecture Overview
+
+Mind Flayer uses **i18next** with React integration for internationalization. The system supports multiple languages with automatic system language detection.
+
+#### Supported Languages
+
+- **English** (`en`): Default fallback language
+- **Simplified Chinese** (`zh-CN`): Includes Traditional Chinese detection
+- **System**: Auto-detect from OS locale
+
+### File Structure
+
+```
+src/
+├── lib/
+│   └── i18n.ts              # i18next configuration
+├── hooks/
+│   └── use-language.ts      # Language management hook
+├── locales/
+│   ├── en/                  # English translations
+│   │   ├── common.json      # Common UI strings
+│   │   ├── settings.json    # Settings page
+│   │   ├── chat.json        # Chat interface
+│   │   ├── tools.json       # Tool-related strings
+│   │   └── actions.json     # Action buttons
+│   └── zh-CN/               # Chinese translations
+│       ├── common.json
+│       ├── settings.json
+│       ├── chat.json
+│       ├── tools.json
+│       └── actions.json
+scripts/
+└── check-i18n.ts           # Translation completeness checker
+```
+
+### i18n Configuration
+
+**File**: `src/lib/i18n.ts`
+
+```typescript
+import i18n from "i18next"
+import { initReactI18next } from "react-i18next"
+
+i18n.use(initReactI18next).init({
+  resources: {
+    en: {
+      common: commonEn,
+      settings: settingsEn,
+      chat: chatEn,
+      tools: toolsEn,
+      actions: actionsEn
+    },
+    "zh-CN": { /* ... */ }
+  },
+  lng: "en",                 // Initial language (overridden by useLanguage hook)
+  fallbackLng: "en",         // Fallback when translation missing
+  defaultNS: "common",       // Default namespace
+  interpolation: {
+    escapeValue: false       // React already escapes values
+  }
+})
+```
+
+### Language Management Hook
+
+**File**: `src/hooks/use-language.ts`
+
+```typescript
+import { useLanguage } from "@/hooks/use-language"
+
+function MyComponent() {
+  const { language, changeLanguage, isDetecting } = useLanguage()
+
+  return (
+    <Select value={language} onValueChange={changeLanguage}>
+      <SelectItem value="en">English</SelectItem>
+      <SelectItem value="zh-CN">简体中文</SelectItem>
+      <SelectItem value="system">System (Auto-detect)</SelectItem>
+    </Select>
+  )
+}
+```
+
+**Features**:
+- Automatic OS language detection via Tauri's `locale()` API
+- localStorage persistence (key: `settings-language`)
+- System language mapping: `zh-*` → `zh-CN`, others → `en`
+- Supports user-selected language or "system" auto-detection
+
+### Translation Usage
+
+#### Basic Usage
+
+```typescript
+import { useTranslation } from "react-i18next"
+
+function ChatHeader() {
+  const { t } = useTranslation("chat") // Specify namespace
+
+  return (
+    <h1>{t("title")}</h1>
+    <p>{t("description")}</p>
+  )
+}
+```
+
+#### With Interpolation
+
+```json
+// locales/en/chat.json
+{
+  "messagesCount": "You have {{count}} messages"
+}
+```
+
+```typescript
+const { t } = useTranslation("chat")
+<p>{t("messagesCount", { count: 5 })}</p>
+// Output: "You have 5 messages"
+```
+
+#### Multiple Namespaces
+
+```typescript
+const { t } = useTranslation(["common", "chat"])
+
+<Button>{t("common:buttons.save")}</Button>
+<Input placeholder={t("chat:inputPlaceholder")} />
+```
+
+#### Default Namespace (common)
+
+```typescript
+const { t } = useTranslation() // Uses "common" by default
+
+<p>{t("nav.newChat")}</p>  // From common.json
+```
+
+### Translation File Structure
+
+#### Nested JSON Format
+
+Organize translations hierarchically for better maintainability:
+
+```json
+// locales/en/common.json
+{
+  "nav": {
+    "newChat": "New Chat",
+    "recentChats": "Recent Chats",
+    "settings": "Settings"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "Device"
+  },
+  "toast": {
+    "success": "Success",
+    "error": "Error",
+    "chatDeleted": "Chat deleted"
+  }
+}
+```
+
+Access nested keys with dot notation:
+```typescript
+t("nav.newChat")      // "New Chat"
+t("theme.dark")       // "Dark"
+t("toast.success")    // "Success"
+```
+
+### Namespace Guidelines
+
+#### Namespace Responsibilities
+
+| Namespace  | Purpose                              | Examples                      |
+| ---------- | ------------------------------------ | ----------------------------- |
+| `common`   | Navigation, UI chrome, general terms | Sidebar, theme, footer        |
+| `settings` | Settings page content                | Provider config, preferences  |
+| `chat`     | Chat interface                       | Messages, input, suggestions  |
+| `tools`    | Tool invocations, web search         | Tool names, parameters        |
+| `actions`  | Action buttons, CRUD operations      | Save, delete, cancel, confirm |
+
+#### When to Create a New Namespace
+
+- When adding a major new feature (e.g., `calendar`, `exports`)
+- When a section has 20+ translations
+- When translations are semantically isolated
+
+**Don't** create namespaces for:
+- Single components (use existing namespaces)
+- Temporary features
+- Shared UI elements (use `common`)
+
+### Translation Completeness Checking
+
+**Script**: `scripts/check-i18n.ts`
+
+Automatically run before commits via lefthook:
+
+```bash
+# Manual run
+pnpm dlx tsx scripts/check-i18n.ts
+
+# Output:
+🔍 Checking i18n translation completeness...
+
+📦 Namespace: common
+──────────────────────────────────────────────────
+✅ zh-CN: All keys match (42 keys)
+
+📦 Namespace: settings
+──────────────────────────────────────────────────
+❌ zh-CN: Missing 2 keys (compared to en):
+   - providers.parallel.description
+   - sections.advanced.title
+```
+
+**What it checks**:
+- All translation files exist for all languages
+- Key parity between languages (no missing translations)
+- JSON validity
+- Nested key structure consistency
+
+**CI Integration**: Runs in Git pre-commit hook via lefthook
+
+### Best Practices
+
+#### DO:
+
+✅ **Use semantic keys**:
+```json
+{
+  "chat": {
+    "sendMessage": "Send",
+    "inputPlaceholder": "Type a message..."
+  }
+}
+```
+
+✅ **Keep translations in sync**:
+- Update all language files when adding new keys
+- Run `check-i18n.ts` before committing
+
+✅ **Use interpolation for dynamic content**:
+```json
+{"fileCount": "{{count}} file(s) attached"}
+```
+```typescript
+t("fileCount", { count: files.length })
+```
+
+✅ **Provide context in key names**:
+```json
+{
+  "buttons": {
+    "save": "Save",
+    "saveSettings": "Save Settings"
+  }
+}
+```
+
+✅ **Use namespaces to organize translations**:
+```typescript
+const { t } = useTranslation("settings")
+```
+
+#### DON'T:
+
+❌ **Hardcode user-facing strings**:
+```typescript
+// Bad
+<Button>Save</Button>
+
+// Good
+<Button>{t("actions:save")}</Button>
+```
+
+❌ **Use technical keys**:
+```json
+// Bad
+{"btn_1": "Save", "lbl_usr_nm": "Username"}
+
+// Good  
+{"buttons.save": "Save", "labels.username": "Username"}
+```
+
+❌ **Mix languages in the same file**:
+```json
+// Bad - don't mix
+{"title": "Settings", "description": "设置页面"}
+```
+
+❌ **Forget to update Chinese translations**:
+- Every key in `en/*.json` must exist in `zh-CN/*.json`
+- Run the check script to verify
+
+❌ **Use translations for code identifiers**:
+```typescript
+// Bad
+if (status === t("status.active")) { ... }
+
+// Good
+if (status === "active") {
+  return t("status.active")
+}
+```
+
+### Adding New Translations
+
+#### Step-by-Step Process
+
+1. **Identify the appropriate namespace** (common, settings, chat, tools, actions)
+
+2. **Add English translation**:
+   ```json
+   // src/locales/en/settings.json
+   {
+     "providers": {
+       "minimax": {
+         "name": "MiniMax",
+         "description": "MiniMax AI Platform"
+       }
+     }
+   }
+   ```
+
+3. **Add Chinese translation**:
+   ```json
+   // src/locales/zh-CN/settings.json
+   {
+     "providers": {
+       "minimax": {
+         "name": "MiniMax",
+         "description": "MiniMax AI 平台"
+       }
+     }
+   }
+   ```
+
+4. **Use in component**:
+   ```typescript
+   const { t } = useTranslation("settings")
+   <span>{t("providers.minimax.name")}</span>
+   ```
+
+5. **Verify completeness**:
+   ```bash
+   pnpm dlx tsx scripts/check-i18n.ts
+   ```
+
+### Common Patterns
+
+#### Pattern 1: Navigation Items
+
+```typescript
+const { t } = useTranslation("common")
+
+const navItems = [
+  { icon: Home, label: t("nav.home"), href: "/" },
+  { icon: Settings, label: t("nav.settings"), href: "/settings" },
+]
+```
+
+#### Pattern 2: Form Labels & Validation
+
+```typescript
+const { t } = useTranslation("settings")
+
+<Label>{t("form.apiKey")}</Label>
+<Input
+  placeholder={t("form.apiKeyPlaceholder")}
+  error={t("form.apiKeyRequired")}
+/>
+```
+
+#### Pattern 3: Toast Notifications
+
+```typescript
+import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
+
+const { t } = useTranslation("common")
+
+toast.success(t("toast.chatDeleted"))
+toast.error(t("toast.error"), {
+  description: t("toast.failedToDeleteChat")
+})
+```
+
+#### Pattern 4: Conditional Pluralization
+
+```json
+{
+  "filesAttached_one": "{{count}} file attached",
+  "filesAttached_other": "{{count}} files attached"
+}
+```
+
+```typescript
+t("filesAttached", { count: files.length })
+// count=1: "1 file attached"
+// count=5: "5 files attached"
+```
+
+### Testing i18n
+
+#### Manual Testing
+
+1. Change language in Settings: 提供商 → 通用 → 语言
+2. Verify all UI strings update correctly
+3. Test with "System" setting on different OS locales
+4. Check for layout issues with longer Chinese strings
+
+#### Automated Checks
+
+```bash
+# Pre-commit hook automatically runs:
+pnpm dlx tsx scripts/check-i18n.ts
+```
+
+### Troubleshooting
+
+#### Translations Not Updating
+
+1. Verify `i18n.ts` imports the new/updated JSON file
+2. Check if namespace is correctly specified in `useTranslation()`
+3. Ensure dev server was restarted after adding new files
+
+#### Missing Translations
+
+1. Check key exists in both `en` and `zh-CN` folders
+2. Run `check-i18n.ts` to identify missing keys
+3. Verify nested structure matches exactly
+
+#### System Language Not Detected
+
+1. Verify Tauri `plugin-os` is installed
+2. Check browser console for errors from `useLanguage` hook
+3. Fallback to English is expected if detection fails
+
+---
+
 ## Common Patterns
 
 ### Custom Hooks Pattern

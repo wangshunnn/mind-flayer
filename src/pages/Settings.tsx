@@ -10,12 +10,14 @@ import {
   Key,
   Layers,
   Loader2Icon,
+  Lock,
   Search,
   Settings2,
   Sparkles
 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -172,11 +174,13 @@ export default function Settings() {
       await saveConfig(providerId, data.apiKey.trim(), data.baseUrl.trim() || undefined)
       setStoredProviders(prev => ({ ...prev, [providerId]: true }))
       setSaveStatus("success")
+      toast.success(t("providers.toast.saved"))
+
       successTimeoutRef.current = setTimeout(() => {
         setSaveStatus("idle")
       }, 1500)
     } catch (err) {
-      console.error("Failed to save config:", err)
+      toast.error(t("providers.toast.saveError"))
       setSaveStatus("error")
       setSaveError(
         `Failed to save configuration: ${err instanceof Error ? err.message : "Unknown error"}`
@@ -211,11 +215,13 @@ export default function Settings() {
       }))
       setStoredProviders(prev => ({ ...prev, [providerId]: false }))
       setSaveStatus("success")
+      toast.success(t("providers.toast.deleted"))
+
       successTimeoutRef.current = setTimeout(() => {
         setSaveStatus("idle")
       }, 1500)
     } catch (err) {
-      console.error("Failed to delete config:", err)
+      toast.error(t("providers.toast.deleteError"))
       setSaveStatus("error")
       setSaveError(
         `Failed to delete configuration: ${err instanceof Error ? err.message : "Unknown error"}`
@@ -229,9 +235,10 @@ export default function Settings() {
   const currentWebSearchData = formData[activeWebSearchProvider]
   const activeError = saveError || error
   const isSaveBusy = saveStatus === "submitting" || saveStatus === "success"
-  const isSaveDisabled = isSaveBusy || isLoading || !currentData?.apiKey.trim()
-  const isClearDisabled = isSaveBusy || isLoading || !currentData?.apiKey.trim()
-  const isProviderEnabled = currentData?.enabled ?? true
+  const isProviderLocked = activeProvider === "openai" || activeProvider === "anthropic"
+  const isSaveDisabled = isProviderLocked || isSaveBusy || isLoading || !currentData?.apiKey.trim()
+  const isClearDisabled = isProviderLocked || isSaveBusy || isLoading || !currentData?.apiKey.trim()
+  const isProviderEnabled = !isProviderLocked && (currentData?.enabled ?? true)
   const isWebSearchSaveDisabled = isSaveBusy || isLoading || !currentWebSearchData?.apiKey.trim()
   const isWebSearchClearDisabled = isSaveBusy || isLoading || !currentWebSearchData?.apiKey.trim()
 
@@ -326,7 +333,12 @@ export default function Settings() {
                     <div className="space-y-2 rounded-lg border border-border/70 bg-muted p-2 h-full overflow-y-auto">
                       {MODEL_PROVIDERS.map(provider => {
                         const ProviderIcon = provider.icon
-                        const providerEnabled = formData[provider.id]?.enabled ?? true
+                        const providerLocked =
+                          provider.id === "openai" || provider.id === "anthropic"
+                        const providerEnabled =
+                          provider.id !== "openai" &&
+                          provider.id !== "anthropic" &&
+                          (formData[provider.id]?.enabled ?? true)
                         return (
                           <button
                             key={provider.id}
@@ -346,7 +358,8 @@ export default function Settings() {
                               <ProviderIcon className="size-4 shrink-0" />
                               <span>{provider.name}</span>
                             </div>
-                            {providerEnabled && (
+                            {providerLocked && <Lock className="size-3 text-muted-foreground" />}
+                            {!providerLocked && providerEnabled && (
                               <CircleIcon className="size-2 fill-current text-brand-green" />
                             )}
                           </button>
@@ -370,7 +383,9 @@ export default function Settings() {
                             </span>
                             <Switch
                               checked={currentData?.enabled ?? false}
+                              disabled={isProviderLocked}
                               onCheckedChange={checked => {
+                                if (isProviderLocked) return
                                 resetSaveFeedback()
                                 setFormData(prev => ({
                                   ...prev,
@@ -398,6 +413,7 @@ export default function Settings() {
                             <InputGroupInput
                               id="apiKey"
                               type={showPassword ? "text" : "password"}
+                              disabled={isProviderLocked}
                               placeholder={t("providers.apiKeyPlaceholder", {
                                 provider: currentProvider?.name
                               })}
@@ -439,6 +455,7 @@ export default function Settings() {
                           <Input
                             id="baseUrl"
                             type="url"
+                            disabled={isProviderLocked}
                             placeholder={currentProvider?.defaultBaseUrl}
                             value={currentData?.baseUrl || ""}
                             onChange={e => {

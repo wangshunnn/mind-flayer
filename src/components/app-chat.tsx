@@ -272,7 +272,6 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
             return
           }
           messagesRef.current = msgs
-          // TODO Incremental update
           storedMessageIdsRef.current = new Set(msgs.map(m => m.id))
           setMessages?.(msgs ?? [])
         } catch (error) {
@@ -565,7 +564,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                         <UserMessageActionsBar
                           messageText={messageText}
                           onEdit={() => {
-                            // TODO: Implement edit functionality
+                            /** noop */
                           }}
                         />
                       )}
@@ -580,17 +579,16 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                             messageText={messageText}
                             tokenInfo={metadata?.totalUsage}
                             onLike={() => {
-                              // TODO: Implement like functionality
+                              /** noop */
                             }}
                             onDislike={() => {
-                              // TODO: Implement dislike functionality
+                              /** noop */
                             }}
                             onShare={() => {
-                              // TODO: Implement share functionality
+                              /** noop */
                             }}
                             onRefresh={() => {
                               regenerate({ messageId: message.id })
-                              // TODO update stored messages
                             }}
                             showRefresh={isLastMessage}
                           />

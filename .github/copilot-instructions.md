@@ -128,6 +128,97 @@
 - macOS traffic lights support with drag region
 - Entry animation with smooth transitions
 
+### Internationalization (i18n)
+
+#### Configuration
+- Uses i18next with React integration (`react-i18next`)
+- Configuration file: `src/lib/i18n.ts`
+- Supported languages: English (`en`), Simplified Chinese (`zh-CN`), System auto-detect
+- Language hook: `useLanguage` in `src/hooks/use-language.ts`
+- System language detection via Tauri's `@tauri-apps/plugin-os` API
+- localStorage persistence with key: `settings-language`
+
+#### File Structure
+```
+src/locales/
+├── en/              # English translations
+│   ├── common.json  # Navigation, UI chrome, general terms
+│   ├── settings.json # Settings page content
+│   ├── chat.json    # Chat interface strings
+│   ├── tools.json   # Tool-related strings
+│   └── actions.json # Action buttons (save, delete, etc.)
+└── zh-CN/           # Chinese translations (same structure)
+```
+
+#### Translation Usage
+```typescript
+import { useTranslation } from "react-i18next"
+
+function MyComponent() {
+  const { t } = useTranslation("settings") // Specify namespace
+  return <h1>{t("title")}</h1>
+}
+
+// With interpolation
+t("filesAttached", { count: 5 }) // "5 file(s) attached"
+
+// Multiple namespaces
+const { t } = useTranslation(["common", "chat"])
+```
+
+#### Guidelines
+- **Always** use `t()` for user-facing strings; never hardcode text
+- Use semantic key names: `chat.sendMessage` not `btn_1`
+- Organize translations with nested JSON structure
+- Update both `en` and `zh-CN` files when adding keys
+- Run `pnpm dlx tsx scripts/check-i18n.ts` before committing
+- Use appropriate namespace: common, settings, chat, tools, actions
+- Provide context in keys: `buttons.save` vs `buttons.saveSettings`
+- Use interpolation for dynamic content: `{{count}}`, `{{name}}`
+
+#### Translation Completeness Check
+- Script: `scripts/check-i18n.ts`
+- Automatically runs in pre-commit hook (lefthook)
+- Verifies all keys exist in all language files
+- Checks JSON validity and nested structure consistency
+- Fails commit if translations are incomplete
+
+#### Language Management
+```typescript
+import { useLanguage } from "@/hooks/use-language"
+
+const { language, changeLanguage, isDetecting } = useLanguage()
+// language: "en" | "zh-CN" | "system"
+// changeLanguage("zh-CN") or changeLanguage("system")
+```
+
+#### Common Patterns
+```typescript
+// Navigation items
+const { t } = useTranslation("common")
+const items = [
+  { label: t("nav.settings"), href: "/settings" }
+]
+
+// Toast notifications
+import { toast } from "sonner"
+toast.success(t("toast.chatDeleted"))
+toast.error(t("toast.error"), { description: t("toast.failedToDeleteChat") })
+
+// Form labels
+<Label>{t("settings:form.apiKey")}</Label>
+```
+
+#### Best Practices
+- ✅ Use semantic keys organized hierarchically
+- ✅ Keep all language files in sync
+- ✅ Use interpolation for dynamic values
+- ✅ Run check script before committing
+- ❌ Never hardcode user-facing strings
+- ❌ Don't use abbreviations or technical keys
+- ❌ Don't mix languages in the same file
+- ❌ Don't use translations for code logic (identifiers, conditions)
+
 ## Code Review Checklist
 - [ ] All comments are in English
 - [ ] TypeScript types are properly defined

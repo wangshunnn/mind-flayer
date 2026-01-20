@@ -18,8 +18,14 @@
     "baseUrlPlaceholder": "Default: {{defaultUrl}}",
     "clear": "Clear",
     "save": "Save",
-    "saving": "Saving…",
-    "saved": "Saved ✓",
+    "saving": "Saving",
+    "saved": "Saved",
+    "toast": {
+      "saved": "Settings saved",
+      "saveError": "Failed to save settings",
+      "deleted": "Settings cleared",
+      "deleteError": "Failed to clear settings"
+    },
     "configureDescription": "Configure {{provider}} API credentials and endpoint settings"
   },
   "webSearch": {

@@ -41,6 +41,7 @@
     "sql:allow-load",
     "sql:allow-execute",
     "sql:allow-select",
+    "store:default",
     {
       "identifier": "shell:allow-spawn",
       "allow": [
@@ -51,6 +52,7 @@
         }
       ]
     },
-    "os:default"
+    "os:default",
+    "store:default"
   ]
 }

@@ -41,7 +41,7 @@ function App() {
   }, [])
 
   return (
-    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme="system">
       <I18nextProvider i18n={i18n}>
         <RouterProvider router={router} />
         <Toaster />

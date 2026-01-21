@@ -112,6 +112,7 @@ pub fn run() {
                 )
                 .build(),
         )
+        .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             greet,
             save_provider_config,

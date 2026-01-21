@@ -1,14 +1,12 @@
 import { createContext, useContext, useEffect, useState } from "react"
+import { useSetting } from "@/hooks/use-settings-store"
+import type { Theme } from "@/types/settings"
 
-// import { useFontFamily } from "@/hooks/use-font-family"
-
-type Theme = "dark" | "light" | "system"
 type ResolvedTheme = "dark" | "light"
 
 type ThemeProviderProps = {
   children: React.ReactNode
   defaultTheme?: Theme
-  storageKey?: string
 }
 
 type ThemeProviderState = {
@@ -25,19 +23,9 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
-export function ThemeProvider({
-  children,
-  defaultTheme = "system",
-  storageKey = "settings-theme",
-  ...props
-}: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
-  )
+export function ThemeProvider({ children, defaultTheme = "system", ...props }: ThemeProviderProps) {
+  const [theme, setThemeValue] = useSetting("theme")
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light")
-
-  // Initialize font configuration
-  // useFontFamily()
 
   useEffect(() => {
     const root = window.document.documentElement
@@ -75,10 +63,7 @@ export function ThemeProvider({
   const value = {
     theme,
     resolvedTheme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme)
-      setTheme(theme)
-    }
+    setTheme: setThemeValue
   }
 
   return (

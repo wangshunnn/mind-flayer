@@ -1,30 +1,21 @@
 import { locale } from "@tauri-apps/plugin-os"
 import { useEffect, useState } from "react"
+import { useSetting } from "@/hooks/use-settings-store"
 import i18n from "@/lib/i18n"
+import type { Language } from "@/types/settings"
 
-type Language = "en" | "zh-CN" | "system"
 type ActualLanguage = "en" | "zh-CN"
 
-const STORAGE_KEY = "settings-language"
-
 /**
- * Hook to manage application language with Tauri OS API detection and localStorage persistence
- * Follows the same pattern as useTheme and useFontFamily
+ * Hook to manage application language with Tauri OS API detection and store persistence
  */
 export function useLanguage() {
-  const [language, setLanguageState] = useState<Language>(() => {
-    // Check localStorage first (user preference takes priority)
-    const stored = localStorage.getItem(STORAGE_KEY) as Language | null
-    return stored || "system" // Default to system language
-  })
-
+  const [language, setLanguageValue] = useSetting("language")
   const [isDetecting, setIsDetecting] = useState(true)
 
   // Detect system language on mount
   useEffect(() => {
     const detectSystemLanguage = async () => {
-      const stored = localStorage.getItem(STORAGE_KEY) as Language | null
-
       try {
         const systemLocale = await locale()
         // Map system locale to our supported languages
@@ -32,21 +23,17 @@ export function useLanguage() {
         // Everything else -> en (English)
         const detectedLanguage: ActualLanguage = systemLocale?.startsWith("zh") ? "zh-CN" : "en"
 
-        // If user chose "system" or no preference stored, use detected language
-        if (!stored || stored === "system") {
+        // If user chose "system", use detected language
+        if (language === "system") {
           i18n.changeLanguage(detectedLanguage)
-          if (!stored) {
-            localStorage.setItem(STORAGE_KEY, "system")
-            setLanguageState("system")
-          }
         } else {
           // Apply user's explicit language choice
-          i18n.changeLanguage(stored)
+          i18n.changeLanguage(language)
         }
       } catch (error) {
         console.error("Failed to detect system language:", error)
         // Fallback to English if detection fails
-        if (!stored || stored === "system") {
+        if (language === "system") {
           i18n.changeLanguage("en")
         }
       }
@@ -55,11 +42,10 @@ export function useLanguage() {
     }
 
     detectSystemLanguage()
-  }, [])
+  }, [language])
 
   const changeLanguage = async (lang: Language) => {
-    localStorage.setItem(STORAGE_KEY, lang)
-    setLanguageState(lang)
+    await setLanguageValue(lang)
 
     if (lang === "system") {
       // Detect and apply system language

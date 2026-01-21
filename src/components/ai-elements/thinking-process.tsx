@@ -2,9 +2,8 @@ import { useControllableState } from "@radix-ui/react-use-controllable-state"
 import type { ToolUIPart } from "ai"
 import {
   BrainIcon,
-  CheckCircle2,
-  CheckIcon,
   ChevronRightIcon,
+  CircleCheckIcon,
   CircleIcon,
   CircleXIcon,
   GlobeIcon,
@@ -254,8 +253,8 @@ export const ReasoningSegment = memo(
           )}
         >
           {segmentType.startsWith("tool-") ? (
-            <div className="text-muted-foreground text-sm">
-              <div className="mb-1">{toolDescription}</div>
+            <div className="text-muted-foreground text-xs">
+              <div className="mb-2.5 text-sm">{toolDescription}</div>
               {isToolInProgress ? (
                 <div className="flex items-center gap-1.5">
                   <Loader2Icon className="size-3 animate-spin" />
@@ -263,7 +262,7 @@ export const ReasoningSegment = memo(
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5">
-                  {toolState === "output-available" && <CheckIcon className="size-3" />}
+                  {toolState === "output-available" && <CircleCheckIcon className="size-3" />}
                   {toolState === "output-error" && <CircleXIcon className="size-3" />}
                   <span>{toolResult || toolDone}</span>
                 </div>
@@ -364,7 +363,7 @@ export const ThinkingProcessCompletion = memo(
         <div
           className={cn("flex items-center gap-2 text-xs text-muted-foreground", "relative my-2")}
         >
-          <CheckCircle2 className="ml-px size-3" />
+          <CircleCheckIcon className="ml-px size-3" />
           <span>{stepCount ? t("message.doneInSteps", { count: stepCount }) : done}</span>
         </div>
       </div>

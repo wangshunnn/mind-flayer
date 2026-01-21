@@ -56,11 +56,12 @@ import {
   ToolCallsContainerTrigger,
   ToolCallsList
 } from "@/components/ai-elements/tool-calls-container"
-import { MODEL_OPTIONS, type ModelOption, SelectModel } from "@/components/select-model"
+import { MODEL_OPTIONS, SelectModel } from "@/components/select-model"
 import { ToolButton } from "@/components/tool-button"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useChatStorage } from "@/hooks/use-chat-storage"
+import { useSetting } from "@/hooks/use-settings-store"
 import {
   useMessageConstants,
   useToolButtonConstants,
@@ -89,10 +90,16 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   const toolButtonConstants = useToolButtonConstants()
   const tooltipConstants = useTooltipConstants()
 
-  const [selectedModel, setSelectedModel] = useState<ModelOption>(MODEL_OPTIONS[0])
-  const [useWebSearch, setUseWebSearch] = useState<boolean>(true)
-  const [webSearchMode, setWebSearchMode] = useState<"auto" | "always">("auto")
-  const [useDeepThink, setUseDeepThink] = useState<boolean>(true)
+  // Settings from store
+  const [selectedModelApiId, setSelectedModelApiId] = useSetting("selectedModelApiId")
+  const [useWebSearch, setUseWebSearch] = useSetting("webSearchEnabled")
+  const [webSearchMode, setWebSearchMode] = useSetting("webSearchMode")
+  const [useDeepThink, setUseDeepThink] = useSetting("deepThinkEnabled")
+
+  // Find the selected model from the api_id
+  const selectedModel = MODEL_OPTIONS.find(m => m.api_id === selectedModelApiId) || MODEL_OPTIONS[0]
+
+  // Local UI state (responsive, not persisted)
   const [isCondensed, setIsCondensed] = useState(false)
   const [input, setInput] = useState("")
   const selectedModelRef = useRef(selectedModel)
@@ -338,7 +345,10 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
             "transition-left duration-300 ease"
           )}
         >
-          <SelectModel value={selectedModel} onChange={setSelectedModel} />
+          <SelectModel
+            value={selectedModel}
+            onChange={model => setSelectedModelApiId(model.api_id)}
+          />
         </div>
       </div>
 

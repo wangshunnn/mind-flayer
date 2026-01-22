@@ -12,12 +12,11 @@ async function getStore() {
   if (!storeInstance) {
     try {
       storeInstance = await load(STORE_FILE, {
-        autoSave: true, // Auto-save after changes with 100ms debounce
+        autoSave: true,
         defaults: DEFAULT_SETTINGS as unknown as Record<string, unknown>
       })
     } catch (error) {
       console.warn("Failed to load settings store, using defaults:", error)
-      // Return a mock store that always returns defaults if loading fails
       return null
     }
   }

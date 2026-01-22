@@ -61,6 +61,7 @@ import { ToolButton } from "@/components/tool-button"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useChatStorage } from "@/hooks/use-chat-storage"
+import { useLatest } from "@/hooks/use-latest"
 import { useSetting } from "@/hooks/use-settings-store"
 import {
   useMessageConstants,
@@ -102,9 +103,9 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   // Local UI state (responsive, not persisted)
   const [isCondensed, setIsCondensed] = useState(false)
   const [input, setInput] = useState("")
-  const selectedModelRef = useRef(selectedModel)
-  const useWebSearchRef = useRef(useWebSearch)
-  const webSearchModeRef = useRef(webSearchMode)
+  const selectedModelRef = useLatest(selectedModel)
+  const useWebSearchRef = useLatest(useWebSearch)
+  const webSearchModeRef = useLatest(webSearchMode)
   const inputContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<PromptInputTextareaHandle>(null)
   const thinkingDurationsRef = useRef<Map<MessageId, number>>(new Map())
@@ -256,15 +257,6 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
-  useEffect(() => {
-    selectedModelRef.current = selectedModel
-  }, [selectedModel])
-  useEffect(() => {
-    useWebSearchRef.current = useWebSearch
-  }, [useWebSearch])
-  useEffect(() => {
-    webSearchModeRef.current = webSearchMode
-  }, [webSearchMode])
 
   // Load messages when activeChat changes
   useEffect(() => {

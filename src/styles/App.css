@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+
 @import "./streamdown.css";
+@import "./global-utilities.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -179,44 +181,4 @@
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
-}
-
-/* Global styling lucide-icon */
-.lucide {
-  stroke-width: 1.5px;
-}
-
-.lucide-stroke-bold {
-  stroke-width: 1.8px;
-}
-
-/* Flip animation for tool button icons */
-@keyframes flip {
-  0% {
-    transform: rotateY(0deg);
-  }
-  50% {
-    transform: rotateY(90deg);
-  }
-  100% {
-    transform: rotateY(0deg);
-  }
-}
-
-.animate-flip {
-  animation: flip 0.3s ease-in-out;
-}
-
-@keyframes pulse-scale {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(0.6);
-  }
-}
-
-.animate-pulse-scale {
-  animation: pulse-scale 2s ease-in-out infinite;
 }

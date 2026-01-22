@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react"
 import { ChevronDownIcon, CircleIcon } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import {
   PromptInputButton,
   type PromptInputButtonProps
@@ -95,20 +95,7 @@ const ToolButton = ({
 }: ToolButtonProps) => {
   const [open, setOpen] = useState(false)
   const [openTooltip] = useDropdownTooltip(open)
-  const [isFlipping, setIsFlipping] = useState(false)
-  const prevStateRef = useRef({ enabled, selectedMode })
   const hasDropdown = modes && modes.length > 0 && onModeChange
-
-  // Trigger flip animation when enabled or selectedMode changes (skip initial render)
-  useEffect(() => {
-    const prev = prevStateRef.current
-    if (prev.enabled !== enabled || (enabled && prev.selectedMode !== selectedMode)) {
-      setIsFlipping(true)
-      const timer = setTimeout(() => setIsFlipping(false), 300)
-      prevStateRef.current = { enabled, selectedMode }
-      return () => clearTimeout(timer)
-    }
-  }, [enabled, selectedMode])
 
   if (!hasDropdown) {
     // Simple button without dropdown
@@ -122,10 +109,9 @@ const ToolButton = ({
             className={className}
           >
             <Icon
-              className={cn(
-                "lucide-stroke-bold mb-px transition-transform duration-300",
-                isFlipping && "animate-flip"
-              )}
+              className="lucide-stroke-bold tool-icon-flip mb-px"
+              data-enabled={enabled}
+              key={`icon-${enabled}`}
             />
             {!collapsed && <span>{label}</span>}
           </PromptInputButton>
@@ -151,10 +137,9 @@ const ToolButton = ({
               className={cn("gap-1", className)}
             >
               <Icon
-                className={cn(
-                  "lucide-stroke-bold mb-px transition-transform duration-300",
-                  isFlipping && "animate-flip"
-                )}
+                className="lucide-stroke-bold tool-icon-flip mb-px"
+                data-enabled={enabled}
+                key={`icon-${enabled}-${selectedMode}`}
               />
               {!collapsed && <span>{displayLabel}</span>}
               {!collapsed && (

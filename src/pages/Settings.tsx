@@ -37,6 +37,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { useLanguage } from "@/hooks/use-language"
+import { useLatest } from "@/hooks/use-latest"
 import { useProviderConfig } from "@/hooks/use-provider-config"
 import { cn } from "@/lib/utils"
 
@@ -93,6 +94,7 @@ export default function Settings() {
   const [storedProviders, setStoredProviders] = useState<Record<string, boolean>>({})
 
   const { saveConfig, getConfig, deleteConfig, isLoading, error } = useProviderConfig()
+  const getConfigRef = useLatest(getConfig)
 
   const resetSaveFeedback = useCallback(() => {
     setSaveStatus("idle")
@@ -111,9 +113,11 @@ export default function Settings() {
   }, [])
 
   // Load saved config when provider changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: getConfigRef is stable via useLatest
   useEffect(() => {
     const loadConfig = async () => {
-      const config = await getConfig(activeProvider)
+      // getConfigRef.current is stable via useLatest
+      const config = await getConfigRef.current(activeProvider)
       if (config) {
         setFormData(prev => ({
           ...prev,
@@ -130,11 +134,13 @@ export default function Settings() {
     }
     loadConfig()
     resetSaveFeedback()
-  }, [activeProvider, getConfig, resetSaveFeedback])
+  }, [activeProvider, resetSaveFeedback])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: getConfigRef is stable via useLatest
   useEffect(() => {
     const loadConfig = async () => {
-      const config = await getConfig(activeWebSearchProvider)
+      // getConfigRef.current is stable via useLatest
+      const config = await getConfigRef.current(activeWebSearchProvider)
       if (config) {
         setFormData(prev => ({
           ...prev,
@@ -154,7 +160,7 @@ export default function Settings() {
     }
     loadConfig()
     resetSaveFeedback()
-  }, [activeWebSearchProvider, getConfig, resetSaveFeedback])
+  }, [activeWebSearchProvider, resetSaveFeedback])
 
   const handleSave = async (providerId: string) => {
     resetSaveFeedback()

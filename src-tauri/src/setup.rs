@@ -20,7 +20,7 @@ pub struct SidecarState {
 
 /// Push API keys configuration to sidecar via stdin
 pub fn push_config_to_sidecar(app: &tauri::AppHandle) -> Result<(), String> {
-    let configs = crate::keychain::get_all_configs();
+    let configs = crate::keychain::get_all_configs_providers();
 
     info!("Retrieved {} configs from keychain", configs.len());
     for (provider, _) in &configs {

@@ -43,7 +43,7 @@ process.stdin.on("data", (data: string) => {
         const lastParallelApiKey = apiKeyCache.get("parallel")?.apiKey ?? ""
         const newParallelApiKey = message.configs.parallel?.apiKey ?? ""
 
-        if (newParallelApiKey && lastParallelApiKey !== newParallelApiKey) {
+        if (lastParallelApiKey !== newParallelApiKey) {
           console.log("[sidecar] Parallel API key updated, refreshing web search tool")
           allTools.webSearch = webSearchTool(newParallelApiKey)
         }

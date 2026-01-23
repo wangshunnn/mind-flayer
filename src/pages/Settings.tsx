@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import {
   ArrowLeftToLineIcon,
   Bot,
@@ -39,6 +39,7 @@ import { Switch } from "@/components/ui/switch"
 import { useLanguage } from "@/hooks/use-language"
 import { useLatest } from "@/hooks/use-latest"
 import { useProviderConfig } from "@/hooks/use-provider-config"
+import { useSetting } from "@/hooks/use-settings-store"
 import { cn } from "@/lib/utils"
 
 interface ProviderFormData {
@@ -52,14 +53,33 @@ const MODEL_PROVIDERS = [
     id: "minimax",
     name: "MiniMax",
     defaultBaseUrl: "https://api.minimaxi.com/anthropic/v1",
-    icon: Sparkles
+    icon: Sparkles,
+    models: [
+      { label: "MiniMax M2.1", api_id: "MiniMax-M2.1" },
+      { label: "MiniMax M2.1 lightning", api_id: "MiniMax-M2.1-lightning" },
+      { label: "MiniMax M2", api_id: "MiniMax-M2" }
+    ]
   },
-  { id: "openai", name: "OpenAI", defaultBaseUrl: "https://api.openai.com/v1", icon: Bot },
+  {
+    id: "openai",
+    name: "OpenAI",
+    defaultBaseUrl: "https://api.openai.com/v1",
+    icon: Bot,
+    models: [
+      { label: "GPT-4", api_id: "gpt-4" },
+      { label: "GPT-4 Turbo", api_id: "gpt-4-turbo" },
+      { label: "GPT-3.5 Turbo", api_id: "gpt-3.5-turbo" }
+    ]
+  },
   {
     id: "anthropic",
     name: "Anthropic",
     defaultBaseUrl: "https://api.anthropic.com/v1",
-    icon: Brain
+    icon: Brain,
+    models: [
+      { label: "Claude Sonnet 4.5", api_id: "claude-sonnet-4-5-20251022" },
+      { label: "Claude Opus 4.5", api_id: "claude-opus-4-5-20251101" }
+    ]
   }
 ]
 
@@ -79,11 +99,16 @@ const DEFAULT_FORM_DATA = ALL_PROVIDERS.reduce(
 
 // Sections will use translations dynamically in component
 
+export { MODEL_PROVIDERS }
+export type { ProviderFormData }
+
 export default function Settings() {
   const { t } = useTranslation("settings")
   const { language, changeLanguage } = useLanguage()
   const { theme, setTheme } = useTheme()
-  const [activeSection, setActiveSection] = useState("providers")
+  const { tab } = useSearch({ from: "/settings" })
+  const navigate = useNavigate({ from: "/settings" })
+  const activeSection = tab || "providers"
   const [activeProvider, setActiveProvider] = useState("minimax")
   const [activeWebSearchProvider, setActiveWebSearchProvider] = useState("parallel")
   const [showPassword, setShowPassword] = useState(false)
@@ -95,6 +120,7 @@ export default function Settings() {
 
   const { saveConfig, getConfig, deleteConfig, isLoading, error } = useProviderConfig()
   const getConfigRef = useLatest(getConfig)
+  const [enabledProviders, setEnabledProviders] = useSetting("enabledProviders")
 
   const resetSaveFeedback = useCallback(() => {
     setSaveStatus("idle")
@@ -124,17 +150,25 @@ export default function Settings() {
           [activeProvider]: {
             ...prev[activeProvider],
             apiKey: config.apiKey,
-            baseUrl: config.baseUrl || ""
+            baseUrl: config.baseUrl || "",
+            enabled: enabledProviders[activeProvider] ?? true
           }
         }))
         setStoredProviders(prev => ({ ...prev, [activeProvider]: true }))
       } else {
+        setFormData(prev => ({
+          ...prev,
+          [activeProvider]: {
+            ...prev[activeProvider],
+            enabled: enabledProviders[activeProvider] ?? true
+          }
+        }))
         setStoredProviders(prev => ({ ...prev, [activeProvider]: false }))
       }
     }
     loadConfig()
     resetSaveFeedback()
-  }, [activeProvider, resetSaveFeedback])
+  }, [activeProvider, resetSaveFeedback, enabledProviders])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: getConfigRef is stable via useLatest
   useEffect(() => {
@@ -150,17 +184,25 @@ export default function Settings() {
             baseUrl:
               config.baseUrl ||
               ALL_PROVIDERS.find(p => p.id === activeWebSearchProvider)?.defaultBaseUrl ||
-              ""
+              "",
+            enabled: enabledProviders[activeWebSearchProvider] ?? true
           }
         }))
         setStoredProviders(prev => ({ ...prev, [activeWebSearchProvider]: true }))
       } else {
+        setFormData(prev => ({
+          ...prev,
+          [activeWebSearchProvider]: {
+            ...prev[activeWebSearchProvider],
+            enabled: enabledProviders[activeWebSearchProvider] ?? true
+          }
+        }))
         setStoredProviders(prev => ({ ...prev, [activeWebSearchProvider]: false }))
       }
     }
     loadConfig()
     resetSaveFeedback()
-  }, [activeWebSearchProvider, resetSaveFeedback])
+  }, [activeWebSearchProvider, resetSaveFeedback, enabledProviders])
 
   const handleSave = async (providerId: string) => {
     resetSaveFeedback()
@@ -181,6 +223,13 @@ export default function Settings() {
       setStoredProviders(prev => ({ ...prev, [providerId]: true }))
       setSaveStatus("success")
       toast.success(t("providers.toast.saved"))
+
+      // Emit event to notify other components
+      window.dispatchEvent(
+        new CustomEvent("provider-config-changed", {
+          detail: { provider: providerId, action: "saved" }
+        })
+      )
 
       successTimeoutRef.current = setTimeout(() => {
         setSaveStatus("idle")
@@ -223,6 +272,13 @@ export default function Settings() {
       setSaveStatus("success")
       toast.success(t("providers.toast.deleted"))
 
+      // Emit event to notify other components
+      window.dispatchEvent(
+        new CustomEvent("provider-config-changed", {
+          detail: { provider: providerId, action: "deleted" }
+        })
+      )
+
       successTimeoutRef.current = setTimeout(() => {
         setSaveStatus("idle")
       }, 1500)
@@ -241,7 +297,7 @@ export default function Settings() {
   const currentWebSearchData = formData[activeWebSearchProvider]
   const activeError = saveError || error
   const isSaveBusy = saveStatus === "submitting" || saveStatus === "success"
-  const isProviderLocked = activeProvider === "openai" || activeProvider === "anthropic"
+  const isProviderLocked = false // activeProvider === "openai" || activeProvider === "anthropic"
   const isSaveDisabled = isProviderLocked || isSaveBusy || isLoading || !currentData?.apiKey.trim()
   const isClearDisabled = isProviderLocked || isSaveBusy || isLoading || !currentData?.apiKey.trim()
   const isProviderEnabled = !isProviderLocked && (currentData?.enabled ?? true)
@@ -279,7 +335,18 @@ export default function Settings() {
                   <button
                     key={section.id}
                     type="button"
-                    onClick={() => setActiveSection(section.id)}
+                    onClick={() =>
+                      navigate({
+                        search: {
+                          tab: section.id as
+                            | "providers"
+                            | "web-search"
+                            | "general"
+                            | "advanced"
+                            | "about"
+                        }
+                      })
+                    }
                     className={cn(
                       "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                       activeSection === section.id
@@ -390,7 +457,7 @@ export default function Settings() {
                             <Switch
                               checked={currentData?.enabled ?? false}
                               disabled={isProviderLocked}
-                              onCheckedChange={checked => {
+                              onCheckedChange={async checked => {
                                 if (isProviderLocked) return
                                 resetSaveFeedback()
                                 setFormData(prev => ({
@@ -400,6 +467,10 @@ export default function Settings() {
                                     enabled: checked
                                   }
                                 }))
+                                await setEnabledProviders({
+                                  ...enabledProviders,
+                                  [activeProvider]: checked
+                                })
                               }}
                             />
                           </div>
@@ -573,7 +644,7 @@ export default function Settings() {
                             </span>
                             <Switch
                               checked={currentWebSearchData?.enabled ?? false}
-                              onCheckedChange={checked => {
+                              onCheckedChange={async checked => {
                                 resetSaveFeedback()
                                 setFormData(prev => ({
                                   ...prev,
@@ -582,6 +653,10 @@ export default function Settings() {
                                     enabled: checked
                                   }
                                 }))
+                                await setEnabledProviders({
+                                  ...enabledProviders,
+                                  [activeWebSearchProvider]: checked
+                                })
                               }}
                             />
                           </div>
@@ -634,7 +709,7 @@ export default function Settings() {
                         </div>
 
                         {/* Base URL Input (if needed) */}
-                        {currentWebSearchProvider?.defaultBaseUrl !== undefined && (
+                        {/* {currentWebSearchProvider?.defaultBaseUrl !== undefined && (
                           <div className="space-y-2 [&>div]:pl-1">
                             <div className="text-sm font-medium leading-none">
                               Base URL
@@ -659,7 +734,7 @@ export default function Settings() {
                               }}
                             />
                           </div>
-                        )}
+                        )} */}
                       </div>
 
                       {/* Error Display */}

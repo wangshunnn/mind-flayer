@@ -12,6 +12,9 @@ export interface AppSettings {
   // Model settings
   selectedModelApiId: string
 
+  // Provider settings
+  enabledProviders: Record<string, boolean>
+
   // Tool settings
   webSearchEnabled: boolean
   webSearchMode: WebSearchMode
@@ -22,6 +25,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   theme: "system",
   language: "system",
   selectedModelApiId: "MiniMax-M2.1",
+  enabledProviders: {
+    minimax: true,
+    openai: false,
+    anthropic: false,
+    parallel: true
+  },
   webSearchEnabled: true,
   webSearchMode: "auto",
   deepThinkEnabled: true

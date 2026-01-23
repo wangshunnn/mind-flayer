@@ -94,7 +94,7 @@ pub fn delete_config(provider: &str) -> Result<(), String> {
 }
 
 /// Get all provider configurations from encrypted local storage
-pub fn get_all_configs() -> HashMap<String, ProviderConfig> {
+pub fn get_all_configs_providers() -> HashMap<String, ProviderConfig> {
     debug!("[Storage] Getting all configs...");
     match get_all_configs_internal() {
         Ok(configs) => {
@@ -113,7 +113,7 @@ pub fn get_all_configs() -> HashMap<String, ProviderConfig> {
 
 /// List all configured providers
 pub fn list_all_providers() -> Vec<String> {
-    get_all_configs().keys().cloned().collect()
+    get_all_configs_providers().keys().cloned().collect()
 }
 
 /// Internal: Get all configs from encrypted file
@@ -286,12 +286,12 @@ mod tests {
         save_config("provider2", &config2).unwrap();
 
         // Get all
-        let all_configs = get_all_configs();
+        let all_configs = get_all_configs_providers();
         assert_eq!(all_configs.len(), 2);
 
         // Delete one
         delete_config("provider1").unwrap();
-        let all_configs = get_all_configs();
+        let all_configs = get_all_configs_providers();
         assert_eq!(all_configs.len(), 1);
 
         cleanup_test();

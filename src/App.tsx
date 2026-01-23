@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter, RouterProvider } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { I18nextProvider } from "react-i18next"
+import { z } from "zod"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { useLanguage } from "@/hooks/use-language"
@@ -22,7 +23,13 @@ const indexRoute = createRoute({
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
-  component: Settings
+  component: Settings,
+  validateSearch: z.object({
+    tab: z
+      .enum(["providers", "web-search", "general", "advanced", "about"])
+      .optional()
+      .default("providers")
+  })
 })
 
 const routeTree = rootRoute.addChildren([indexRoute, settingsRoute])

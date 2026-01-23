@@ -1,5 +1,6 @@
+import { Link } from "@tanstack/react-router"
 import { ArrowRightIcon, BotIcon, ChevronDown, CircleIcon } from "lucide-react"
-import { useState } from "react"
+import { Fragment, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
@@ -11,6 +12,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useAvailableModels } from "@/hooks/use-available-models"
 import { useDropdownTooltip } from "@/hooks/use-dropdown-tooltip"
 import { cn } from "@/lib/utils"
 
@@ -37,34 +39,6 @@ function getProviderIcon(provider: string) {
   return ProviderIcons[provider] ?? <DefaultProviderIcon />
 }
 
-const MODEL_OPTIONS: ModelOption[] = [
-  {
-    provider: "minimax",
-    label: "MiniMax M2.1",
-    api_id: "MiniMax-M2.1"
-  },
-  {
-    provider: "minimax",
-    label: "MiniMax M2.1 lightning",
-    api_id: "MiniMax-M2.1-lightning"
-  },
-  {
-    provider: "minimax",
-    label: "MiniMax M2",
-    api_id: "MiniMax-M2"
-  }
-  // {
-  //   provider: "anthropic",
-  //   label: "Claude Sonnet 4.5",
-  //   api_id: "claude-haiku-4-5-20251001"
-  // },
-  // {
-  //   provider: "anthropic",
-  //   label: "Claude Opus 4.5",
-  //   api_id: "claude-opus-4-5-20251101"
-  // }
-]
-
 interface SelectModelProps extends Omit<React.ComponentProps<typeof Button>, "onChange" | "value"> {
   value?: ModelOption
   onChange?: (model: ModelOption) => void
@@ -73,11 +47,25 @@ interface SelectModelProps extends Omit<React.ComponentProps<typeof Button>, "on
 function SelectModel({ className, value, onChange, ...props }: SelectModelProps) {
   const { t } = useTranslation("chat")
   const [open, setOpen] = useState(false)
+  const { availableModels, isLoading } = useAvailableModels()
+
   // Use controlled state if provided, otherwise use internal state
-  const [internalModel, setInternalModel] = useState(MODEL_OPTIONS[0])
+  const [internalModel, setInternalModel] = useState({} as ModelOption)
   const selectedModel = value ?? internalModel
   const setSelectedModel = onChange ?? setInternalModel
   const [openTooltip] = useDropdownTooltip(open)
+
+  // Group models by provider
+  const groupedModels = useMemo(() => {
+    const groups: Record<string, ModelOption[]> = {}
+    availableModels.forEach(model => {
+      if (!groups[model.provider]) {
+        groups[model.provider] = []
+      }
+      groups[model.provider].push(model)
+    })
+    return Object.entries(groups)
+  }, [availableModels])
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -89,7 +77,7 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
               className={cn("h-8 gap-1.5 data-[state=open]:bg-accent font-medium", className)}
               {...props}
             >
-              {selectedModel.label}
+              {selectedModel.label || t("model.selectModel")}
               <ChevronDown
                 className={cn("size-3.5 transition-transform duration-300", open && "-rotate-180")}
               />
@@ -102,30 +90,48 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
 
       <DropdownMenuContent align="start" sideOffset={6}>
         <DropdownMenuGroup>
-          {MODEL_OPTIONS.map(model => (
-            <DropdownMenuItem
-              key={model.label}
-              onClick={() => setSelectedModel(model)}
-              className={cn("flex items-center gap-2 px-1 font-medium")}
-            >
-              {getProviderIcon(model.provider)}
-              <span className="flex-1 text-left">{model.label}</span>
-              <span className="ml-8 w-4 shrink-0">
-                {selectedModel.label === model.label && (
-                  <CircleIcon className="size-2 fill-current text-brand-green" />
-                )}
-              </span>
+          {isLoading ? (
+            <DropdownMenuItem disabled className="text-muted-foreground">
+              {t("model.loadingModels")}
             </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="flex items-center justify-between gap-2 text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => {
-              // TODO: Navigate to model configuration page
-            }}
-          >
-            <span>{t("model.configureModels")}</span>
-            <ArrowRightIcon className="size-4" />
+          ) : availableModels.length === 0 ? (
+            <>
+              <DropdownMenuItem disabled className="text-muted-foreground">
+                {t("model.noModelsAvailable")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          ) : (
+            groupedModels.map(([provider, models]) => (
+              <Fragment key={provider}>
+                {models.map((model: ModelOption) => (
+                  <DropdownMenuItem
+                    key={model.api_id}
+                    onClick={() => setSelectedModel(model)}
+                    className={cn("flex items-center gap-2 px-1 font-medium")}
+                  >
+                    {getProviderIcon(model.provider)}
+                    <span className="flex-1 text-left">{model.label}</span>
+                    <span className="ml-8 w-4 shrink-0">
+                      {selectedModel.api_id === model.api_id && (
+                        <CircleIcon className="size-2 fill-current text-brand-green" />
+                      )}
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+              </Fragment>
+            ))
+          )}
+          <DropdownMenuItem asChild>
+            <Link
+              to="/settings"
+              search={{ tab: "providers" }}
+              className="flex items-center justify-between gap-2 text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
+            >
+              <span>{t("model.configureModels")}</span>
+              <ArrowRightIcon className="size-4" />
+            </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>
@@ -133,5 +139,5 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
   )
 }
 
-export { SelectModel, MODEL_OPTIONS }
+export { SelectModel }
 export type { ModelOption }

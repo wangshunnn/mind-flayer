@@ -31,6 +31,10 @@
   "model": {
     "selectModel": "Select Model",
     "switchModel": "Switch Model",
-    "configureModels": "Configure Models"
+    "configureModels": "Configure Models",
+    "loadingModels": "Loading models...",
+    "noModelsAvailable": "No models available",
+    "noModelsConfigured": "No models available",
+    "pleaseConfigureApiKey": "Please configure models"
   }
 }

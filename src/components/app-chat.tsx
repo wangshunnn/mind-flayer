@@ -1,4 +1,5 @@
 import { useChat } from "@ai-sdk/react"
+import { useNavigate } from "@tanstack/react-router"
 import {
   DefaultChatTransport,
   lastAssistantMessageIsCompleteWithApprovalResponses,
@@ -56,10 +57,11 @@ import {
   ToolCallsContainerTrigger,
   ToolCallsList
 } from "@/components/ai-elements/tool-calls-container"
-import { MODEL_OPTIONS, SelectModel } from "@/components/select-model"
+import { SelectModel } from "@/components/select-model"
 import { ToolButton } from "@/components/tool-button"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useAvailableModels } from "@/hooks/use-available-models"
 import { useChatStorage } from "@/hooks/use-chat-storage"
 import { useLatest } from "@/hooks/use-latest"
 import { useSetting } from "@/hooks/use-settings-store"
@@ -86,10 +88,14 @@ interface StepSegment {
 
 const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   const { t } = useTranslation(["common", "chat"])
+  const navigate = useNavigate({ from: "/" })
   const messageConstants = useMessageConstants()
   const toolConstants = useToolConstants()
   const toolButtonConstants = useToolButtonConstants()
   const tooltipConstants = useTooltipConstants()
+
+  // Get available models dynamically
+  const { availableModels } = useAvailableModels()
 
   // Settings from store
   const [selectedModelApiId, setSelectedModelApiId] = useSetting("selectedModelApiId")
@@ -98,7 +104,8 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   const [useDeepThink, setUseDeepThink] = useSetting("deepThinkEnabled")
 
   // Find the selected model from the api_id
-  const selectedModel = MODEL_OPTIONS.find(m => m.api_id === selectedModelApiId) || MODEL_OPTIONS[0]
+  const selectedModel =
+    availableModels.find(m => m.api_id === selectedModelApiId) || availableModels[0]
 
   // Local UI state (responsive, not persisted)
   const [isCondensed, setIsCondensed] = useState(false)
@@ -296,6 +303,23 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
     const hasText = Boolean(message.text)
     const hasAttachments = Boolean(message.files?.length)
     if (!(hasText || hasAttachments)) {
+      return
+    }
+    // Check if there are available models
+    if (!availableModels || availableModels.length === 0) {
+      toast.error(t("chat:model.noModelsConfigured"), {
+        description: t("chat:model.pleaseConfigureApiKey"),
+        action: {
+          label: t("chat:model.configureModels"),
+          onClick: () =>
+            navigate({
+              to: "/settings",
+              search: {
+                tab: "providers"
+              }
+            })
+        }
+      })
       return
     }
     if (message.files?.length) {

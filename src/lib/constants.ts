@@ -16,14 +16,14 @@ export function useToolConstants() {
         webSearch: t("names.webSearch")
       },
       states: {
-        working: t("states.working"),
+        running: t("states.running"),
         done: t("states.done"),
         failed: t("states.failed"),
         cancelled: t("states.cancelled"),
         awaitingApproval: t("states.awaitingApproval")
       },
       webSearch: {
-        searching: (objective: string) => t("webSearch.searching", { objective }),
+        searching: t("webSearch.searching"),
         searchedResults: (count: number) => t("webSearch.searchedResults", { count }),
         approvalText: (objective: string) => t("webSearch.approvalText", { objective })
       }
@@ -44,7 +44,7 @@ export function useThinkingConstants() {
       for: t("message.for"),
       includingTools: t("message.includingTools"),
       done: t("message.done"),
-      toolWorking: t("tools:states.working"),
+      toolRunning: t("tools:states.running"),
       toolDone: t("tools:states.done")
     }),
     [t]

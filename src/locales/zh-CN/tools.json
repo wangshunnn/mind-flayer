@@ -5,14 +5,14 @@
     "webSearch": "联网搜索"
   },
   "states": {
-    "working": "工作中...",
+    "running": "运行中...",
     "done": "完成",
     "failed": "失败",
     "cancelled": "已取消",
     "awaitingApproval": "等待批准..."
   },
   "webSearch": {
-    "searching": "正在搜索 \"{{objective}}\"",
+    "searching": "正在搜索...",
     "searchedResults": "搜索到 {{count}} 条结果",
     "approvalText": "AI 想要搜索网络：\"{{objective}}\""
   },

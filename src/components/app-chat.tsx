@@ -71,6 +71,7 @@ import {
   useToolConstants,
   useTooltipConstants
 } from "@/lib/constants"
+import { getToolResultText } from "@/lib/tool-helpers"
 import { cn } from "@/lib/utils"
 import type { ChatId, MessageId } from "@/types/chat"
 
@@ -478,8 +479,8 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                                   return (
                                     <ReasoningSegment
                                       key={`reasoning-${message.id}-${segment.partIndex}`}
+                                      toolType="reasoning"
                                       isStreaming={segment.reasoning?.isStreaming}
-                                      segmentType="reasoning"
                                     >
                                       <ReasoningSegmentContent>
                                         {segment.reasoning?.text || ""}
@@ -490,7 +491,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
 
                                 if (segment.type === "tool" && segment.tool) {
                                   const tool = segment.tool as {
-                                    type: string
+                                    type: `tool-${string}`
                                     state?: ToolUIPart["state"]
                                     output?: { totalResults?: number; [key: string]: unknown }
                                     input?: {
@@ -499,58 +500,16 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                                       maxResults?: number
                                     }
                                   }
-                                  const toolType = tool.type.replace("tool-", "")
-                                  const isWebSearch = toolType === "webSearch"
-                                  const segmentType = isWebSearch ? "tool-webSearch" : "tool-other"
-                                  const toolDisplayName = isWebSearch
-                                    ? toolConstants.names.webSearch
-                                    : toolType
-                                  let toolResult: string = toolConstants.states.working
-
-                                  switch (tool.state) {
-                                    case "output-available": {
-                                      if (tool.output) {
-                                        if (isWebSearch && tool.output.totalResults !== undefined) {
-                                          toolResult = toolConstants.webSearch.searchedResults(
-                                            tool.output.totalResults
-                                          )
-                                        } else {
-                                          toolResult = toolConstants.states.done
-                                        }
-                                      }
-                                      break
-                                    }
-                                    case "output-error": {
-                                      toolResult = toolConstants.states.failed
-                                      break
-                                    }
-                                    case "output-denied": {
-                                      toolResult = toolConstants.states.cancelled
-                                      break
-                                    }
-                                    case "input-streaming":
-                                    case "input-available": {
-                                      toolResult = toolConstants.states.working
-                                      break
-                                    }
-                                    case "approval-requested": {
-                                      toolResult = toolConstants.states.awaitingApproval
-                                      break
-                                    }
-                                    default: {
-                                      toolResult = toolConstants.states.working
-                                    }
-                                  }
-
+                                  const toolType = tool.type
+                                  const isWebSearch = toolType === "tool-webSearch"
+                                  const toolResult = getToolResultText(tool, toolConstants)
                                   const toolDescription = isWebSearch ? tool.input?.objective : ""
-                                  const toolIdentifier = `${tool.type}-${message.id}-${segment.partIndex}`
                                   return (
                                     <ReasoningSegment
-                                      key={toolIdentifier}
-                                      segmentType={segmentType}
-                                      toolName={toolDisplayName}
-                                      toolResult={toolResult}
+                                      key={`${toolType}-${message.id}-${segment.partIndex}`}
+                                      toolType={toolType}
                                       toolState={tool.state}
+                                      toolResult={toolResult}
                                       toolDescription={toolDescription}
                                     />
                                   )

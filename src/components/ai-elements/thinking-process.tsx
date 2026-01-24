@@ -209,8 +209,7 @@ export const ThinkingProcessContent = memo(
 
 export type ReasoningSegmentProps = ComponentProps<"div"> & {
   isStreaming?: boolean
-  segmentType?: "reasoning" | "tool-webSearch" | "tool-other"
-  toolName?: string
+  toolType?: "reasoning" | `tool-${string}`
   toolResult?: string
   toolState?: ToolUIPart["state"]
   toolDescription?: string
@@ -220,15 +219,14 @@ export const ReasoningSegment = memo(
   ({
     className,
     isStreaming = false,
-    segmentType = "reasoning",
-    toolName,
+    toolType = "reasoning",
     toolResult,
     toolState,
     toolDescription,
     children,
     ...props
   }: ReasoningSegmentProps) => {
-    const { toolWorking, toolDone } = useThinkingConstants()
+    const { toolRunning, toolDone } = useThinkingConstants()
 
     // Determine if tool is in progress
     const isToolInProgress = Boolean(
@@ -240,11 +238,7 @@ export const ReasoningSegment = memo(
 
     return (
       <div className={cn("relative my-0", className)} {...props}>
-        <ReasoningSegmentHeader
-          segmentType={segmentType}
-          toolName={toolName}
-          isToolInProgress={isToolInProgress}
-        />
+        <ReasoningSegmentHeader toolType={toolType} isToolInProgress={isToolInProgress} />
         <div
           className={cn(
             "relative pl-6 py-1",
@@ -252,13 +246,13 @@ export const ReasoningSegment = memo(
             "before:bg-muted-foreground/20"
           )}
         >
-          {segmentType.startsWith("tool-") ? (
+          {toolType.startsWith("tool-") ? (
             <div className="text-muted-foreground text-xs">
               <div className="mb-2.5 text-sm">{toolDescription}</div>
               {isToolInProgress ? (
                 <div className="flex items-center gap-1.5">
                   <Loader2Icon className="size-3 animate-spin" />
-                  <span>{toolResult || toolWorking}</span>
+                  <span>{toolResult || toolRunning}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5">
@@ -278,7 +272,7 @@ export const ReasoningSegment = memo(
 )
 
 export type ReasoningSegmentHeaderProps = ComponentProps<"div"> & {
-  segmentType?: "reasoning" | "tool-webSearch" | "tool-other"
+  toolType?: "reasoning" | `tool-${string}`
   toolName?: string
   isToolInProgress?: boolean
 }
@@ -287,30 +281,30 @@ export const ReasoningSegmentHeader = memo(
   ({
     className,
     children,
-    segmentType = "reasoning",
-    toolName,
+    toolType = "reasoning",
     isToolInProgress = false,
     ...props
   }: ReasoningSegmentHeaderProps) => {
     const { names } = useToolConstants()
     const { t } = useTranslation("chat")
+    const isWebSearchTool = toolType === "tool-webSearch"
 
     const getIcon = () => {
-      if (segmentType === "tool-webSearch") {
+      if (isWebSearchTool) {
         return <GlobeIcon className="ml-px size-3" />
       }
-      if (segmentType === "tool-other") {
+      if (toolType === "tool-other") {
         return <WrenchIcon className="ml-px size-3" />
       }
       return <CircleIcon className="ml-1 size-1.5 text-muted-foreground/80 fill-current" />
     }
 
     const getLabel = () => {
-      if (segmentType === "tool-webSearch") {
+      if (isWebSearchTool) {
         return names.webSearch
       }
-      if (segmentType === "tool-other") {
-        return toolName || t("message.usingTool")
+      if (toolType === "tool-other") {
+        return toolType || t("message.usingTool")
       }
       return t("message.reasoning")
     }

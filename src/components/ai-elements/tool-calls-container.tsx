@@ -15,7 +15,6 @@ import {
   ToolCallWebSearchResults
 } from "@/components/ai-elements/tool-call"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { useToolConstants } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
 type ToolCallsContainerContextValue = {
@@ -160,7 +159,6 @@ const ToolCallWebSearch = ({
   part: ToolUIPart
   onToolApprovalResponse: ToolCallsListProps["onToolApprovalResponse"]
 }) => {
-  const toolConstants = useToolConstants()
   const callId = part.toolCallId
   const input = part.input as {
     objective: string
@@ -192,9 +190,7 @@ const ToolCallWebSearch = ({
       <ToolCallTrigger />
       <ToolCallContent>
         {(part.state === "input-streaming" || part.state === "input-available") && (
-          <ToolCallInputStreaming
-            message={toolConstants.webSearch.searching(input?.objective || "...")}
-          />
+          <ToolCallInputStreaming message={input?.objective} />
         )}
         {part.state === "approval-requested" && approvalId && (
           <ToolCallApprovalRequested

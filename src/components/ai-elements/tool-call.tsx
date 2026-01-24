@@ -257,7 +257,7 @@ export const ToolCallInputStreaming = memo(({ message }: ToolCallInputStreamingP
     <div className="flex items-center gap-2 py-1">
       <Loader2Icon className="size-3.5 animate-spin" />
       <span className="text-sm text-muted-foreground">
-        {message ?? toolConstants.states.working}
+        {message ?? toolConstants.states.running}
       </span>
     </div>
   )

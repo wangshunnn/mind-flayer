@@ -7,14 +7,14 @@
     "webSearch": "Web search"
   },
   "states": {
-    "working": "Working...",
+    "running": "Running...",
     "done": "Done",
     "failed": "Failed",
     "cancelled": "Cancelled",
     "awaitingApproval": "Awaiting approval..."
   },
   "webSearch": {
-    "searching": "Searching \"{{objective}}\"",
+    "searching": "Searching...",
     "searchedResults": "Searched {{count}} results",
     "approvalText": "The AI wants to search the web for: \"{{objective}}\""
   },

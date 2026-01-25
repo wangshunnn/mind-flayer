@@ -1,19 +1,24 @@
 import { defineConfig } from "tsup"
 
+const isDev = process.env.NODE_ENV === "development"
+
 export default defineConfig({
   entry: ["src/index.ts"],
-  format: ["esm"],
+  format: isDev ? ["esm"] : ["cjs"],
   target: "node24",
   outDir: "dist",
+  outExtension: () => ({ js: ".js" }),
   clean: true,
   bundle: true,
   external: [],
   noExternal: [/(.*)/],
   platform: "node",
   minify: false,
-  sourcemap: false,
+  sourcemap: isDev,
   shims: true,
-  banner: {
-    js: "import { createRequire } from 'module';const require = createRequire(import.meta.url);"
-  }
+  ...(isDev && {
+    banner: {
+      js: "import { createRequire } from 'module';const require = createRequire(import.meta.url);"
+    }
+  })
 })

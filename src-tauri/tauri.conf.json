@@ -24,8 +24,8 @@
         "center": true,
         "transparent": true,
         "trafficLightPosition": {
-          "x": 25,
-          "y": 30
+          "x": 24,
+          "y": 34
         }
       }
     ],

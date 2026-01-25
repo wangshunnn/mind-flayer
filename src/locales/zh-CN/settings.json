@@ -13,6 +13,7 @@
     "enable": "启用",
     "apiKey": "API Key",
     "apiKeyPlaceholder": "输入您的 {{provider}} API 密钥",
+    "getApiKey": "获取 API Key",
     "baseUrl": "Base URL",
     "baseUrlOptional": "可选",
     "baseUrlPlaceholder": "默认：{{defaultUrl}}",

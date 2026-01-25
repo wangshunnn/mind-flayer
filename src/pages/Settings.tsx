@@ -53,6 +53,7 @@ const MODEL_PROVIDERS = [
     id: "minimax",
     name: "MiniMax",
     defaultBaseUrl: "https://api.minimaxi.com/anthropic/v1",
+    apiKeyUrl: "https://platform.minimaxi.com/user-center/basic-information/interface-key",
     icon: Sparkles,
     models: [
       { label: "MiniMax M2.1", api_id: "MiniMax-M2.1" },
@@ -64,6 +65,7 @@ const MODEL_PROVIDERS = [
     id: "openai",
     name: "OpenAI",
     defaultBaseUrl: "https://api.openai.com/v1",
+    apiKeyUrl: "https://platform.openai.com/api-keys",
     icon: Bot,
     models: [
       { label: "GPT-4", api_id: "gpt-4" },
@@ -75,6 +77,7 @@ const MODEL_PROVIDERS = [
     id: "anthropic",
     name: "Anthropic",
     defaultBaseUrl: "https://api.anthropic.com/v1",
+    apiKeyUrl: "https://console.anthropic.com/settings/keys",
     icon: Brain,
     models: [
       { label: "Claude Sonnet 4.5", api_id: "claude-sonnet-4-5-20251022" },
@@ -84,7 +87,13 @@ const MODEL_PROVIDERS = [
 ]
 
 const WEB_SEARCH_PROVIDERS = [
-  { id: "parallel", name: "Parallel", defaultBaseUrl: "", icon: Search }
+  {
+    id: "parallel",
+    name: "Parallel",
+    defaultBaseUrl: "",
+    apiKeyUrl: "https://platform.parallel.ai/settings?tab=api-keys",
+    icon: Search
+  }
 ]
 
 const ALL_PROVIDERS = [...MODEL_PROVIDERS, ...WEB_SEARCH_PROVIDERS]
@@ -483,8 +492,18 @@ export default function Settings() {
                       <div className="space-y-8">
                         {/* API Key Input with Password Toggle */}
                         <div className="space-y-2 [&>div]:pl-1">
-                          <div className="text-sm font-medium leading-none">
-                            API Key <span className="text-red-500">*</span>
+                          <div className="text-sm font-medium leading-none gap-2 flex items-center">
+                            <span>API Key</span>
+                            {currentProvider?.apiKeyUrl && (
+                              <a
+                                href={currentProvider.apiKeyUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-400 underline decoration-dashed hover:decoration-solid underline-offset-4"
+                              >
+                                {t("providers.getApiKey")}
+                              </a>
+                            )}
                           </div>
                           <InputGroup>
                             <InputGroupInput
@@ -523,9 +542,9 @@ export default function Settings() {
 
                         {/* Base URL Input */}
                         <div className="space-y-2 [&>div]:pl-1">
-                          <div className="text-sm font-medium leading-none">
-                            Base URL
-                            <span className={cn("pl-2 text-muted-foreground/60 text-xs")}>
+                          <div className="text-sm font-medium leading-none gap-2 flex items-center">
+                            <span>Base URL</span>
+                            <span className={cn("text-muted-foreground/60 text-xs")}>
                               {t("providers.baseUrlOptional")}
                             </span>
                           </div>
@@ -671,8 +690,20 @@ export default function Settings() {
                       <div className="space-y-8">
                         {/* API Key Input with Password Toggle */}
                         <div className="space-y-2 [&>div]:pl-1">
-                          <div className="text-sm font-medium leading-none">
-                            API Key <span className="text-red-500">*</span>
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-medium leading-none gap-2 flex items-center">
+                              <span>API Key</span>
+                              {currentWebSearchProvider?.apiKeyUrl && (
+                                <a
+                                  href={currentWebSearchProvider.apiKeyUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-400 underline decoration-dashed hover:decoration-solid underline-offset-4"
+                                >
+                                  {t("providers.getApiKey")}
+                                </a>
+                              )}
+                            </div>
                           </div>
                           <InputGroup>
                             <InputGroupInput

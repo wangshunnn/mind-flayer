@@ -6,11 +6,8 @@
   "description": "AI SDK sidecar for Mind Flayer",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsup && bash scripts/rename-binaries.sh",
-    "build": "pkg src/index.ts -t node24-macos-arm64"
-  },
-  "pkg": {
-    "outputPath": "../src-tauri/binaries/mind-flayer-sidecar-aarch64-apple-darwin"
+    "dev": "NODE_ENV=development tsup && bash scripts/rename-binaries.sh",
+    "build": "NODE_ENV=production tsup && pkg dist/index.js -t node24-macos-arm64 -o ../src-tauri/binaries/mind-flayer-sidecar-aarch64-apple-darwin"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.23",

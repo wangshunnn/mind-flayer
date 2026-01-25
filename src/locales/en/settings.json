@@ -13,6 +13,7 @@
     "enable": "Enable",
     "apiKey": "API Key",
     "apiKeyPlaceholder": "Enter your {{provider}} API key",
+    "getApiKey": "Get API Key",
     "baseUrl": "Base URL",
     "baseUrlOptional": "Optional",
     "baseUrlPlaceholder": "Default: {{defaultUrl}}",

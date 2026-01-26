@@ -278,8 +278,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
       <TooltipContent>
         {tooltip}{" "}
         <KbdGroup className="opacity-80">
-          <Kbd>⌘</Kbd>
-          <Kbd>B</Kbd>
+          <Kbd>⌘ B</Kbd>
         </KbdGroup>
       </TooltipContent>
     </Tooltip>

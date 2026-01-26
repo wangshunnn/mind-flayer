@@ -8,11 +8,13 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
+import { Kbd, KbdGroup } from "./ui/kbd"
 
 export function NavUser({
   user
@@ -38,14 +40,7 @@ export function NavUser({
             >
               <Avatar className="rounded-full size-8">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="bg-linear-120 from-indigo-300 to-teal-300 font-medium">
-                  {user.name
-                    .split(" ")
-                    .slice(0, 2)
-                    .map(n => n.charAt(0))
-                    .join("")
-                    .toUpperCase()}
-                </AvatarFallback>
+                <AvatarFallback className="bg-linear-120 from-indigo-300 to-teal-300 font-medium" />
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-normal">{user.name}</span>
@@ -69,6 +64,11 @@ export function NavUser({
               <DropdownMenuItem onClick={() => openSettingsWindow(SettingsSection.GENERAL)}>
                 <Settings />
                 {t("nav.settings")}
+                <DropdownMenuShortcut>
+                  <KbdGroup className="opacity-80">
+                    <Kbd>⌘ ,</Kbd>
+                  </KbdGroup>
+                </DropdownMenuShortcut>
               </DropdownMenuItem>
             </DropdownMenuGroup>
 

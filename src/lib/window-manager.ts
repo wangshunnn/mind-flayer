@@ -41,12 +41,14 @@ export async function openSettingsWindow(initialTab: SettingsSection = SettingsS
 
   new WebviewWindow("settings", {
     url: `/settings?tab=${initialTab}`,
-    width: 900,
-    height: 650,
+    width: 720,
+    height: 540,
     resizable: false,
-    center: true,
-    titleBarStyle: "overlay",
+    fullscreen: false,
+    maximizable: false,
+    minimizable: false,
     hiddenTitle: true,
-    trafficLightPosition: new LogicalPosition(20, 24)
+    titleBarStyle: "overlay",
+    trafficLightPosition: new LogicalPosition(24, 30)
   })
 }

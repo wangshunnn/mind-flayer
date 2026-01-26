@@ -1,7 +1,7 @@
 import { listen } from "@tauri-apps/api/event"
 import { useCallback, useEffect, useState } from "react"
 import type { ModelOption } from "@/components/select-model"
-import { MODEL_PROVIDERS } from "@/pages/Settings"
+import { MODEL_PROVIDERS } from "@/lib/provider-constants"
 import { useProviderConfig } from "./use-provider-config"
 import { useSetting } from "./use-settings-store"
 

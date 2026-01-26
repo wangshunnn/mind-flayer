@@ -35,3 +35,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   webSearchMode: "auto",
   deepThinkEnabled: true
 }
+
+export interface ProviderFormData {
+  apiKey: string
+  baseUrl: string
+  enabled: boolean
+}

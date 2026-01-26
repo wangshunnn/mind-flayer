@@ -1,6 +1,6 @@
-import { Link, useNavigate, useSearch } from "@tanstack/react-router"
+import { useSearch } from "@tanstack/react-router"
+import { emit, listen } from "@tauri-apps/api/event"
 import {
-  ArrowLeftToLineIcon,
   Bot,
   Brain,
   CircleIcon,
@@ -41,6 +41,7 @@ import { useLatest } from "@/hooks/use-latest"
 import { useProviderConfig } from "@/hooks/use-provider-config"
 import { useSetting } from "@/hooks/use-settings-store"
 import { cn } from "@/lib/utils"
+import { SettingsSection } from "@/lib/window-manager"
 
 interface ProviderFormData {
   apiKey: string
@@ -115,9 +116,9 @@ export default function Settings() {
   const { t } = useTranslation("settings")
   const { language, changeLanguage } = useLanguage()
   const { theme, setTheme } = useTheme()
-  const { tab } = useSearch({ from: "/settings" })
-  const navigate = useNavigate({ from: "/settings" })
-  const activeSection = tab || "providers"
+  // Use TanStack Router's search params from /settings route
+  const searchParams = useSearch({ from: "/settings" })
+  const [activeSection, setActiveSection] = useState<SettingsSection>(SettingsSection.GENERAL)
   const [activeProvider, setActiveProvider] = useState("minimax")
   const [activeWebSearchProvider, setActiveWebSearchProvider] = useState("parallel")
   const [showPassword, setShowPassword] = useState(false)
@@ -136,6 +137,34 @@ export default function Settings() {
     setSaveError(null)
     if (successTimeoutRef.current) {
       clearTimeout(successTimeoutRef.current)
+    }
+  }, [])
+
+  // Initialize activeSection from router search params (validated by Zod)
+  useEffect(() => {
+    // searchParams.tab has default value from route validation
+    setActiveSection(searchParams.tab)
+  }, [searchParams.tab])
+
+  // Listen for cross-window tab change events
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+
+    const setupListener = async () => {
+      unlisten = await listen<SettingsSection>("settings-change-tab", event => {
+        if (event.payload) {
+          // Event payload is already a SettingsSection enum value
+          setActiveSection(event.payload)
+        }
+      })
+    }
+
+    setupListener()
+
+    return () => {
+      if (unlisten) {
+        unlisten()
+      }
     }
   }, [])
 
@@ -233,12 +262,11 @@ export default function Settings() {
       setSaveStatus("success")
       toast.success(t("providers.toast.saved"))
 
-      // Emit event to notify other components
-      window.dispatchEvent(
-        new CustomEvent("provider-config-changed", {
-          detail: { provider: providerId, action: "saved" }
-        })
-      )
+      // Emit event to notify other windows/components
+      await emit("provider-config-changed", {
+        provider: providerId,
+        action: "saved"
+      })
 
       successTimeoutRef.current = setTimeout(() => {
         setSaveStatus("idle")
@@ -281,12 +309,11 @@ export default function Settings() {
       setSaveStatus("success")
       toast.success(t("providers.toast.deleted"))
 
-      // Emit event to notify other components
-      window.dispatchEvent(
-        new CustomEvent("provider-config-changed", {
-          detail: { provider: providerId, action: "deleted" }
-        })
-      )
+      // Emit event to notify other windows/components
+      await emit("provider-config-changed", {
+        provider: providerId,
+        action: "deleted"
+      })
 
       successTimeoutRef.current = setTimeout(() => {
         setSaveStatus("idle")
@@ -333,29 +360,18 @@ export default function Settings() {
             {/* Section Navigation */}
             <nav className="flex-1 space-y-1 p-4">
               {[
-                { id: "providers", icon: Layers },
-                { id: "web-search", icon: Search },
-                { id: "general", icon: Settings2 },
-                { id: "advanced", icon: Key },
-                { id: "about", icon: Info }
+                { id: SettingsSection.PROVIDERS, icon: Layers },
+                { id: SettingsSection.WEB_SEARCH, icon: Search },
+                { id: SettingsSection.GENERAL, icon: Settings2 },
+                { id: SettingsSection.ADVANCED, icon: Key },
+                { id: SettingsSection.ABOUT, icon: Info }
               ].map(section => {
                 const Icon = section.icon
                 return (
                   <button
                     key={section.id}
                     type="button"
-                    onClick={() =>
-                      navigate({
-                        search: {
-                          tab: section.id as
-                            | "providers"
-                            | "web-search"
-                            | "general"
-                            | "advanced"
-                            | "about"
-                        }
-                      })
-                    }
+                    onClick={() => setActiveSection(section.id)}
                     className={cn(
                       "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                       activeSection === section.id
@@ -378,18 +394,6 @@ export default function Settings() {
                 )
               })}
             </nav>
-            {/* Back button in sidebar footer */}
-            <div className="p-4 pt-0">
-              <Link to="/">
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
-                >
-                  <ArrowLeftToLineIcon className="size-4.5 shrink-0" />
-                  <span>{t("sections.back")}</span>
-                </button>
-              </Link>
-            </div>
           </div>
         </aside>
 
@@ -399,7 +403,7 @@ export default function Settings() {
             <div className="w-full px-8 pb-6 flex-1 flex flex-col min-h-0">
               {/* Top spacing to align with sidebar first item */}
               <div className="h-6" />
-              {activeSection === "providers" && (
+              {activeSection === SettingsSection.PROVIDERS && (
                 <div className="space-y-6 pt-4 flex-1 flex flex-col min-h-0">
                   <div>
                     <div className="text-xl font-semibold">{t("providers.title")}</div>
@@ -603,7 +607,7 @@ export default function Settings() {
                 </div>
               )}
 
-              {activeSection === "web-search" && (
+              {activeSection === SettingsSection.WEB_SEARCH && (
                 <div className="space-y-6 pt-4 flex-1 flex flex-col min-h-0">
                   <div>
                     <div className="text-xl font-semibold">{t("webSearch.title")}</div>
@@ -803,7 +807,7 @@ export default function Settings() {
                 </div>
               )}
 
-              {activeSection === "general" && (
+              {activeSection === SettingsSection.GENERAL && (
                 <div className="space-y-6 pt-4">
                   <div>
                     <div className="text-xl font-semibold">{t("general.title")}</div>
@@ -860,7 +864,7 @@ export default function Settings() {
                 </div>
               )}
 
-              {activeSection === "advanced" && (
+              {activeSection === SettingsSection.ADVANCED && (
                 <div className="space-y-6 pt-4">
                   <div>
                     <div className="text-xl font-semibold">{t("advanced.title")}</div>
@@ -875,7 +879,7 @@ export default function Settings() {
                 </div>
               )}
 
-              {activeSection === "about" && (
+              {activeSection === SettingsSection.ABOUT && (
                 <div className="space-y-6 pt-4">
                   <div>
                     <div className="text-xl font-semibold">{t("about.title")}</div>

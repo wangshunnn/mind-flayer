@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router"
 import { Settings, User } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { SiderbarDarkModeToggle } from "@/components/nav-top"
@@ -13,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
+import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 
 export function NavUser({
   user
@@ -66,11 +66,9 @@ export function NavUser({
                 <User />
                 {t("nav.myAccount")}
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/settings" className="cursor-pointer">
-                  <Settings />
-                  {t("nav.settings")}
-                </Link>
+              <DropdownMenuItem onClick={() => openSettingsWindow(SettingsSection.GENERAL)}>
+                <Settings />
+                {t("nav.settings")}
               </DropdownMenuItem>
             </DropdownMenuGroup>
 

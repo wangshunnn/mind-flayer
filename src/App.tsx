@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { useLanguage } from "@/hooks/use-language"
 import { initDatabase } from "@/lib/database"
 import i18n from "@/lib/i18n"
+import { SettingsSection } from "@/lib/window-manager"
 import Home from "@/pages/Home"
 import Settings from "@/pages/Settings"
 
@@ -25,10 +26,7 @@ const settingsRoute = createRoute({
   path: "/settings",
   component: Settings,
   validateSearch: z.object({
-    tab: z
-      .enum(["providers", "web-search", "general", "advanced", "about"])
-      .optional()
-      .default("providers")
+    tab: z.enum(SettingsSection).optional().default(SettingsSection.GENERAL)
   })
 })
 

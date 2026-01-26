@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router"
 import { ArrowRightIcon, BotIcon, ChevronDown, CircleIcon } from "lucide-react"
 import { Fragment, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -15,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useAvailableModels } from "@/hooks/use-available-models"
 import { useDropdownTooltip } from "@/hooks/use-dropdown-tooltip"
 import { cn } from "@/lib/utils"
+import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 
 interface ModelOption {
   provider: string
@@ -123,15 +123,9 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
               </Fragment>
             ))
           )}
-          <DropdownMenuItem asChild>
-            <Link
-              to="/settings"
-              search={{ tab: "providers" }}
-              className="flex items-center justify-between gap-2 text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
-            >
-              <span>{t("model.configureModels")}</span>
-              <ArrowRightIcon className="size-4" />
-            </Link>
+          <DropdownMenuItem onClick={() => openSettingsWindow(SettingsSection.PROVIDERS)}>
+            <span>{t("model.configureModels")}</span>
+            <ArrowRightIcon className="size-4" />
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

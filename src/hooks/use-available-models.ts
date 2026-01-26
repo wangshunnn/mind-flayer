@@ -1,3 +1,4 @@
+import { listen } from "@tauri-apps/api/event"
 import { useCallback, useEffect, useState } from "react"
 import type { ModelOption } from "@/components/select-model"
 import { MODEL_PROVIDERS } from "@/pages/Settings"
@@ -48,15 +49,25 @@ export function useAvailableModels() {
     loadAvailableModels()
   }, [loadAvailableModels])
 
-  // Listen for provider configuration changes
+  // Listen for provider configuration changes from any window
   useEffect(() => {
-    const handleProviderChange = () => {
-      loadAvailableModels()
+    let unlisten: (() => void) | undefined
+
+    const setupListener = async () => {
+      unlisten = await listen<{ provider: string; action: string }>(
+        "provider-config-changed",
+        () => {
+          loadAvailableModels()
+        }
+      )
     }
 
-    window.addEventListener("provider-config-changed", handleProviderChange)
+    setupListener()
+
     return () => {
-      window.removeEventListener("provider-config-changed", handleProviderChange)
+      if (unlisten) {
+        unlisten()
+      }
     }
   }, [loadAvailableModels])
 

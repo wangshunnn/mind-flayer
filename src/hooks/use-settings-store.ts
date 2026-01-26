@@ -1,3 +1,4 @@
+import { emit, listen } from "@tauri-apps/api/event"
 import { load } from "@tauri-apps/plugin-store"
 import { useEffect, useState } from "react"
 import { type AppSettings, DEFAULT_SETTINGS } from "@/types/settings"
@@ -57,6 +58,9 @@ export async function setSetting<K extends keyof AppSettings>(
 
     await store.set(key, value)
     console.log(`Setting "${key}" updated to`, value)
+
+    // Emit event to notify other windows about the change
+    await emit("setting-changed", { key, value })
   } catch (error) {
     console.error(`Failed to set setting "${key}":`, error)
   }
@@ -82,6 +86,31 @@ export function useSetting<K extends keyof AppSettings>(
 
     return () => {
       mounted = false
+    }
+  }, [key])
+
+  // Listen for cross-window setting changes
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+
+    const setupListener = async () => {
+      unlisten = await listen<{ key: keyof AppSettings; value: unknown }>(
+        "setting-changed",
+        event => {
+          // Only update if this is the setting we're tracking
+          if (event.payload.key === key) {
+            setValue(event.payload.value as AppSettings[K])
+          }
+        }
+      )
+    }
+
+    setupListener()
+
+    return () => {
+      if (unlisten) {
+        unlisten()
+      }
     }
   }, [key])
 
@@ -127,6 +156,31 @@ export function useSettings(): [
 
     return () => {
       mounted = false
+    }
+  }, [])
+
+  // Listen for cross-window setting changes
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+
+    const setupListener = async () => {
+      unlisten = await listen<{ key: keyof AppSettings; value: unknown }>(
+        "setting-changed",
+        event => {
+          setSettings(prev => ({
+            ...prev,
+            [event.payload.key]: event.payload.value
+          }))
+        }
+      )
+    }
+
+    setupListener()
+
+    return () => {
+      if (unlisten) {
+        unlisten()
+      }
     }
   }, [])
 

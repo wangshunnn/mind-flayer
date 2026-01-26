@@ -51,6 +51,8 @@
   --chat-input-placeholder-color: oklch(0.61 0 271.152);
   --brand-green-color: oklch(0.683 0.195 148.32);
   --brand-green-color-light: oklch(0.943 0.03539 159.839);
+  --setting-background: oklch(0.97315 0 271.152);
+  --setting-sidebar: oklch(0.94611 0 271.152);
 }
 
 .dark {
@@ -98,6 +100,8 @@
   --brand-green-color: oklch(0.62117 0.17972 148.03);
   --brand-green-color-light: oklch(0.45467 0.1285 148.952);
   --shiki-dark-bg: oklch(0.24776 0 271.152);
+  --setting-background: oklch(0.23075 0 271.152);
+  --setting-sidebar: oklch(0.26448 0 271.152);
 }
 
 @theme {
@@ -157,6 +161,8 @@
   --color-chat-input-placeholder: var(--chat-input-placeholder-color);
   --color-brand-green: var(--brand-green-color);
   --color-brand-green-light: var(--brand-green-color-light);
+  --color-setting-background: var(--setting-background);
+  --color-setting-sidebar: var(--setting-sidebar);
 }
 
 @layer base {

@@ -10,6 +10,7 @@
     "toggleDarkMode": "Toggle Dark Mode"
   },
   "theme": {
+    "title": "Appearance",
     "light": "Light",
     "dark": "Dark",
     "system": "Device"

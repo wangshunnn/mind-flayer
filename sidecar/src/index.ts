@@ -20,6 +20,12 @@ import type { ProviderConfig, WebSearchMode } from "./type"
 // const dispatcher = new ProxyAgent(proxy)
 // setGlobalDispatcher(dispatcher)
 
+const MODEL_PROVIDERS = {
+  minimax: {
+    defaultBaseUrl: "https://api.minimaxi.com/anthropic/v1"
+  }
+}
+
 const app = express()
 const PORT = process.env.PORT || 3737
 const apiKeyCache = new Map<string, ProviderConfig>()
@@ -86,7 +92,7 @@ app.post("/api/chat", async (req, res) => {
       (req.headers["x-model-provider"] as string) ||
       req.body.provider ||
       "minimax"
-    ).toLowerCase()
+    ).toLowerCase() as keyof typeof MODEL_PROVIDERS
     const modelId = (req.headers["x-model-id"] as string) || req.body.model
     const useWebSearch = req.headers["x-use-web-search"] === "true" || req.body.useWebSearch
     const webSearchMode = (req.headers["x-web-search-mode"] as WebSearchMode) || "auto"
@@ -110,9 +116,15 @@ app.post("/api/chat", async (req, res) => {
     }
 
     const apiKey = providerConfig.apiKey
-    const baseUrl = providerConfig.baseUrl || "https://api.minimaxi.com/anthropic/v1"
+    const baseUrl = providerConfig.baseUrl || MODEL_PROVIDERS[provider]?.defaultBaseUrl || ""
 
-    console.log("[sidecar] /api/chat", { provider, modelId, useWebSearch, webSearchMode })
+    console.log("[sidecar] /api/chat", {
+      provider,
+      modelId,
+      baseUrl,
+      useWebSearch,
+      webSearchMode
+    })
 
     const minimax = createMinimax({
       baseURL: baseUrl,

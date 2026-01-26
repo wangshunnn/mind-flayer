@@ -23,6 +23,26 @@ function flattenKeys(obj: TranslationObject, prefix = ""): string[] {
   return keys.sort()
 }
 
+// i18next plural suffixes
+const PLURAL_SUFFIXES = ["_zero", "_one", "_two", "_few", "_many", "_other"]
+
+function stripPluralSuffix(key: string): string {
+  for (const suffix of PLURAL_SUFFIXES) {
+    if (key.endsWith(suffix)) {
+      return key.slice(0, -suffix.length)
+    }
+  }
+  return key
+}
+
+function normalizeKeys(keys: string[]): Set<string> {
+  return new Set(keys.map(stripPluralSuffix))
+}
+
+function isPluralKey(key: string): boolean {
+  return PLURAL_SUFFIXES.some(suffix => key.endsWith(suffix))
+}
+
 function loadTranslation(filePath: string): TranslationObject {
   const content = fs.readFileSync(filePath, "utf-8")
   return JSON.parse(content)
@@ -72,9 +92,31 @@ function checkTranslations() {
     for (const lang of otherLangs) {
       const langKeys = translationsByLang[lang] || []
 
-      // Find missing keys
-      const missingInLang = baseKeys.filter(key => !langKeys.includes(key))
-      const extraInLang = langKeys.filter(key => !baseKeys.includes(key))
+      // Normalize keys for comparison (handle plural forms)
+      const normalizedBaseKeys = normalizeKeys(baseKeys)
+      const normalizedLangKeys = normalizeKeys(langKeys)
+
+      // Find missing keys (base keys not in lang, considering plural variations)
+      const missingInLang = baseKeys.filter(key => {
+        const baseKey = stripPluralSuffix(key)
+        // If it's a plural key in base, check if the normalized form exists in lang
+        if (isPluralKey(key)) {
+          return !normalizedLangKeys.has(baseKey)
+        }
+        // If it's not a plural key, check exact match
+        return !langKeys.includes(key) && !normalizedLangKeys.has(key)
+      })
+
+      // Find extra keys (lang keys not in base, considering plural variations)
+      const extraInLang = langKeys.filter(key => {
+        const langKey = stripPluralSuffix(key)
+        // If it's a plural key in lang, check if the normalized form exists in base
+        if (isPluralKey(key)) {
+          return !normalizedBaseKeys.has(langKey)
+        }
+        // If it's not a plural key, check exact match
+        return !baseKeys.includes(key) && !normalizedBaseKeys.has(key)
+      })
 
       if (missingInLang.length > 0) {
         console.error(
@@ -91,6 +133,7 @@ function checkTranslations() {
         for (const key of extraInLang) {
           console.warn(`   - ${key}`)
         }
+        hasErrors = true
       }
 
       if (missingInLang.length === 0 && extraInLang.length === 0) {

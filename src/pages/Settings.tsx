@@ -1,18 +1,18 @@
 import { useSearch } from "@tanstack/react-router"
 import { emit, listen } from "@tauri-apps/api/event"
 import {
+  BadgeInfo,
+  Bolt,
   Bot,
   Brain,
   CircleIcon,
   Eye,
   EyeOff,
-  Info,
-  Key,
+  Keyboard,
   Layers,
   Loader2Icon,
   Lock,
   Search,
-  Settings2,
   Sparkles
 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -20,6 +20,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   InputGroup,
@@ -101,7 +102,7 @@ const ALL_PROVIDERS = [...MODEL_PROVIDERS, ...WEB_SEARCH_PROVIDERS]
 
 const DEFAULT_FORM_DATA = ALL_PROVIDERS.reduce(
   (acc, provider) => {
-    acc[provider.id] = { apiKey: "", baseUrl: provider.defaultBaseUrl, enabled: false }
+    acc[provider.id] = { apiKey: "", baseUrl: "", enabled: false }
     return acc
   },
   {} as Record<string, ProviderFormData>
@@ -119,8 +120,8 @@ export default function Settings() {
   // Use TanStack Router's search params from /settings route
   const searchParams = useSearch({ from: "/settings" })
   const [activeSection, setActiveSection] = useState<SettingsSection>(SettingsSection.GENERAL)
-  const [activeProvider, setActiveProvider] = useState("minimax")
-  const [activeWebSearchProvider, setActiveWebSearchProvider] = useState("parallel")
+  const [activeProvider, setActiveProvider] = useState(MODEL_PROVIDERS[0].id)
+  const [activeWebSearchProvider, setActiveWebSearchProvider] = useState(WEB_SEARCH_PROVIDERS[0].id)
   const [showPassword, setShowPassword] = useState(false)
   const [saveStatus, setSaveStatus] = useState<"idle" | "submitting" | "success" | "error">("idle")
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -327,16 +328,12 @@ export default function Settings() {
     }
   }
 
-  const currentProvider = ALL_PROVIDERS.find(p => p.id === activeProvider)
-  const currentData = formData[activeProvider]
-  const currentWebSearchProvider = ALL_PROVIDERS.find(p => p.id === activeWebSearchProvider)
-  const currentWebSearchData = formData[activeWebSearchProvider]
   const activeError = saveError || error
   const isSaveBusy = saveStatus === "submitting" || saveStatus === "success"
-  const isProviderLocked = false // activeProvider === "openai" || activeProvider === "anthropic"
-  const isSaveDisabled = isProviderLocked || isSaveBusy || isLoading || !currentData?.apiKey.trim()
-  const isClearDisabled = isProviderLocked || isSaveBusy || isLoading || !currentData?.apiKey.trim()
-  const isProviderEnabled = !isProviderLocked && (currentData?.enabled ?? true)
+  const currentData = formData[activeProvider]
+  const isSaveDisabled = isSaveBusy || isLoading || !currentData?.apiKey.trim()
+  const isClearDisabled = isSaveBusy || isLoading || !currentData?.apiKey.trim()
+  const currentWebSearchData = formData[activeWebSearchProvider]
   const isWebSearchSaveDisabled = isSaveBusy || isLoading || !currentWebSearchData?.apiKey.trim()
   const isWebSearchClearDisabled = isSaveBusy || isLoading || !currentWebSearchData?.apiKey.trim()
 
@@ -346,25 +343,21 @@ export default function Settings() {
       <div data-tauri-drag-region className="z-50 fixed top-0 left-0 right-0 h-14.5" />
 
       {/* Main container */}
-      <div
-        className="bg-sidebar flex flex-1 overflow-hidden"
-        style={{
-          animationTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)"
-        }}
-      >
+      <div className="bg-setting-background flex flex-1 overflow-hidden">
         {/* Left Sidebar - Sections */}
-        <aside className="w-48 bg-transparent">
+        <aside className="w-50 bg-setting-sidebar">
           <div className="flex h-full flex-col">
             {/* Top spacing for drag region */}
-            <div className="h-14.5" />
+            <div className="h-12" />
+
             {/* Section Navigation */}
-            <nav className="flex-1 space-y-1 p-4">
+            <nav className="flex-1 space-y-1 px-3 py-1">
               {[
                 { id: SettingsSection.PROVIDERS, icon: Layers },
                 { id: SettingsSection.WEB_SEARCH, icon: Search },
-                { id: SettingsSection.GENERAL, icon: Settings2 },
-                { id: SettingsSection.ADVANCED, icon: Key },
-                { id: SettingsSection.ABOUT, icon: Info }
+                { id: SettingsSection.GENERAL, icon: Bolt },
+                { id: SettingsSection.ADVANCED, icon: Keyboard },
+                { id: SettingsSection.ABOUT, icon: BadgeInfo }
               ].map(section => {
                 const Icon = section.icon
                 return (
@@ -373,10 +366,9 @@ export default function Settings() {
                     type="button"
                     onClick={() => setActiveSection(section.id)}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                      activeSection === section.id
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
+                      "flex w-full h-10.5 items-center gap-3 rounded-md px-3 py-2",
+                      "text-sm transition-colors",
+                      activeSection === section.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent"
                     )}
                   >
                     <Icon className="size-4.5 shrink-0" />
@@ -399,131 +391,106 @@ export default function Settings() {
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col">
-          <div className="bg-background/90 flex-1 overflow-auto flex flex-col">
-            <div className="w-full px-8 pb-6 flex-1 flex flex-col min-h-0">
+          <div className="bg-transparent flex-1 overflow-auto flex flex-col">
+            <div className="w-full p-5 flex-1 flex flex-col min-h-0">
               {/* Top spacing to align with sidebar first item */}
-              <div className="h-6" />
               {activeSection === SettingsSection.PROVIDERS && (
                 <div className="space-y-6 pt-4 flex-1 flex flex-col min-h-0">
-                  <div>
-                    <div className="text-xl font-semibold">{t("providers.title")}</div>
-                    <p className="mt-3 text-sm text-muted-foreground">
-                      {t("providers.description")}
-                    </p>
+                  {/* Horizontal Provider Buttons */}
+                  <div className="flex flex-wrap gap-2">
+                    {MODEL_PROVIDERS.map(provider => {
+                      const ProviderIcon = provider.icon
+                      const providerLocked = provider.id === "openai" || provider.id === "anthropic"
+                      const providerEnabled =
+                        provider.id !== "openai" &&
+                        provider.id !== "anthropic" &&
+                        (formData[provider.id]?.enabled ?? true)
+                      const isActive = activeProvider === provider.id
+                      return (
+                        <Button
+                          key={provider.id}
+                          type="button"
+                          variant={isActive ? "default" : "outline"}
+                          onClick={() => {
+                            setActiveProvider(provider.id)
+                            setShowPassword(false)
+                          }}
+                          className="rounded-full gap-2 h-8"
+                        >
+                          <ProviderIcon className="size-3.5 shrink-0 pl-0.5" />
+                          <span className="px-0">{provider.name}</span>
+                          {providerLocked && <Lock className="size-3" />}
+                          {!providerLocked && providerEnabled && (
+                            <CircleIcon className="size-2 fill-current text-brand-green" />
+                          )}
+                        </Button>
+                      )
+                    })}
                   </div>
 
                   <Separator />
 
-                  <div className="grid grid-cols-[180px_1fr] gap-4 flex-1 min-h-0">
-                    {/* Provider List */}
-                    <div className="space-y-2 rounded-lg border border-border/70 bg-muted p-2 h-full overflow-y-auto">
-                      {MODEL_PROVIDERS.map(provider => {
-                        const ProviderIcon = provider.icon
-                        const providerLocked =
-                          provider.id === "openai" || provider.id === "anthropic"
-                        const providerEnabled =
-                          provider.id !== "openai" &&
-                          provider.id !== "anthropic" &&
-                          (formData[provider.id]?.enabled ?? true)
-                        return (
-                          <button
-                            key={provider.id}
-                            type="button"
-                            onClick={() => {
-                              setActiveProvider(provider.id)
-                              setShowPassword(false)
-                            }}
-                            className={cn(
-                              "flex w-full items-center justify-between gap-2 rounded-md border px-3 py-3 text-left text-sm font-medium transition-colors",
-                              activeProvider === provider.id
-                                ? "bg-accent text-accent-foreground border-accent-foreground/20"
-                                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border-border/40"
-                            )}
-                          >
-                            <div className="flex items-center gap-2">
-                              <ProviderIcon className="size-4 shrink-0" />
-                              <span>{provider.name}</span>
-                            </div>
-                            {providerLocked && <Lock className="size-3 text-muted-foreground" />}
-                            {!providerLocked && providerEnabled && (
-                              <CircleIcon className="size-2 fill-current text-brand-green" />
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
+                  {/* Provider Form */}
+                  {MODEL_PROVIDERS.map(provider => {
+                    if (provider.id !== activeProvider) return null
+                    const data = formData[provider.id]
+                    const providerLocked = provider.id === "openai" || provider.id === "anthropic"
+                    const providerEnabled = !providerLocked && (data?.enabled ?? true)
 
-                    {/* Provider Form */}
-                    <div
-                      className={cn(
-                        "max-w-2xl space-y-8 transition-opacity",
-                        !isProviderEnabled && "opacity-60"
-                      )}
-                    >
-                      <div>
+                    return (
+                      <div
+                        key={provider.id}
+                        className={cn(
+                          "max-w-2xl space-y-6 transition-opacity",
+                          !providerEnabled && "opacity-60"
+                        )}
+                      >
                         <div className="flex items-center justify-between gap-4">
-                          <h2 className="text-lg font-medium">{currentProvider?.name}</h2>
+                          <h2 className="text-lg font-medium">{provider.name}</h2>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">
                               {t("providers.enable")}
                             </span>
                             <Switch
-                              checked={currentData?.enabled ?? false}
-                              disabled={isProviderLocked}
+                              checked={data?.enabled ?? false}
+                              disabled={providerLocked}
                               onCheckedChange={async checked => {
-                                if (isProviderLocked) return
+                                if (providerLocked) return
                                 resetSaveFeedback()
                                 setFormData(prev => ({
                                   ...prev,
-                                  [activeProvider]: {
-                                    ...prev[activeProvider],
+                                  [provider.id]: {
+                                    ...prev[provider.id],
                                     enabled: checked
                                   }
                                 }))
                                 await setEnabledProviders({
                                   ...enabledProviders,
-                                  [activeProvider]: checked
+                                  [provider.id]: checked
                                 })
                               }}
                             />
                           </div>
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {t("providers.configureDescription", { provider: currentProvider?.name })}
-                        </p>
-                      </div>
 
-                      <div className="space-y-8">
-                        {/* API Key Input with Password Toggle */}
-                        <div className="space-y-2 [&>div]:pl-1">
-                          <div className="text-sm font-medium leading-none gap-2 flex items-center">
-                            <span>API Key</span>
-                            {currentProvider?.apiKeyUrl && (
-                              <a
-                                href={currentProvider.apiKeyUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-blue-400 underline decoration-dashed hover:decoration-solid underline-offset-4"
-                              >
-                                {t("providers.getApiKey")}
-                              </a>
-                            )}
-                          </div>
+                        {/* API Key Field */}
+                        <Field>
+                          <FieldLabel htmlFor={`${provider.id}-api-key`}>API Key</FieldLabel>
                           <InputGroup>
                             <InputGroupInput
-                              id="apiKey"
+                              id={`${provider.id}-api-key`}
                               type={showPassword ? "text" : "password"}
-                              disabled={isProviderLocked}
+                              disabled={providerLocked}
                               placeholder={t("providers.apiKeyPlaceholder", {
-                                provider: currentProvider?.name
+                                provider: provider.name
                               })}
-                              value={currentData?.apiKey || ""}
+                              value={data?.apiKey || ""}
                               onChange={e => {
                                 resetSaveFeedback()
                                 setFormData(prev => ({
                                   ...prev,
-                                  [activeProvider]: {
-                                    ...prev[activeProvider],
+                                  [provider.id]: {
+                                    ...prev[provider.id],
                                     apiKey: e.target.value
                                   }
                                 }))
@@ -542,187 +509,168 @@ export default function Settings() {
                               </InputGroupButton>
                             </InputGroupAddon>
                           </InputGroup>
-                        </div>
+                          <FieldDescription>
+                            {provider.apiKeyUrl && (
+                              <a
+                                href={provider.apiKeyUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {t("providers.getApiKey")}
+                              </a>
+                            )}
+                          </FieldDescription>
+                        </Field>
 
-                        {/* Base URL Input */}
-                        <div className="space-y-2 [&>div]:pl-1">
-                          <div className="text-sm font-medium leading-none gap-2 flex items-center">
-                            <span>Base URL</span>
-                            <span className={cn("text-muted-foreground/60 text-xs")}>
-                              {t("providers.baseUrlOptional")}
-                            </span>
-                          </div>
+                        {/* Base URL Field */}
+                        <Field>
+                          <FieldLabel htmlFor={`${provider.id}-base-url`}>Base URL </FieldLabel>
                           <Input
-                            id="baseUrl"
+                            id={`${provider.id}-base-url`}
                             type="url"
-                            disabled={isProviderLocked}
-                            placeholder={currentProvider?.defaultBaseUrl}
-                            value={currentData?.baseUrl || ""}
+                            disabled={providerLocked}
+                            placeholder={provider.defaultBaseUrl}
+                            value={data?.baseUrl === provider.defaultBaseUrl ? "" : data?.baseUrl}
                             onChange={e => {
                               resetSaveFeedback()
                               setFormData(prev => ({
                                 ...prev,
-                                [activeProvider]: {
-                                  ...prev[activeProvider],
+                                [provider.id]: {
+                                  ...prev[provider.id],
                                   baseUrl: e.target.value
                                 }
                               }))
                             }}
                           />
-                        </div>
-                      </div>
+                          <FieldDescription>{t("providers.baseUrlOptional")}</FieldDescription>
+                        </Field>
 
-                      {/* Error Display */}
-                      {activeError && (
-                        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                          {activeError}
-                        </div>
-                      )}
+                        {/* Error Display */}
+                        {activeError && (
+                          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                            {activeError}
+                          </div>
+                        )}
 
-                      {/* Action Buttons */}
-                      <div className="flex justify-end gap-2 pt-4">
-                        <Button
-                          variant="destructive"
-                          onClick={() => handleClear(activeProvider)}
-                          disabled={isClearDisabled}
-                        >
-                          {t("providers.clear")}
-                        </Button>
-                        <Button
-                          onClick={() => handleSave(activeProvider)}
-                          disabled={isSaveDisabled}
-                        >
-                          {saveStatus === "submitting" && (
-                            <Loader2Icon className="mr-2 size-4 animate-spin" />
-                          )}
-                          {saveStatus === "success"
-                            ? t("providers.saved")
-                            : saveStatus === "submitting"
-                              ? t("providers.saving")
-                              : t("providers.save")}
-                        </Button>
+                        {/* Action Buttons */}
+                        <Field orientation="horizontal" className="pt-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => handleClear(provider.id)}
+                            disabled={isClearDisabled}
+                          >
+                            {t("providers.clear")}
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => handleSave(provider.id)}
+                            disabled={isSaveDisabled}
+                          >
+                            {saveStatus === "submitting" && (
+                              <Loader2Icon className="mr-2 size-4 animate-spin" />
+                            )}
+                            {saveStatus === "success"
+                              ? t("providers.saved")
+                              : saveStatus === "submitting"
+                                ? t("providers.saving")
+                                : t("providers.save")}
+                          </Button>
+                        </Field>
                       </div>
-                    </div>
-                  </div>
+                    )
+                  })}
                 </div>
               )}
 
               {activeSection === SettingsSection.WEB_SEARCH && (
                 <div className="space-y-6 pt-4 flex-1 flex flex-col min-h-0">
-                  <div>
-                    <div className="text-xl font-semibold">{t("webSearch.title")}</div>
-                    <p className="mt-3 text-sm text-muted-foreground">
-                      {t("webSearch.description")}
-                    </p>
+                  {/* Horizontal Provider Buttons */}
+                  <div className="flex flex-wrap gap-2">
+                    {WEB_SEARCH_PROVIDERS.map(provider => {
+                      const ProviderIcon = provider.icon
+                      const providerEnabled = formData[provider.id]?.enabled ?? true
+                      const isActive = activeWebSearchProvider === provider.id
+                      return (
+                        <Button
+                          key={provider.id}
+                          type="button"
+                          variant={isActive ? "default" : "outline"}
+                          onClick={() => {
+                            setActiveWebSearchProvider(provider.id)
+                            setShowPassword(false)
+                          }}
+                          className="rounded-full gap-2 h-8"
+                        >
+                          <ProviderIcon className="size-4 shrink-0" />
+                          <span>{provider.name}</span>
+                          {providerEnabled && (
+                            <CircleIcon className="size-2 fill-current text-brand-green" />
+                          )}
+                        </Button>
+                      )
+                    })}
                   </div>
 
                   <Separator />
 
-                  <div className="grid grid-cols-[180px_1fr] gap-4 flex-1 min-h-0">
-                    {/* Provider List */}
-                    <div className="space-y-2 rounded-lg border border-border/70 bg-muted p-2 h-full overflow-y-auto">
-                      {WEB_SEARCH_PROVIDERS.map(provider => {
-                        const ProviderIcon = provider.icon
-                        const providerEnabled = formData[provider.id]?.enabled ?? true
-                        return (
-                          <button
-                            key={provider.id}
-                            type="button"
-                            onClick={() => {
-                              setActiveWebSearchProvider(provider.id)
-                              setShowPassword(false)
-                            }}
-                            className={cn(
-                              "flex w-full items-center justify-between gap-2 rounded-md border px-3 py-3 text-left text-sm font-medium transition-colors",
-                              activeWebSearchProvider === provider.id
-                                ? "bg-accent text-accent-foreground border-accent-foreground/20"
-                                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border-border/40"
-                            )}
-                          >
-                            <div className="flex items-center gap-2">
-                              <ProviderIcon className="size-4 shrink-0" />
-                              <span>{provider.name}</span>
-                            </div>
-                            {providerEnabled && (
-                              <CircleIcon className="size-2 fill-current text-brand-green" />
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
+                  {/* Provider Form */}
+                  {WEB_SEARCH_PROVIDERS.map(provider => {
+                    if (provider.id !== activeWebSearchProvider) return null
+                    const data = formData[provider.id]
+                    const providerEnabled = data?.enabled ?? true
 
-                    {/* Provider Form */}
-                    <div
-                      className={cn(
-                        "max-w-2xl space-y-8 transition-opacity",
-                        !(currentWebSearchData?.enabled ?? true) && "opacity-60"
-                      )}
-                    >
-                      <div>
+                    return (
+                      <div
+                        key={provider.id}
+                        className={cn(
+                          "max-w-2xl space-y-6 transition-opacity",
+                          !providerEnabled && "opacity-60"
+                        )}
+                      >
                         <div className="flex items-center justify-between gap-4">
-                          <h2 className="text-lg font-medium">{currentWebSearchProvider?.name}</h2>
+                          <h2 className="text-lg font-medium">{provider.name}</h2>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">
                               {t("providers.enable")}
                             </span>
                             <Switch
-                              checked={currentWebSearchData?.enabled ?? false}
+                              checked={data?.enabled ?? false}
                               onCheckedChange={async checked => {
                                 resetSaveFeedback()
                                 setFormData(prev => ({
                                   ...prev,
-                                  [activeWebSearchProvider]: {
-                                    ...prev[activeWebSearchProvider],
+                                  [provider.id]: {
+                                    ...prev[provider.id],
                                     enabled: checked
                                   }
                                 }))
                                 await setEnabledProviders({
                                   ...enabledProviders,
-                                  [activeWebSearchProvider]: checked
+                                  [provider.id]: checked
                                 })
                               }}
                             />
                           </div>
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {t("providers.configureDescription", {
-                            provider: currentWebSearchProvider?.name
-                          })}
-                        </p>
-                      </div>
 
-                      <div className="space-y-8">
-                        {/* API Key Input with Password Toggle */}
-                        <div className="space-y-2 [&>div]:pl-1">
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm font-medium leading-none gap-2 flex items-center">
-                              <span>API Key</span>
-                              {currentWebSearchProvider?.apiKeyUrl && (
-                                <a
-                                  href={currentWebSearchProvider.apiKeyUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-blue-400 underline decoration-dashed hover:decoration-solid underline-offset-4"
-                                >
-                                  {t("providers.getApiKey")}
-                                </a>
-                              )}
-                            </div>
-                          </div>
+                        {/* API Key Field */}
+                        <Field>
+                          <FieldLabel htmlFor={`${provider.id}-api-key`}>API Key</FieldLabel>
                           <InputGroup>
                             <InputGroupInput
-                              id="webSearchApiKey"
+                              id={`${provider.id}-api-key`}
                               type={showPassword ? "text" : "password"}
                               placeholder={t("providers.apiKeyPlaceholder", {
-                                provider: currentWebSearchProvider?.name
+                                provider: provider.name
                               })}
-                              value={currentWebSearchData?.apiKey || ""}
+                              value={data?.apiKey || ""}
                               onChange={e => {
                                 resetSaveFeedback()
                                 setFormData(prev => ({
                                   ...prev,
-                                  [activeWebSearchProvider]: {
-                                    ...prev[activeWebSearchProvider],
+                                  [provider.id]: {
+                                    ...prev[provider.id],
                                     apiKey: e.target.value
                                   }
                                 }))
@@ -741,111 +689,63 @@ export default function Settings() {
                               </InputGroupButton>
                             </InputGroupAddon>
                           </InputGroup>
-                        </div>
+                          <FieldDescription>
+                            {provider.apiKeyUrl && (
+                              <a
+                                href={provider.apiKeyUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {t("providers.getApiKey")}
+                              </a>
+                            )}
+                          </FieldDescription>
+                        </Field>
 
-                        {/* Base URL Input (if needed) */}
-                        {/* {currentWebSearchProvider?.defaultBaseUrl !== undefined && (
-                          <div className="space-y-2 [&>div]:pl-1">
-                            <div className="text-sm font-medium leading-none">
-                              Base URL
-                              <span className={cn("pl-2 text-muted-foreground/60 text-xs")}>
-                                {t("providers.baseUrlOptional")}
-                              </span>
-                            </div>
-                            <Input
-                              id="webSearchBaseUrl"
-                              type="url"
-                              placeholder={currentWebSearchProvider?.defaultBaseUrl}
-                              value={currentWebSearchData?.baseUrl || ""}
-                              onChange={e => {
-                                resetSaveFeedback()
-                                setFormData(prev => ({
-                                  ...prev,
-                                  [activeWebSearchProvider]: {
-                                    ...prev[activeWebSearchProvider],
-                                    baseUrl: e.target.value
-                                  }
-                                }))
-                              }}
-                            />
+                        {/* Error Display */}
+                        {activeError && (
+                          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                            {activeError}
                           </div>
-                        )} */}
-                      </div>
+                        )}
 
-                      {/* Error Display */}
-                      {activeError && (
-                        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                          {activeError}
-                        </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      <div className="flex justify-end gap-2 pt-4">
-                        <Button
-                          variant="destructive"
-                          onClick={() => handleClear(activeWebSearchProvider)}
-                          disabled={isWebSearchClearDisabled}
-                        >
-                          {t("providers.clear")}
-                        </Button>
-                        <Button
-                          onClick={() => handleSave(activeWebSearchProvider)}
-                          disabled={isWebSearchSaveDisabled}
-                        >
-                          {saveStatus === "submitting" && (
-                            <Loader2Icon className="mr-2 size-4 animate-spin" />
-                          )}
-                          {saveStatus === "success"
-                            ? t("providers.saved")
-                            : saveStatus === "submitting"
-                              ? t("providers.saving")
-                              : t("providers.save")}
-                        </Button>
+                        {/* Action Buttons */}
+                        <Field orientation="horizontal" className="pt-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => handleClear(provider.id)}
+                            disabled={isWebSearchClearDisabled}
+                          >
+                            {t("providers.clear")}
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => handleSave(provider.id)}
+                            disabled={isWebSearchSaveDisabled}
+                          >
+                            {saveStatus === "submitting" && (
+                              <Loader2Icon className="mr-2 size-4 animate-spin" />
+                            )}
+                            {saveStatus === "success"
+                              ? t("providers.saved")
+                              : saveStatus === "submitting"
+                                ? t("providers.saving")
+                                : t("providers.save")}
+                          </Button>
+                        </Field>
                       </div>
-                    </div>
-                  </div>
+                    )
+                  })}
                 </div>
               )}
 
               {activeSection === SettingsSection.GENERAL && (
-                <div className="space-y-6 pt-4">
-                  <div>
-                    <div className="text-xl font-semibold">{t("general.title")}</div>
-                    <p className="mt-1 text-sm text-muted-foreground">{t("general.description")}</p>
-                  </div>
-                  <Separator />
-                  <div className="max-w-2xl space-y-6">
-                    {/* Language Selector */}
-                    <div className="space-y-3">
-                      <div>
-                        <h3 className="text-sm font-medium">{t("general.language")}</h3>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {t("general.languageDescription")}
-                        </p>
-                      </div>
-                      <Select
-                        value={language}
-                        onValueChange={value => changeLanguage(value as "en" | "zh-CN" | "system")}
-                      >
-                        <SelectTrigger className="w-48">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="zh-CN">简体中文</SelectItem>
-                          <SelectItem value="en">English</SelectItem>
-                          <SelectItem value="system">{t("general.languageSystem")}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Theme Selector */}
-                    <div className="space-y-3">
-                      <div>
-                        <h3 className="text-sm font-medium">{t("general.theme")}</h3>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {t("general.themeDescription")}
-                        </p>
-                      </div>
+                <div className="space-y-1">
+                  <div className="w-full space-y-0 bg-white px-4 rounded-md">
+                    {/* Appearance */}
+                    <div className="flex items-center justify-between py-3">
+                      <div className="text-base">{t("theme.title", { ns: "common" })}</div>
                       <Select
                         value={theme}
                         onValueChange={value => setTheme(value as "light" | "dark" | "system")}
@@ -854,9 +754,33 @@ export default function Settings() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="light">{t("general.themeLight")}</SelectItem>
-                          <SelectItem value="dark">{t("general.themeDark")}</SelectItem>
-                          <SelectItem value="system">{t("general.themeSystem")}</SelectItem>
+                          <SelectItem value="light">
+                            {t("theme.light", { ns: "common" })}
+                          </SelectItem>
+                          <SelectItem value="dark">{t("theme.dark", { ns: "common" })}</SelectItem>
+                          <SelectItem value="system">
+                            {t("theme.system", { ns: "common" })}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <Separator />
+
+                    {/* Language */}
+                    <div className="flex items-center justify-between py-3">
+                      <div className="text-base">{t("general.language")}</div>
+                      <Select
+                        value={language}
+                        onValueChange={value => changeLanguage(value as "en" | "zh-CN" | "system")}
+                      >
+                        <SelectTrigger className="w-48">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="zh-CN">{t("general.languageChinese")}</SelectItem>
+                          <SelectItem value="en">{t("general.languageEnglish")}</SelectItem>
+                          <SelectItem value="system">{t("general.languageSystem")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

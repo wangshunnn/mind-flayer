@@ -9,7 +9,7 @@ import {
 } from "ai"
 import { AtomIcon, CircleIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useTranslation } from "react-i18next"
+import { Trans, useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
   Conversation,
@@ -67,6 +67,7 @@ import { useLatest } from "@/hooks/use-latest"
 import { useSetting } from "@/hooks/use-settings-store"
 import {
   useMessageConstants,
+  useToastConstants,
   useToolButtonConstants,
   useToolConstants,
   useTooltipConstants
@@ -91,6 +92,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   const { t } = useTranslation(["common", "chat"])
   const navigate = useNavigate({ from: "/" })
   const messageConstants = useMessageConstants()
+  const toastConstants = useToastConstants()
   const toolConstants = useToolConstants()
   const toolButtonConstants = useToolButtonConstants()
   const tooltipConstants = useTooltipConstants()
@@ -154,11 +156,11 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
     onError: error => {
       // Check if this is a 401 error (API key not configured)
       if (error.message.includes("API key not configured") || error.message.includes("401")) {
-        toast.error(t("common:toast.error"), {
-          description: "Please configure your API key in Settings to continue chatting."
+        toast.error(toastConstants.error, {
+          description: toastConstants.apiKeyNotConfigured
         })
       } else {
-        toast.error(t("common:toast.error"), {
+        toast.error(toastConstants.error, {
           description: error.message
         })
       }
@@ -324,8 +326,8 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
       return
     }
     if (message.files?.length) {
-      toast.success(t("common:toast.filesAttached"), {
-        description: t("common:toast.filesAttachedDescription", { count: message.files.length })
+      toast.success(toastConstants.filesAttached, {
+        description: toastConstants.filesAttachedDescription(message.files.length)
       })
     }
     if (message.text) {
@@ -710,15 +712,22 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
           "overflow-hidden whitespace-nowrap text-ellipsis"
         )}
       >
-        {t("common:footer.disclaimer")}{" "}
-        <a
-          href="https://github.com/wangshunnn/mind-flayer"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ml-1 text-muted-foreground/50 hover:text-muted-foreground transition-colors underline"
-        >
-          {t("common:footer.github")}
-        </a>
+        <Trans
+          i18nKey="footer.copyrightWithLink"
+          ns="common"
+          components={{
+            link: (
+              <a
+                href="https://github.com/wangshunnn/mind-flayer"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-1 text-muted-foreground/50 hover:text-muted-foreground transition-colors underline"
+              >
+                Github
+              </a>
+            )
+          }}
+        />
       </div>
     </div>
   )

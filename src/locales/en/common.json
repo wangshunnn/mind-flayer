@@ -25,7 +25,8 @@
     "failedToDeleteChat": "Failed to delete chat",
     "error": "Error",
     "filesAttached": "Files attached",
-    "filesAttachedDescription": "{{count}} file(s) attached to message"
+    "filesAttachedDescription": "{{count}} file(s) attached to message",
+    "apiKeyNotConfigured": "Please configure your API key in Settings to continue chatting."
   },
   "sidebar": {
     "search": "Search",
@@ -36,7 +37,7 @@
     "toggleSidebar": "Toggle Sidebar"
   },
   "footer": {
-    "disclaimer": "AI-generated content, for reference only.",
-    "github": "Github"
+    "github": "Github",
+    "copyrightWithLink": "AI-generated content, for reference only. <link>Github</link>"
   }
 }

@@ -25,7 +25,8 @@
     "failedToDeleteChat": "删除对话失败",
     "error": "错误",
     "filesAttached": "文件已附加",
-    "filesAttachedDescription": "已附加 {{count}} 个文件到消息"
+    "filesAttachedDescription": "已附加 {{count}} 个文件到消息",
+    "apiKeyNotConfigured": "请在设置中配置 API Key 以继续对话。"
   },
   "sidebar": {
     "search": "搜索",
@@ -36,7 +37,7 @@
     "toggleSidebar": "切换侧栏"
   },
   "footer": {
-    "disclaimer": "AI 生成的内容，仅供参考。",
-    "github": "Github"
+    "github": "Github",
+    "copyrightWithLink": "AI 生成的内容，仅供参考。<link>Github</link>"
   }
 }

@@ -141,6 +141,7 @@ export function useToastConstants() {
     () => ({
       error: t("toast.error"),
       filesAttached: t("toast.filesAttached"),
+      apiKeyNotConfigured: t("toast.apiKeyNotConfigured"),
       filesAttachedDescription: (count: number) => t("toast.filesAttachedDescription", { count })
     }),
     [t]
@@ -157,20 +158,6 @@ export function useErrorConstants() {
       toolExecutionDenied: t("errors.toolExecutionDenied"),
       invalidToolName: (name: string) => t("errors.invalidToolName", { name }),
       invalidSegmentType: (type: string) => t("errors.invalidSegmentType", { type })
-    }),
-    [t]
-  )
-}
-
-// Footer/Copyright constants hook
-export function useFooterConstants() {
-  const { t } = useTranslation("common")
-
-  return useMemo(
-    () => ({
-      disclaimer: t("footer.disclaimer"),
-      github: t("footer.github"),
-      githubUrl: "https://github.com/wangshunnn/mind-flayer"
     }),
     [t]
   )

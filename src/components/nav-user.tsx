@@ -65,8 +65,9 @@ export function NavUser({
                 <Settings />
                 {t("nav.settings")}
                 <DropdownMenuShortcut>
-                  <KbdGroup className="opacity-80">
-                    <Kbd>⌘ ,</Kbd>
+                  <KbdGroup>
+                    <Kbd>⌘</Kbd>
+                    <Kbd>,</Kbd>
                   </KbdGroup>
                 </DropdownMenuShortcut>
               </DropdownMenuItem>

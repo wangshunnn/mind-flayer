@@ -53,6 +53,8 @@ export function AppSidebar({
           onChatClick={onChatClick}
           onDeleteChat={handleDeleteChat}
         />
+        {/* Draggable empty space below chat list */}
+        <div data-tauri-drag-region className="flex-1 min-h-0" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />

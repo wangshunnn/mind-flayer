@@ -10,9 +10,10 @@ import {
   InputGroupButton,
   InputGroupInput
 } from "@/components/ui/input-group"
+import { ProviderLogo } from "@/components/ui/provider-logo"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
-import { MODEL_PROVIDERS } from "@/lib/provider-constants"
+import { MODEL_PROVIDERS, UPCOMING_PROVIDERS } from "@/lib/provider-constants"
 import { cn } from "@/lib/utils"
 import type { ProviderFormData } from "@/types/settings"
 
@@ -52,34 +53,38 @@ export function ProviderSection({
   const [showPassword, setShowPassword] = useState(false)
 
   return (
-    <div className="space-y-6 pt-4 flex-1 flex flex-col min-h-0">
+    <div className="flex flex-col bg-setting-background-highlight space-y-6 py-6 px-4 rounded-md">
       {/* Horizontal Provider Buttons */}
       <div className="flex flex-wrap gap-2">
-        {MODEL_PROVIDERS.map(provider => {
-          const ProviderIcon = provider.icon
-          const providerLocked = provider.id === "openai" || provider.id === "anthropic"
-          const providerEnabled =
-            provider.id !== "openai" &&
-            provider.id !== "anthropic" &&
-            (formData[provider.id]?.enabled ?? true)
+        {[...MODEL_PROVIDERS, ...UPCOMING_PROVIDERS].map(provider => {
+          const providerLocked = provider.disabled ?? false
+          const providerEnabled = !providerLocked && (formData[provider.id]?.enabled ?? true)
           const isActive = activeProvider === provider.id
           return (
             <Button
               key={provider.id}
               type="button"
-              variant={isActive ? "default" : "outline"}
+              variant="outline"
               onClick={() => {
                 setActiveProvider(provider.id)
                 setShowPassword(false)
               }}
-              className="rounded-full gap-2 h-8"
+              className={cn(
+                "rounded-full gap-2 h-8",
+                isActive &&
+                  cn(
+                    "border-brand-green-light bg-brand-green-light hover:bg-brand-green-light",
+                    "dark:border-brand-green-light/50 dark:bg-brand-green-light/50 dark:hover:bg-brand-green-light/50"
+                  )
+              )}
             >
-              <ProviderIcon className="size-3.5 shrink-0 pl-0.5" />
+              <ProviderLogo providerId={provider.id} className="size-4 shrink-0 pl-0.5" />
               <span className="px-0">{provider.name}</span>
               {providerLocked && <Lock className="size-3" />}
               {!providerLocked && providerEnabled && (
                 <CircleIcon className="size-2 fill-current text-brand-green" />
               )}
+              {!providerLocked && !providerEnabled && <CircleIcon className="size-2" />}
             </Button>
           )
         })}
@@ -88,10 +93,10 @@ export function ProviderSection({
       <Separator />
 
       {/* Provider Form */}
-      {MODEL_PROVIDERS.map(provider => {
+      {[...MODEL_PROVIDERS, ...UPCOMING_PROVIDERS].map(provider => {
         if (provider.id !== activeProvider) return null
         const data = formData[provider.id]
-        const providerLocked = provider.id === "openai" || provider.id === "anthropic"
+        const providerLocked = provider.disabled ?? false
         const providerEnabled = !providerLocked && (data?.enabled ?? true)
 
         return (
@@ -103,7 +108,15 @@ export function ProviderSection({
             )}
           >
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-lg font-medium">{provider.name}</h2>
+              <h2 className="text-lg font-medium flex items-center gap-2">
+                <ProviderLogo providerId={provider.id} className="size-5" />
+                {provider.name}
+                {providerLocked && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 ml-2 text-[10px] font-normal rounded-md text-muted-foreground bg-muted">
+                    {t("comingSoon")}
+                  </span>
+                )}
+              </h2>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">{t("providers.enable")}</span>
                 <Switch
@@ -200,7 +213,7 @@ export function ProviderSection({
             )}
 
             {/* Action Buttons */}
-            <Field orientation="horizontal" className="pt-4">
+            <Field orientation="horizontal">
               <Button
                 type="button"
                 variant="outline"

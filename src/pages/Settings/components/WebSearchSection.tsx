@@ -164,7 +164,7 @@ export function WebSearchSection({
             )}
 
             {/* Action Buttons */}
-            <Field orientation="horizontal" className="pt-4">
+            <Field orientation="horizontal">
               <Button
                 type="button"
                 variant="outline"

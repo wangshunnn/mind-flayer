@@ -1,4 +1,4 @@
-import { ArrowRightIcon, BotIcon, ChevronDown, CircleIcon } from "lucide-react"
+import { ArrowRightIcon, CheckIcon, ChevronDown } from "lucide-react"
 import { Fragment, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { ProviderLogo } from "@/components/ui/provider-logo"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useAvailableModels } from "@/hooks/use-available-models"
 import { useDropdownTooltip } from "@/hooks/use-dropdown-tooltip"
@@ -20,23 +21,6 @@ interface ModelOption {
   provider: string
   label: string
   api_id: string
-}
-
-// Provider logo components - can be replaced with actual SVG logos
-const ProviderIcons: Record<string, React.ReactNode> = {
-  minimax: <span className="flex size-5 items-center justify-center text-[10px] font-bold">M</span>,
-  anthropic: (
-    <span className="flex size-5 items-center justify-center text-[10px] font-bold">A</span>
-  )
-}
-
-// Default fallback icon for unknown providers
-function DefaultProviderIcon() {
-  return <BotIcon className="size-5 text-muted-foreground" />
-}
-
-function getProviderIcon(provider: string) {
-  return ProviderIcons[provider] ?? <DefaultProviderIcon />
 }
 
 interface SelectModelProps extends Omit<React.ComponentProps<typeof Button>, "onChange" | "value"> {
@@ -74,9 +58,10 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className={cn("h-8 gap-1.5 data-[state=open]:bg-accent font-medium", className)}
+              className={cn("h-8 gap-2 data-[state=open]:bg-accent font-medium", className)}
               {...props}
             >
+              <ProviderLogo providerId={selectedModel.provider} className="size-4" />
               {selectedModel.label || t("model.selectModel")}
               <ChevronDown
                 className={cn("size-3.5 transition-transform duration-300", open && "-rotate-180")}
@@ -108,14 +93,12 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
                   <DropdownMenuItem
                     key={model.api_id}
                     onClick={() => setSelectedModel(model)}
-                    className={cn("flex items-center gap-2 px-1 font-medium")}
+                    className={cn("flex items-center gap-2 pl-1 pr-3 font-medium")}
                   >
-                    {getProviderIcon(model.provider)}
+                    <ProviderLogo providerId={model.provider} className="size-4" />
                     <span className="flex-1 text-left">{model.label}</span>
-                    <span className="ml-8 w-4 shrink-0">
-                      {selectedModel.api_id === model.api_id && (
-                        <CircleIcon className="size-2 fill-current text-brand-green" />
-                      )}
+                    <span className="ml-10 shrink-0">
+                      {selectedModel.api_id === model.api_id && <CheckIcon className="size-4" />}
                     </span>
                   </DropdownMenuItem>
                 ))}

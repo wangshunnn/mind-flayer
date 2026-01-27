@@ -27,8 +27,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   selectedModelApiId: "MiniMax-M2.1",
   enabledProviders: {
     minimax: true,
-    openai: false,
-    anthropic: false,
     parallel: true
   },
   webSearchEnabled: true,

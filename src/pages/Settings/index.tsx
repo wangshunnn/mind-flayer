@@ -239,60 +239,52 @@ export default function Settings() {
 
   return (
     <div className="h-screen overflow-hidden flex">
-      {/* Top drag region for macOS traffic lights */}
-      <div data-tauri-drag-region className="z-50 fixed top-0 left-0 right-0 h-14.5" />
-
       {/* Main container */}
       <div className="bg-setting-background flex flex-1 overflow-hidden">
         {/* Left Sidebar - Sections */}
-        <aside className="w-50 bg-setting-sidebar">
-          <div className="flex h-full flex-col">
-            {/* Top spacing for drag region */}
-            <div className="h-12" />
-
-            {/* Section Navigation */}
-            <nav className="flex-1 space-y-1 px-3 py-1">
-              {[
-                { id: SettingsSection.PROVIDERS, icon: Layers },
-                { id: SettingsSection.WEB_SEARCH, icon: Search },
-                { id: SettingsSection.GENERAL, icon: Bolt },
-                { id: SettingsSection.ADVANCED, icon: Keyboard },
-                { id: SettingsSection.ABOUT, icon: BadgeInfo }
-              ].map(section => {
-                const Icon = section.icon
-                return (
-                  <button
-                    key={section.id}
-                    type="button"
-                    onClick={() => setActiveSection(section.id)}
-                    className={cn(
-                      "flex w-full h-10.5 items-center gap-3 rounded-md px-3 py-2",
-                      "text-sm transition-colors",
-                      activeSection === section.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent"
+        <aside data-tauri-drag-region className="w-50 bg-setting-sidebar px-3 pt-15 pb-3">
+          {/* Section Navigation */}
+          <nav className="flex-1 space-y-1">
+            {[
+              { id: SettingsSection.PROVIDERS, icon: Layers },
+              { id: SettingsSection.WEB_SEARCH, icon: Search },
+              { id: SettingsSection.GENERAL, icon: Bolt },
+              { id: SettingsSection.ADVANCED, icon: Keyboard },
+              { id: SettingsSection.ABOUT, icon: BadgeInfo }
+            ].map(section => {
+              const Icon = section.icon
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setActiveSection(section.id)}
+                  className={cn(
+                    "flex w-full h-10.5 items-center gap-3 rounded-md px-3 py-2",
+                    "text-sm transition-colors",
+                    activeSection === section.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent"
+                  )}
+                >
+                  <Icon className="size-4.5 shrink-0" />
+                  <span>
+                    {t(
+                      `sections.${section.id}` as
+                        | "sections.providers"
+                        | "sections.web-search"
+                        | "sections.general"
+                        | "sections.advanced"
+                        | "sections.about"
                     )}
-                  >
-                    <Icon className="size-4.5 shrink-0" />
-                    <span>
-                      {t(
-                        `sections.${section.id}` as
-                          | "sections.providers"
-                          | "sections.web-search"
-                          | "sections.general"
-                          | "sections.advanced"
-                          | "sections.about"
-                      )}
-                    </span>
-                  </button>
-                )
-              })}
-            </nav>
-          </div>
+                  </span>
+                </button>
+              )
+            })}
+          </nav>
         </aside>
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col">
           <div className="bg-transparent flex-1 overflow-auto flex flex-col">
-            <div className="w-full p-5 flex-1 flex flex-col min-h-0">
+            <div data-tauri-drag-region className="w-full p-5 flex-1 flex flex-col min-h-0">
               {activeSection === SettingsSection.PROVIDERS && (
                 <ProviderSection
                   activeProvider={activeProvider}

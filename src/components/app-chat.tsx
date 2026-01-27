@@ -1,5 +1,4 @@
 import { useChat } from "@ai-sdk/react"
-import { useNavigate } from "@tanstack/react-router"
 import {
   DefaultChatTransport,
   lastAssistantMessageIsCompleteWithApprovalResponses,
@@ -74,6 +73,7 @@ import {
 } from "@/lib/constants"
 import { getToolResultText } from "@/lib/tool-helpers"
 import { cn } from "@/lib/utils"
+import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import type { ChatId, MessageId } from "@/types/chat"
 
 interface AppChatProps {
@@ -90,7 +90,6 @@ interface StepSegment {
 
 const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   const { t } = useTranslation(["common", "chat"])
-  const navigate = useNavigate({ from: "/" })
   const messageConstants = useMessageConstants()
   const toastConstants = useToastConstants()
   const toolConstants = useToolConstants()
@@ -314,13 +313,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
         description: t("chat:model.pleaseConfigureApiKey"),
         action: {
           label: t("chat:model.configureModels"),
-          onClick: () =>
-            navigate({
-              to: "/settings",
-              search: {
-                tab: "providers"
-              }
-            })
+          onClick: () => openSettingsWindow(SettingsSection.PROVIDERS)
         }
       })
       return

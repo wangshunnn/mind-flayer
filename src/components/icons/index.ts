@@ -1,0 +1,6 @@
+export { AnthropicIcon } from "./anthropic-icon"
+export { GeminiIcon } from "./gemini-icon"
+export { KimiIcon } from "./kimi-icon"
+export { MinimaxIcon } from "./minimax-icon"
+export { OpenAIIcon } from "./openai-icon"
+export { ZhipuIcon } from "./zhipu-icon"

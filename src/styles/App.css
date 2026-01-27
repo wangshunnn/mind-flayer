@@ -53,6 +53,7 @@
   --brand-green-color-light: oklch(0.943 0.03539 159.839);
   --setting-background: oklch(0.97315 0 271.152);
   --setting-sidebar: oklch(0.94611 0 271.152);
+  --setting-background-highlight: oklch(1 0 0);
 }
 
 .dark {
@@ -102,6 +103,7 @@
   --shiki-dark-bg: oklch(0.24776 0 271.152);
   --setting-background: oklch(0.23075 0 271.152);
   --setting-sidebar: oklch(0.26448 0 271.152);
+  --setting-background-highlight: oklch(0.30919 0 271.152);
 }
 
 @theme {
@@ -163,6 +165,7 @@
   --color-brand-green-light: var(--brand-green-color-light);
   --color-setting-background: var(--setting-background);
   --color-setting-sidebar: var(--setting-sidebar);
+  --color-setting-background-highlight: var(--setting-background-highlight);
 }
 
 @layer base {

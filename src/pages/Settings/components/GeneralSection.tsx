@@ -17,7 +17,7 @@ export function GeneralSection() {
 
   return (
     <div className="space-y-1">
-      <div className="w-full space-y-0 bg-white px-4 rounded-md">
+      <div className="w-full space-y-0 bg-setting-background-highlight px-4 rounded-md">
         {/* Appearance */}
         <div className="flex items-center justify-between py-3">
           <div className="text-base">{t("theme.title", { ns: "common" })}</div>

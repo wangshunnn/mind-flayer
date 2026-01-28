@@ -1,3 +1,4 @@
+import { serve } from "@hono/node-server"
 import {
   convertToModelMessages,
   InvalidToolInputError,
@@ -8,8 +9,8 @@ import {
   type ToolChoice,
   type UIMessage
 } from "ai"
-import cors from "cors"
-import express from "express"
+import { Hono } from "hono"
+import { cors } from "hono/cors"
 import { createMinimax } from "vercel-minimax-ai-provider"
 import { type AllTools, webSearchTool } from "./tools"
 import type { ProviderConfig, WebSearchMode } from "./type"
@@ -25,9 +26,6 @@ const MODEL_PROVIDERS = {
     defaultBaseUrl: "https://api.minimaxi.com/anthropic/v1"
   }
 }
-
-const app = express()
-const PORT = process.env.PORT || 3737
 const apiKeyCache = new Map<string, ProviderConfig>()
 const allTools: AllTools = {
   webSearch: webSearchTool("")
@@ -68,51 +66,80 @@ process.stdin.on("data", (data: string) => {
   }
 })
 
-// Configure CORS to allow frontend access
+const app = new Hono()
+const PORT = process.env.PORT || 3737
+const isDev = process.env.NODE_ENV !== "production"
+const globalAbortController = new AbortController()
+
+const devOrigins = new Set([
+  "http://localhost:1420" // tauri dev
+])
+
+const prodOrigins = new Set([
+  "http://tauri.localhost",
+  "https://tauri.localhost",
+  "tauri://localhost"
+])
+
+// Configure environment-aware CORS
 app.use(
   cors({
-    origin: "*", // Should be restricted to specific domains in production
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: "*",
-    exposedHeaders: ["*"]
+    origin: origin => {
+      if (!origin) {
+        // Non-browser request (e.g., curl)
+        return "*"
+      }
+      if (isDev && devOrigins.has(origin)) {
+        return origin
+      }
+      if (!isDev && prodOrigins.has(origin)) {
+        return origin
+      }
+      // Disallow other origins
+      return ""
+    }
   })
 )
-app.use(express.json())
 
 // Health check endpoint
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "0.1.0" })
+app.get("/health", c => {
+  return c.json({ status: "ok", version: "0.1.0" })
 })
 
 // AI streaming chat endpoint
-app.post("/api/chat", async (req, res) => {
+app.post("/api/chat", async c => {
   try {
+    const body = await c.req.json()
+
     // Get provider from header or body (default to minimax) - normalize to lowercase
     const provider = (
-      (req.headers["x-model-provider"] as string) ||
-      req.body.provider ||
+      c.req.header("x-model-provider") ||
+      body.provider ||
       "minimax"
     ).toLowerCase() as keyof typeof MODEL_PROVIDERS
-    const modelId = (req.headers["x-model-id"] as string) || req.body.model
-    const useWebSearch = req.headers["x-use-web-search"] === "true" || req.body.useWebSearch
-    const webSearchMode = (req.headers["x-web-search-mode"] as WebSearchMode) || "auto"
-    const messages = req.body?.messages as UIMessage[]
+    const modelId = c.req.header("x-model-id") || body.model
+    const useWebSearch = c.req.header("x-use-web-search") === "true" || body.useWebSearch
+    const webSearchMode = (c.req.header("x-web-search-mode") as WebSearchMode) || "auto"
+    const messages = body?.messages as UIMessage[]
 
     if (!modelId) {
-      return res.status(400).json({ error: "Model is required" })
+      return c.json({ error: "Model is required" }, 400)
     }
     if (!messages || !Array.isArray(messages)) {
-      return res.status(401).json({ error: "Messages array is required" })
+      return c.json({ error: "Messages array is required" }, 401)
     }
 
     const providerConfig = apiKeyCache.get(provider)
     if (!providerConfig) {
       console.error(`[sidecar] API key not found for provider: ${provider}`)
-      return res.status(402).json({
-        error: "API key not configured",
-        provider,
-        message: `Please configure your ${provider} API key in settings`
-      })
+      return c.json(
+        {
+          error: "API key not configured",
+          provider,
+          message: `Please configure your ${provider} API key in settings`
+        },
+        402
+      )
     }
 
     const apiKey = providerConfig.apiKey
@@ -162,15 +189,19 @@ app.post("/api/chat", async (req, res) => {
     })
     console.dir({ prunedMessages }, { depth: null })
 
+    // Combine request abort signal with global abort controller
+    const abortSignal = AbortSignal.any([c.req.raw.signal, globalAbortController.signal])
+
     const result = streamText({
       model: minimax(modelId),
       messages: prunedMessages,
       tools: allTools,
       toolChoice,
-      stopWhen: Object.keys(allTools).length ? stepCountIs(5) : stepCountIs(1)
+      stopWhen: Object.keys(allTools).length ? stepCountIs(5) : stepCountIs(1),
+      abortSignal
     })
 
-    const response = result.toUIMessageStreamResponse({
+    return result.toUIMessageStreamResponse({
       sendSources: true,
       messageMetadata: ({ part }) => {
         if (part.type === "start") {
@@ -185,55 +216,51 @@ app.post("/api/chat", async (req, res) => {
         }
       },
       onError: error => {
+        // Handle abort as normal control flow
+        if (error instanceof Error && error.name === "AbortError") {
+          console.info("[sidecar] Request aborted by client or server shutdown")
+          return "Request cancelled"
+        }
         if (NoSuchToolError.isInstance(error)) {
           return "Error: The model tried to call a unknown tool."
-        } else if (InvalidToolInputError.isInstance(error)) {
-          return "Error: The model called a tool with invalid inputs."
-        } else {
-          if (error instanceof Error && error.message) {
-            return `Error: ${error?.message}`
-          }
-          return "Error: An unknown error occurred."
         }
+        if (InvalidToolInputError.isInstance(error)) {
+          return "Error: The model called a tool with invalid inputs."
+        }
+        if (error instanceof Error && error.message) {
+          return `Error: ${error?.message}`
+        }
+        return "Error: An unknown error occurred."
       }
     })
-
-    response.headers.forEach((value, key) => {
-      res.setHeader(key, value)
-    })
-    res.setHeader("Access-Control-Allow-Origin", "*")
-
-    const reader = response.body?.getReader()
-    if (!reader) {
-      return res.status(501).json({ error: "No response body" })
-    }
-    const pump = async (): Promise<void> => {
-      const { done, value } = await reader.read()
-      if (done) {
-        res.end()
-        return
-      }
-      res.write(value)
-      return pump()
-    }
-    await pump()
   } catch (error) {
-    console.error("Chat error:", error)
-    const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    if (!res.headersSent) {
-      res.status(500).json({ error: errorMessage })
+    // Handle abort errors at info level
+    if (error instanceof Error && error.name === "AbortError") {
+      console.info("[sidecar] Request aborted")
+      return c.json({ error: "Request cancelled" }, 400)
     }
+    console.error("[sidecar] Chat error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    return c.json({ error: errorMessage }, 500)
   }
 })
 
-const server = app.listen(PORT, () => {
-  console.log(`Sidecar running on http://localhost:${PORT}`)
-  console.log(`API endpoint: http://localhost:${PORT}/api/chat`)
+const server = serve({
+  fetch: app.fetch,
+  port: Number(PORT)
 })
+
+console.log(`Sidecar running on http://localhost:${PORT}`)
+console.log(`API endpoint: http://localhost:${PORT}/api/chat`)
 
 // Graceful shutdown
 const shutdown = () => {
   console.log("Shutting down gracefully...")
+
+  // Abort all active AI requests
+  globalAbortController.abort()
+  console.info("[sidecar] All active requests cancelled")
+
   server.close(() => {
     console.log("Server closed, port released")
     process.exit(0)

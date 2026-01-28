@@ -8,7 +8,7 @@ import {
 } from "ai"
 import { AtomIcon, CircleIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Trans, useTranslation } from "react-i18next"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
   Conversation,
@@ -349,11 +349,11 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   return (
     <div className="flex h-full flex-col">
       {/* Top */}
-      <div className="bg-background flex h-13 items-center border-b-[0.5px] pt-0">
+      <div className="bg-background flex h-11 items-center border-b-[0.5px] pt-0">
         <div
           className={cn(
             "fixed left-10 flex z-50 items-center justify-center pointer-events-auto gap-1.25",
-            !isCompact && open ? "left-66.75" : "left-43",
+            !isCompact && open ? "left-66.75" : "left-42",
             "transition-left duration-300 ease"
           )}
         >
@@ -599,7 +599,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
 
       {/* Bottom */}
       <div className="relative bg-background flex-none">
-        <div className="relative flex items-center justify-center px-5 w-(--chat-content-width)">
+        <div className="relative flex items-center justify-center px-3 w-(--chat-content-width)">
           {/* Gradient Region */}
           <div
             className={cn(
@@ -610,7 +610,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
 
           {/* Chat Input */}
           <div
-            className="relative w-full max-w-(--chat-content-max-width) pb-6"
+            className="relative w-full max-w-(--chat-content-max-width) pb-5"
             ref={inputContainerRef}
           >
             <PromptInput globalDrop multiple onSubmit={handleSubmit}>
@@ -699,28 +699,13 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
       {/* Copyright */}
       <div
         className={cn(
-          "absolute bottom-1 flex max-h-6 items-center justify-center",
+          "absolute bottom-1 flex max-h-3 items-center justify-center",
           "max-w-(--chat-content-max-width) mx-auto left-0 right-0",
           "text-[9px] text-muted-foreground/50 shadow-none",
           "overflow-hidden whitespace-nowrap text-ellipsis"
         )}
       >
-        <Trans
-          i18nKey="footer.copyrightWithLink"
-          ns="common"
-          components={{
-            link: (
-              <a
-                href="https://github.com/wangshunnn/mind-flayer"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ml-1 text-muted-foreground/50 hover:text-muted-foreground transition-colors underline"
-              >
-                Github
-              </a>
-            )
-          }}
-        />
+        {t("common:footer.copyrightWithLink")}
       </div>
     </div>
   )

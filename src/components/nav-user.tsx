@@ -1,4 +1,12 @@
-import { GhostIcon, MonitorIcon, MoonStarIcon, PaletteIcon, Settings, SunIcon } from "lucide-react"
+import {
+  GhostIcon,
+  LanguagesIcon,
+  MonitorIcon,
+  MoonStarIcon,
+  PaletteIcon,
+  Settings,
+  SunIcon
+} from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   DropdownMenu,
@@ -16,14 +24,16 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar"
+import { useLanguage } from "@/hooks/use-language"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import { useTheme } from "./theme-provider"
 import { Button } from "./ui/button"
 import { Kbd, KbdGroup } from "./ui/kbd"
 
 export function NavUser() {
-  const { t } = useTranslation("common")
+  const { t } = useTranslation(["common", "settings"])
   const { theme, setTheme } = useTheme()
+  const { language, changeLanguage } = useLanguage()
 
   return (
     <SidebarMenu>
@@ -64,6 +74,33 @@ export function NavUser() {
                       <DropdownMenuRadioItem value="system">
                         <MonitorIcon />
                         {t("theme.system")}
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <LanguagesIcon />
+                {t("general.language", { ns: "settings" })}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent sideOffset={4} alignOffset={-4}>
+                  <DropdownMenuGroup>
+                    <DropdownMenuRadioGroup
+                      value={language}
+                      onValueChange={changeLanguage as (value: string) => void}
+                    >
+                      <DropdownMenuRadioItem value="zh-CN">
+                        {t("general.languageChinese", { ns: "settings" })}
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="en">
+                        {t("general.languageEnglish", { ns: "settings" })}
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="system">
+                        {t("general.languageSystem", { ns: "settings" })}
                       </DropdownMenuRadioItem>
                     </DropdownMenuRadioGroup>
                   </DropdownMenuGroup>

@@ -44,7 +44,7 @@ export const ToolCallsContainer = memo(
   ({
     className,
     open,
-    defaultOpen = false,
+    defaultOpen = true,
     onOpenChange,
     toolCount,
     children,

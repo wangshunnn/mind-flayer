@@ -26,8 +26,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   language: "system",
   selectedModelApiId: "MiniMax-M2.1",
   enabledProviders: {
-    minimax: true,
-    parallel: true
+    minimax: false,
+    parallel: false
   },
   webSearchEnabled: true,
   webSearchMode: "auto",

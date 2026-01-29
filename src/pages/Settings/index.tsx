@@ -92,7 +92,7 @@ export default function Settings() {
             ...prev[activeProvider],
             apiKey: config.apiKey,
             baseUrl: config.baseUrl || "",
-            enabled: enabledProviders[activeProvider] ?? true
+            enabled: enabledProviders[activeProvider] ?? false
           }
         }))
         setStoredProviders(prev => ({ ...prev, [activeProvider]: true }))
@@ -101,7 +101,7 @@ export default function Settings() {
           ...prev,
           [activeProvider]: {
             ...prev[activeProvider],
-            enabled: enabledProviders[activeProvider] ?? true
+            enabled: enabledProviders[activeProvider] ?? false
           }
         }))
         setStoredProviders(prev => ({ ...prev, [activeProvider]: false }))
@@ -126,7 +126,7 @@ export default function Settings() {
               config.baseUrl ||
               ALL_PROVIDERS.find(p => p.id === activeWebSearchProvider)?.defaultBaseUrl ||
               "",
-            enabled: enabledProviders[activeWebSearchProvider] ?? true
+            enabled: enabledProviders[activeWebSearchProvider] ?? false
           }
         }))
         setStoredProviders(prev => ({ ...prev, [activeWebSearchProvider]: true }))
@@ -135,7 +135,7 @@ export default function Settings() {
           ...prev,
           [activeWebSearchProvider]: {
             ...prev[activeWebSearchProvider],
-            enabled: enabledProviders[activeWebSearchProvider] ?? true
+            enabled: enabledProviders[activeWebSearchProvider] ?? false
           }
         }))
         setStoredProviders(prev => ({ ...prev, [activeWebSearchProvider]: false }))
@@ -165,6 +165,7 @@ export default function Settings() {
       setSaveStatus("success")
       toast.success(t("providers.toast.saved"))
 
+      console.log("---> debug provider-config-changed event emitted")
       await emit("provider-config-changed", {
         provider: providerId,
         action: "saved"

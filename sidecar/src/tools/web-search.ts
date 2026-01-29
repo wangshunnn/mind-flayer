@@ -1,6 +1,19 @@
 import { tool } from "ai"
 import Parallel from "parallel-web"
 import { z } from "zod"
+import type { ITool } from "./base-tool"
+
+/**
+ * Web search tool implementation using Parallel API.
+ * Implements ITool interface for plugin architecture.
+ */
+export class WebSearchTool implements ITool {
+  readonly name = "webSearch"
+
+  createInstance(apiKey: string) {
+    return webSearchTool(apiKey)
+  }
+}
 
 /**
  * Web search tool definition factory

@@ -7,7 +7,11 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "NODE_ENV=development tsup && bash scripts/rename-binaries.sh",
-    "build": "NODE_ENV=production tsup && pkg dist/index.js -t node24-macos-arm64 -o ../src-tauri/binaries/mind-flayer-sidecar-aarch64-apple-darwin"
+    "build": "NODE_ENV=production tsup && pkg dist/index.js -t node24-macos-arm64 -o ../src-tauri/binaries/mind-flayer-sidecar-aarch64-apple-darwin",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:watch": "vitest --watch"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.23",
@@ -22,9 +26,12 @@
   },
   "devDependencies": {
     "@types/node": "^25.0.10",
+    "@vitest/ui": "^4.0.18",
     "@yao-pkg/pkg": "^6.12.0",
     "dotenv": "^17.2.3",
+    "msw": "^2.12.7",
     "tsup": "^8.5.1",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "vitest": "^4.0.18"
   }
 }

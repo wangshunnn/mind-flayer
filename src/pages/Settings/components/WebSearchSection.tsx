@@ -1,6 +1,7 @@
 import { CircleIcon, Eye, EyeOff, Loader2Icon } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import {
@@ -26,6 +27,7 @@ interface WebSearchSectionProps {
   activeError: string | null
   enabledProviders: Record<string, boolean>
   setEnabledProviders: (value: Record<string, boolean>) => Promise<void>
+  storedProviders: Record<string, boolean>
   resetSaveFeedback: () => void
   isSaveDisabled: boolean
   isClearDisabled: boolean
@@ -42,6 +44,7 @@ export function WebSearchSection({
   activeError,
   enabledProviders,
   setEnabledProviders,
+  storedProviders,
   resetSaveFeedback,
   isSaveDisabled,
   isClearDisabled
@@ -50,27 +53,35 @@ export function WebSearchSection({
   const [showPassword, setShowPassword] = useState(false)
 
   return (
-    <div className="space-y-6 pt-4 flex-1 flex flex-col min-h-0">
+    <div className="flex flex-col bg-setting-background-highlight space-y-6 py-6 px-4 rounded-md">
       {/* Horizontal Provider Buttons */}
       <div className="flex flex-wrap gap-2">
         {WEB_SEARCH_PROVIDERS.map(provider => {
           const ProviderIcon = provider.icon
-          const providerEnabled = formData[provider.id]?.enabled ?? true
+          const providerEnabled = enabledProviders[provider.id] ?? false
           const isActive = activeProvider === provider.id
           return (
             <Button
               key={provider.id}
               type="button"
-              variant={isActive ? "default" : "outline"}
+              variant="outline"
               onClick={() => {
                 setActiveProvider(provider.id)
                 setShowPassword(false)
               }}
-              className="rounded-full gap-2 h-8"
+              className={cn(
+                "rounded-full gap-2 h-8",
+                isActive &&
+                  cn(
+                    "border-brand-green-light bg-brand-green-light hover:bg-brand-green-light",
+                    "dark:border-brand-green-light/50 dark:bg-brand-green-light/50 dark:hover:bg-brand-green-light/50"
+                  )
+              )}
             >
               <ProviderIcon className="size-4 shrink-0" />
               <span>{provider.name}</span>
               {providerEnabled && <CircleIcon className="size-2 fill-current text-brand-green" />}
+              {!providerEnabled && <CircleIcon className="size-2" />}
             </Button>
           )
         })}
@@ -82,31 +93,22 @@ export function WebSearchSection({
       {WEB_SEARCH_PROVIDERS.map(provider => {
         if (provider.id !== activeProvider) return null
         const data = formData[provider.id]
-        const providerEnabled = data?.enabled ?? true
 
         return (
-          <div
-            key={provider.id}
-            className={cn(
-              "max-w-2xl space-y-6 transition-opacity",
-              !providerEnabled && "opacity-60"
-            )}
-          >
+          <div key={provider.id} className={cn("max-w-2xl space-y-6 transition-opacity")}>
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-lg font-medium">{provider.name}</h2>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">{t("providers.enable")}</span>
                 <Switch
-                  checked={data?.enabled ?? false}
+                  checked={enabledProviders[provider.id] ?? false}
                   onCheckedChange={async checked => {
+                    // Check if API key is saved when enabling
+                    if (checked && !storedProviders[provider.id]) {
+                      toast.error(t("providers.toast.apiKeyRequired"))
+                      return
+                    }
                     resetSaveFeedback()
-                    setFormData(prev => ({
-                      ...prev,
-                      [provider.id]: {
-                        ...prev[provider.id],
-                        enabled: checked
-                      }
-                    }))
                     await setEnabledProviders({
                       ...enabledProviders,
                       [provider.id]: checked

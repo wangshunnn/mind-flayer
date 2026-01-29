@@ -1,6 +1,7 @@
 import { CircleIcon, Eye, EyeOff, Loader2Icon, Lock } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -29,6 +30,7 @@ interface ProviderSectionProps {
   isLoading: boolean
   enabledProviders: Record<string, boolean>
   setEnabledProviders: (value: Record<string, boolean>) => Promise<void>
+  storedProviders: Record<string, boolean>
   resetSaveFeedback: () => void
   isSaveDisabled: boolean
   isClearDisabled: boolean
@@ -45,6 +47,7 @@ export function ProviderSection({
   activeError,
   enabledProviders,
   setEnabledProviders,
+  storedProviders,
   resetSaveFeedback,
   isSaveDisabled,
   isClearDisabled
@@ -58,7 +61,7 @@ export function ProviderSection({
       <div className="flex flex-wrap gap-2">
         {[...MODEL_PROVIDERS, ...UPCOMING_PROVIDERS].map(provider => {
           const providerLocked = provider.disabled ?? false
-          const providerEnabled = !providerLocked && (formData[provider.id]?.enabled ?? true)
+          const providerEnabled = !providerLocked && (enabledProviders[provider.id] ?? false)
           const isActive = activeProvider === provider.id
           return (
             <Button
@@ -97,16 +100,9 @@ export function ProviderSection({
         if (provider.id !== activeProvider) return null
         const data = formData[provider.id]
         const providerLocked = provider.disabled ?? false
-        const providerEnabled = !providerLocked && (data?.enabled ?? true)
 
         return (
-          <div
-            key={provider.id}
-            className={cn(
-              "max-w-2xl space-y-6 transition-opacity",
-              !providerEnabled && "opacity-60"
-            )}
-          >
+          <div key={provider.id} className={cn("max-w-2xl space-y-6 transition-opacity")}>
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-lg font-medium flex items-center gap-2">
                 <ProviderLogo providerId={provider.id} className="size-5" />
@@ -120,18 +116,16 @@ export function ProviderSection({
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">{t("providers.enable")}</span>
                 <Switch
-                  checked={data?.enabled ?? false}
+                  checked={enabledProviders[provider.id] ?? false}
                   disabled={providerLocked}
                   onCheckedChange={async checked => {
                     if (providerLocked) return
+                    // Check if API key is saved when enabling
+                    if (checked && !storedProviders[provider.id]) {
+                      toast.error(t("providers.toast.apiKeyRequired"))
+                      return
+                    }
                     resetSaveFeedback()
-                    setFormData(prev => ({
-                      ...prev,
-                      [provider.id]: {
-                        ...prev[provider.id],
-                        enabled: checked
-                      }
-                    }))
                     await setEnabledProviders({
                       ...enabledProviders,
                       [provider.id]: checked

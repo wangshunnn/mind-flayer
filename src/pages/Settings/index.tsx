@@ -91,25 +91,17 @@ export default function Settings() {
           [activeProvider]: {
             ...prev[activeProvider],
             apiKey: config.apiKey,
-            baseUrl: config.baseUrl || "",
-            enabled: enabledProviders[activeProvider] ?? false
+            baseUrl: config.baseUrl || ""
           }
         }))
         setStoredProviders(prev => ({ ...prev, [activeProvider]: true }))
       } else {
-        setFormData(prev => ({
-          ...prev,
-          [activeProvider]: {
-            ...prev[activeProvider],
-            enabled: enabledProviders[activeProvider] ?? false
-          }
-        }))
         setStoredProviders(prev => ({ ...prev, [activeProvider]: false }))
       }
     }
     loadConfig()
     resetSaveFeedback()
-  }, [activeProvider, resetSaveFeedback, enabledProviders])
+  }, [activeProvider, resetSaveFeedback])
 
   // Load web search provider config
   // biome-ignore lint/correctness/useExhaustiveDependencies: getConfigRef is stable via useLatest
@@ -125,25 +117,17 @@ export default function Settings() {
             baseUrl:
               config.baseUrl ||
               ALL_PROVIDERS.find(p => p.id === activeWebSearchProvider)?.defaultBaseUrl ||
-              "",
-            enabled: enabledProviders[activeWebSearchProvider] ?? false
+              ""
           }
         }))
         setStoredProviders(prev => ({ ...prev, [activeWebSearchProvider]: true }))
       } else {
-        setFormData(prev => ({
-          ...prev,
-          [activeWebSearchProvider]: {
-            ...prev[activeWebSearchProvider],
-            enabled: enabledProviders[activeWebSearchProvider] ?? false
-          }
-        }))
         setStoredProviders(prev => ({ ...prev, [activeWebSearchProvider]: false }))
       }
     }
     loadConfig()
     resetSaveFeedback()
-  }, [activeWebSearchProvider, resetSaveFeedback, enabledProviders])
+  }, [activeWebSearchProvider, resetSaveFeedback])
 
   const handleSave = async (providerId: string) => {
     resetSaveFeedback()
@@ -204,10 +188,14 @@ export default function Settings() {
         [providerId]: {
           ...prev[providerId],
           apiKey: "",
-          baseUrl: "",
-          enabled: false
+          baseUrl: ""
         }
       }))
+      // Clear also disables the provider
+      await setEnabledProviders({
+        ...enabledProviders,
+        [providerId]: false
+      })
       setStoredProviders(prev => ({ ...prev, [providerId]: false }))
       setSaveStatus("success")
       toast.success(t("providers.toast.deleted"))
@@ -299,6 +287,7 @@ export default function Settings() {
                   isLoading={isLoading}
                   enabledProviders={enabledProviders}
                   setEnabledProviders={setEnabledProviders}
+                  storedProviders={storedProviders}
                   resetSaveFeedback={resetSaveFeedback}
                   isSaveDisabled={isSaveDisabled}
                   isClearDisabled={isClearDisabled}
@@ -317,6 +306,7 @@ export default function Settings() {
                   activeError={activeError}
                   enabledProviders={enabledProviders}
                   setEnabledProviders={setEnabledProviders}
+                  storedProviders={storedProviders}
                   resetSaveFeedback={resetSaveFeedback}
                   isSaveDisabled={isWebSearchSaveDisabled}
                   isClearDisabled={isWebSearchClearDisabled}

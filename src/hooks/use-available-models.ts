@@ -2,6 +2,7 @@ import { listen } from "@tauri-apps/api/event"
 import { useCallback, useEffect, useState } from "react"
 import type { ModelOption } from "@/components/select-model"
 import { MODEL_PROVIDERS } from "@/lib/provider-constants"
+import { useLatest } from "./use-latest"
 import { useProviderConfig } from "./use-provider-config"
 import { useSetting } from "./use-settings-store"
 
@@ -18,11 +19,27 @@ export function useAvailableModels() {
       const configuredProviders = await listProviders()
       const models: ModelOption[] = []
 
+      console.log(
+        "---> debug useAvailableModels enabledProviders:",
+        enabledProviders,
+        "configuredProviders:",
+        configuredProviders
+      )
+
       for (const provider of MODEL_PROVIDERS) {
         // Check if provider is enabled in settings
-        const isEnabled = enabledProviders[provider.id] ?? true
+        const isEnabled = enabledProviders[provider.id] ?? false
         // Check if provider is configured (has API key saved)
         const isConfigured = configuredProviders.includes(provider.id)
+
+        console.log(
+          "---> debug checking provider:",
+          provider.id,
+          "isEnabled:",
+          isEnabled,
+          "isConfigured:",
+          isConfigured
+        )
 
         if (isEnabled && isConfigured && provider.models) {
           for (const model of provider.models) {
@@ -44,12 +61,17 @@ export function useAvailableModels() {
     }
   }, [listProviders, enabledProviders])
 
-  // Load on mount
-  useEffect(() => {
-    loadAvailableModels()
-  }, [loadAvailableModels])
+  // Keep the latest reference of loadAvailableModels
+  const loadAvailableModelsRef = useLatest(loadAvailableModels)
 
-  // Listen for provider configuration changes from any window
+  // Reload models when enabledProviders changes (Switch toggle)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loadAvailableModelsRef is stable via useLatest
+  useEffect(() => {
+    loadAvailableModelsRef.current()
+  }, [enabledProviders])
+
+  // Listen for provider configuration changes from any window (Save/Clear API key)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loadAvailableModelsRef is stable via useLatest
   useEffect(() => {
     let unlisten: (() => void) | undefined
 
@@ -57,7 +79,7 @@ export function useAvailableModels() {
       unlisten = await listen<{ provider: string; action: string }>(
         "provider-config-changed",
         () => {
-          loadAvailableModels()
+          loadAvailableModelsRef.current()
         }
       )
     }
@@ -69,7 +91,7 @@ export function useAvailableModels() {
         unlisten()
       }
     }
-  }, [loadAvailableModels])
+  }, [])
 
   return { availableModels, isLoading }
 }

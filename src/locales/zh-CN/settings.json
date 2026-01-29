@@ -23,7 +23,8 @@
       "saved": "设置已保存",
       "saveError": "保存设置失败",
       "deleted": "设置已清除",
-      "deleteError": "清除设置失败"
+      "deleteError": "清除设置失败",
+      "apiKeyRequired": "请先配置并保存 API Key"
     },
     "configureDescription": "配置 {{provider}} 的 API 凭证和端点设置"
   },

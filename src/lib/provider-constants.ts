@@ -113,7 +113,7 @@ export const ALL_PROVIDERS = [...MODEL_PROVIDERS, ...WEB_SEARCH_PROVIDERS, ...UP
 
 export const DEFAULT_FORM_DATA = ALL_PROVIDERS.reduce(
   (acc, provider) => {
-    acc[provider.id] = { apiKey: "", baseUrl: "", enabled: false }
+    acc[provider.id] = { apiKey: "", baseUrl: "" }
     return acc
   },
   {} as Record<string, ProviderFormData>

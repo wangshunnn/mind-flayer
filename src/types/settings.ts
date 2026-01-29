@@ -37,5 +37,4 @@ export const DEFAULT_SETTINGS: AppSettings = {
 export interface ProviderFormData {
   apiKey: string
   baseUrl: string
-  enabled: boolean
 }

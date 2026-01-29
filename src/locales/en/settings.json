@@ -23,7 +23,8 @@
       "saved": "Settings saved",
       "saveError": "Failed to save settings",
       "deleted": "Settings cleared",
-      "deleteError": "Failed to clear settings"
+      "deleteError": "Failed to clear settings",
+      "apiKeyRequired": "Please configure and save API key first"
     },
     "configureDescription": "Configure {{provider}} API credentials and endpoint settings"
   },

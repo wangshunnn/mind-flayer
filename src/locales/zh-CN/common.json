@@ -5,9 +5,7 @@
     "noChatsYet": "暂无对话，开始新对话吧！",
     "more": "更多",
     "myAccount": "我的账户",
-    "settings": "设置",
-    "toggleTheme": "切换主题",
-    "toggleDarkMode": "切换深色模式"
+    "settings": "设置"
   },
   "theme": {
     "title": "外观",

@@ -5,9 +5,7 @@
     "noChatsYet": "No chats yet. Start a new chat!",
     "more": "More",
     "myAccount": "My Account",
-    "settings": "Settings",
-    "toggleTheme": "Toggle theme",
-    "toggleDarkMode": "Toggle Dark Mode"
+    "settings": "Settings"
   },
   "theme": {
     "title": "Appearance",

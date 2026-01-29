@@ -7,13 +7,6 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/compone
 import { SearchChat } from "@/components/ui/sidebar-search"
 import type { Chat, ChatId } from "@/types/chat"
 
-const data = {
-  user: {
-    name: "Mind Flayer",
-    avatar: ""
-  }
-}
-
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   chats: Chat[]
   onChatClick: (chatId: ChatId) => void
@@ -57,7 +50,7 @@ export function AppSidebar({
         <div data-tauri-drag-region className="flex-1 min-h-0" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   )

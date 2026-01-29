@@ -100,7 +100,7 @@ const ToolButton = ({
   if (!hasDropdown) {
     // Simple button without dropdown
     return (
-      <Tooltip open={!collapsed ? false : undefined}>
+      <Tooltip>
         <TooltipTrigger asChild>
           <PromptInputButton
             onClick={() => onEnabledChange(!enabled)}

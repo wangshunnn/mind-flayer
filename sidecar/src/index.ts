@@ -21,55 +21,18 @@ import type { ProviderConfig, WebSearchMode } from "./type"
 // const dispatcher = new ProxyAgent(proxy)
 // setGlobalDispatcher(dispatcher)
 
+const app = new Hono()
+const PORT = process.env.PORT || 3737
+const isDev = process.env.NODE_ENV !== "production"
+const apiKeyCache = new Map<string, ProviderConfig>()
+const globalAbortController = new AbortController()
+let webSearchToolInstance = webSearchTool("")
+
 const MODEL_PROVIDERS = {
   minimax: {
     defaultBaseUrl: "https://api.minimaxi.com/anthropic/v1"
   }
 }
-const apiKeyCache = new Map<string, ProviderConfig>()
-const allTools: AllTools = {
-  webSearch: webSearchTool("")
-}
-
-// Listen to stdin for configuration updates from Tauri
-process.stdin.setEncoding("utf8")
-process.stdin.on("data", (data: string) => {
-  try {
-    console.log("[sidecar] Received stdin data:", data.substring(0, 200)) // Log first 200 chars
-    const lines = data.trim().split("\n")
-    for (const line of lines) {
-      if (!line.trim()) continue
-
-      const message = JSON.parse(line)
-      console.log("[sidecar] Parsed message type:", message.type)
-
-      if (message.type === "config_update" && message.configs) {
-        const lastParallelApiKey = apiKeyCache.get("parallel")?.apiKey ?? ""
-        const newParallelApiKey = message.configs.parallel?.apiKey ?? ""
-
-        if (lastParallelApiKey !== newParallelApiKey) {
-          console.log("[sidecar] Parallel API key updated, refreshing web search tool")
-          allTools.webSearch = webSearchTool(newParallelApiKey)
-        }
-
-        apiKeyCache.clear()
-        for (const [provider, config] of Object.entries(message.configs) as [
-          string,
-          ProviderConfig
-        ][]) {
-          apiKeyCache.set(provider, config)
-        }
-      }
-    }
-  } catch (error) {
-    console.error("[sidecar] Error parsing stdin message:", error)
-  }
-})
-
-const app = new Hono()
-const PORT = process.env.PORT || 3737
-const isDev = process.env.NODE_ENV !== "production"
-const globalAbortController = new AbortController()
 
 const devOrigins = new Set([
   "http://localhost:1420" // tauri dev
@@ -80,6 +43,41 @@ const prodOrigins = new Set([
   "https://tauri.localhost",
   "tauri://localhost"
 ])
+
+/**
+ * Build request-specific tools object to avoid concurrent mutations on global state.
+ * Each request gets its own isolated tools object.
+ */
+function buildRequestTools(useWebSearch: boolean): {
+  webSearch?: ReturnType<typeof webSearchTool>
+} {
+  if (useWebSearch) {
+    if (webSearchToolInstance) {
+      return { webSearch: webSearchToolInstance }
+    }
+    console.warn("[sidecar] Web search requested but webSearchToolInstance is not available")
+  }
+  return {}
+}
+
+/**
+ * Build tool choice strategy based on web search configuration and conversation state.
+ */
+function buildToolChoice(options: {
+  useWebSearch: boolean
+  webSearchMode: WebSearchMode
+  messages: UIMessage[]
+}): ToolChoice<AllTools> {
+  const { useWebSearch, webSearchMode, messages } = options
+
+  if (useWebSearch && webSearchMode === "always") {
+    const isUserFirstAsking = messages.at(-1)?.role === "user"
+    if (isUserFirstAsking) {
+      return { type: "tool", toolName: "webSearch" }
+    }
+  }
+  return "auto"
+}
 
 // Configure environment-aware CORS
 app.use(
@@ -159,23 +157,14 @@ app.post("/api/chat", async c => {
     })
 
     /** Tools */
-    let toolChoice: ToolChoice<AllTools> = "auto"
+    const requestTools = buildRequestTools(useWebSearch)
 
-    if (useWebSearch) {
-      if (!allTools.webSearch) {
-        allTools.webSearch = webSearchTool(apiKeyCache.get("parallel")?.apiKey ?? "")
-      }
-      if (webSearchMode === "always") {
-        const isUserFirstAsking = messages.at(-1)?.role === "user"
-        if (isUserFirstAsking) {
-          toolChoice = { type: "tool", toolName: "webSearch" }
-        }
-      }
-    } else {
-      if (allTools.webSearch) {
-        delete allTools.webSearch
-      }
-    }
+    /** Tool choice strategy */
+    const toolChoice = buildToolChoice({
+      useWebSearch,
+      webSearchMode,
+      messages
+    })
 
     /** Messages */
     const modelMessage = await convertToModelMessages(messages, {
@@ -195,9 +184,9 @@ app.post("/api/chat", async c => {
     const result = streamText({
       model: minimax(modelId),
       messages: prunedMessages,
-      tools: allTools,
+      tools: requestTools,
       toolChoice,
-      stopWhen: Object.keys(allTools).length ? stepCountIs(5) : stepCountIs(1),
+      stopWhen: Object.keys(requestTools).length ? stepCountIs(5) : stepCountIs(1),
       abortSignal
     })
 
@@ -272,6 +261,42 @@ const shutdown = () => {
     process.exit(1)
   }, 5000)
 }
+
+// Listen to stdin for configuration updates from Tauri
+process.stdin.setEncoding("utf8")
+
+process.stdin.on("data", (data: string) => {
+  try {
+    console.log("[sidecar] Received stdin data:", data.substring(0, 200)) // Log first 200 chars
+    const lines = data.trim().split("\n")
+    for (const line of lines) {
+      if (!line.trim()) continue
+
+      const message = JSON.parse(line)
+      console.log("[sidecar] Parsed message type:", message.type)
+
+      if (message.type === "config_update" && message.configs) {
+        const lastParallelApiKey = apiKeyCache.get("parallel")?.apiKey ?? ""
+        const newParallelApiKey = message.configs.parallel?.apiKey ?? ""
+
+        if (lastParallelApiKey !== newParallelApiKey) {
+          console.log("[sidecar] Parallel API key updated, refreshing web search tool")
+          webSearchToolInstance = webSearchTool(newParallelApiKey)
+        }
+
+        apiKeyCache.clear()
+        for (const [provider, config] of Object.entries(message.configs) as [
+          string,
+          ProviderConfig
+        ][]) {
+          apiKeyCache.set(provider, config)
+        }
+      }
+    }
+  } catch (error) {
+    console.error("[sidecar] Error parsing stdin message:", error)
+  }
+})
 
 process.on("SIGTERM", shutdown)
 process.on("SIGINT", shutdown)

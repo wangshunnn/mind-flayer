@@ -1,4 +1,4 @@
-import { Settings, User } from "lucide-react"
+import { GhostIcon, Settings, User } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { SiderbarDarkModeToggle } from "@/components/nav-top"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -35,12 +35,14 @@ export function NavUser({
               size="lg"
               className={cn(
                 "data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
-                "px-1"
+                "px-1 group/is-nav-user"
               )}
             >
-              <Avatar className="rounded-full size-8">
+              <Avatar className="rounded-full size-8 transition-transform group-hover/is-nav-user:rotate-12">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="bg-linear-120 from-indigo-300 to-teal-300 font-medium" />
+                <AvatarFallback className="bg-sidebar-accent">
+                  <GhostIcon className="size-4 text-purple-600" />
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-normal">{user.name}</span>

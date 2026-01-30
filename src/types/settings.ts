@@ -19,6 +19,9 @@ export interface AppSettings {
   webSearchEnabled: boolean
   webSearchMode: WebSearchMode
   deepThinkEnabled: boolean
+
+  // App settings
+  autoLaunch: boolean
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -31,7 +34,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   webSearchEnabled: true,
   webSearchMode: "auto",
-  deepThinkEnabled: true
+  deepThinkEnabled: true,
+  autoLaunch: false
 }
 
 export interface ProviderFormData {

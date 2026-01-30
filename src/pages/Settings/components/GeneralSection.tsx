@@ -8,13 +8,16 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
 import { useLanguage } from "@/hooks/use-language"
+import { useSetting } from "@/hooks/use-settings-store"
 import { SettingGroup } from "./shared"
 
 export function GeneralSection() {
   const { t } = useTranslation("settings")
   const { language, changeLanguage } = useLanguage()
   const { theme, setTheme } = useTheme()
+  const [autoLaunch, setAutoLaunch] = useSetting("autoLaunch")
 
   return (
     <div data-tauri-drag-region className="space-y-4 pb-8">
@@ -55,6 +58,14 @@ export function GeneralSection() {
               <SelectItem value="system">{t("general.languageSystem")}</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+      </SettingGroup>
+
+      <SettingGroup>
+        {/* Auto Launch */}
+        <div className="flex items-center justify-between py-3">
+          <div className="text-base">{t("general.autoLaunch")}</div>
+          <Switch checked={autoLaunch} onCheckedChange={setAutoLaunch} />
         </div>
       </SettingGroup>
     </div>

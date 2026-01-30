@@ -1,4 +1,4 @@
-import { CircleIcon, Eye, EyeOff, Loader2Icon, Lock } from "lucide-react"
+import { CheckIcon, CircleIcon, Eye, EyeOff, Loader2Icon, Lock } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -213,18 +213,23 @@ export function ProviderSection({
                 variant="outline"
                 onClick={() => onClear(provider.id)}
                 disabled={isClearDisabled}
+                className="w-18"
               >
                 {t("providers.clear")}
               </Button>
-              <Button type="button" onClick={() => onSave(provider.id)} disabled={isSaveDisabled}>
-                {saveStatus === "submitting" && (
+              <Button
+                type="button"
+                onClick={() => onSave(provider.id)}
+                disabled={isSaveDisabled}
+                className="w-18"
+              >
+                {saveStatus === "success" ? (
+                  <CheckIcon className="size-4 text-brand-green" />
+                ) : saveStatus === "submitting" ? (
                   <Loader2Icon className="mr-2 size-4 animate-spin" />
+                ) : (
+                  t("providers.save")
                 )}
-                {saveStatus === "success"
-                  ? t("providers.saved")
-                  : saveStatus === "submitting"
-                    ? t("providers.saving")
-                    : t("providers.save")}
               </Button>
             </Field>
           </div>

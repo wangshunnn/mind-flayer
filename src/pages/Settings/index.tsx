@@ -1,6 +1,6 @@
 import { useSearch } from "@tanstack/react-router"
 import { emit, listen } from "@tauri-apps/api/event"
-import { BadgeInfo, Bolt, Keyboard, Layers, Search } from "lucide-react"
+import { BadgeInfo, Bolt, Keyboard, Layers, Search, SparklesIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -19,6 +19,7 @@ import type { ProviderFormData } from "@/types/settings"
 import { AboutSection } from "./components/AboutSection"
 import { AdvancedSection } from "./components/AdvancedSection"
 import { GeneralSection } from "./components/GeneralSection"
+import { KeyboardSection } from "./components/KeyboardSection"
 import { ProviderSection } from "./components/ProviderSection"
 import { WebSearchSection } from "./components/WebSearchSection"
 
@@ -238,7 +239,8 @@ export default function Settings() {
               { id: SettingsSection.PROVIDERS, icon: Layers },
               { id: SettingsSection.WEB_SEARCH, icon: Search },
               { id: SettingsSection.GENERAL, icon: Bolt },
-              { id: SettingsSection.ADVANCED, icon: Keyboard },
+              { id: SettingsSection.KEYBOARD, icon: Keyboard },
+              { id: SettingsSection.ADVANCED, icon: SparklesIcon },
               { id: SettingsSection.ABOUT, icon: BadgeInfo }
             ].map(section => {
               const Icon = section.icon
@@ -314,6 +316,8 @@ export default function Settings() {
               )}
 
               {activeSection === SettingsSection.GENERAL && <GeneralSection />}
+
+              {activeSection === SettingsSection.KEYBOARD && <KeyboardSection />}
 
               {activeSection === SettingsSection.ADVANCED && <AdvancedSection />}
 

@@ -1,8 +1,9 @@
 {
   "sections": {
-    "providers": "提供商",
+    "providers": "模型配置",
     "web-search": "联网搜索",
     "general": "通用",
+    "keyboard": "快捷键",
     "advanced": "高级",
     "about": "关于",
     "back": "返回"
@@ -31,20 +32,28 @@
   "webSearch": {},
 
   "general": {
-    "title": "通用设置",
-    "description": "配置应用的基本设置和偏好。",
     "language": "语言",
     "languageEnglish": "English",
     "languageChinese": "简体中文",
     "languageSystem": "跟随系统"
   },
-  "advanced": {
-    "title": "高级设置",
-    "description": "配置高级功能和开发者选项。"
+  "shortcuts": {
+    "groups": {
+      "general": "通用",
+      "chat": "聊天"
+    },
+    "items": {
+      "toggleMainWindow": "唤起/隐藏主窗口",
+      "openMiniWindow": "唤起迷你对话窗",
+      "screenshotQuestion": "截图提问",
+      "searchHistory": "搜索历史对话",
+      "sendMessage": "发送消息",
+      "newLine": "输入时换行",
+      "newChat": "新建对话",
+      "history": "回溯对话"
+    }
   },
-  "about": {
-    "title": "关于",
-    "description": "应用信息和版本详情。"
-  },
+  "advanced": {},
+  "about": {},
   "comingSoon": "即将推出"
 }

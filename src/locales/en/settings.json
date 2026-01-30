@@ -3,6 +3,7 @@
     "providers": "Providers",
     "web-search": "Web Search",
     "general": "General",
+    "keyboard": "Keyboard",
     "advanced": "Advanced",
     "about": "About",
     "back": "Back"
@@ -31,20 +32,28 @@
   "webSearch": {},
 
   "general": {
-    "title": "General Settings",
-    "description": "Configure basic app settings and preferences.",
     "language": "Language",
     "languageEnglish": "English",
     "languageChinese": "简体中文",
     "languageSystem": "Device"
   },
-  "advanced": {
-    "title": "Advanced Settings",
-    "description": "Configure advanced features and developer options."
+  "shortcuts": {
+    "groups": {
+      "general": "General",
+      "chat": "Chat"
+    },
+    "items": {
+      "toggleMainWindow": "Toggle main window",
+      "openMiniWindow": "Open mini chat",
+      "screenshotQuestion": "Screenshot question",
+      "searchHistory": "Search chat history",
+      "sendMessage": "Send message",
+      "newLine": "New line while typing",
+      "newChat": "New chat",
+      "history": "Navigate history"
+    }
   },
-  "about": {
-    "title": "About",
-    "description": "Application information and version details."
-  },
+  "advanced": {},
+  "about": {},
   "comingSoon": "Coming soon"
 }

@@ -314,7 +314,8 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
         action: {
           label: t("chat:model.configureModels"),
           onClick: () => openSettingsWindow(SettingsSection.PROVIDERS)
-        }
+        },
+        duration: 3000
       })
       return
     }
@@ -610,7 +611,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
 
           {/* Chat Input */}
           <div
-            className="relative w-full max-w-(--chat-content-max-width) pb-5"
+            className="relative w-full max-w-(--chat-content-max-width) pb-4"
             ref={inputContainerRef}
           >
             <PromptInput globalDrop multiple onSubmit={handleSubmit}>
@@ -633,7 +634,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
               {/* Footer */}
               <PromptInputFooter>
                 {/* Tools in Left */}
-                <PromptInputTools className="-ml-1.5">
+                <PromptInputTools className="-ml-1">
                   <ToolButton
                     icon={GlobeIcon}
                     label={toolButtonConstants.webSearch.label}
@@ -699,7 +700,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
       {/* Copyright */}
       <div
         className={cn(
-          "absolute bottom-1 flex max-h-3 items-center justify-center",
+          "absolute bottom-0.5 flex max-h-3 items-center justify-center",
           "max-w-(--chat-content-max-width) mx-auto left-0 right-0",
           "text-[9px] text-muted-foreground/50 shadow-none",
           "overflow-hidden whitespace-nowrap text-ellipsis"

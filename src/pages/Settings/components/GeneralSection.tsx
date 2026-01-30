@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useLanguage } from "@/hooks/use-language"
+import { SettingGroup } from "./shared"
 
 export function GeneralSection() {
   const { t } = useTranslation("settings")
@@ -16,8 +17,8 @@ export function GeneralSection() {
   const { theme, setTheme } = useTheme()
 
   return (
-    <div className="space-y-1">
-      <div className="w-full space-y-0 bg-setting-background-highlight px-4 rounded-md">
+    <div data-tauri-drag-region className="space-y-4 pb-8">
+      <SettingGroup>
         {/* Appearance */}
         <div className="flex items-center justify-between py-3">
           <div className="text-base">{t("theme.title", { ns: "common" })}</div>
@@ -55,7 +56,7 @@ export function GeneralSection() {
             </SelectContent>
           </Select>
         </div>
-      </div>
+      </SettingGroup>
     </div>
   )
 }

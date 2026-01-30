@@ -9,6 +9,7 @@ export enum SettingsSection {
   PROVIDERS = "providers",
   WEB_SEARCH = "web-search",
   GENERAL = "general",
+  KEYBOARD = "keyboard",
   ADVANCED = "advanced",
   ABOUT = "about"
 }

@@ -23,7 +23,7 @@ export function GeneralSection() {
     <div data-tauri-drag-region className="space-y-4 pb-8">
       <SettingGroup>
         {/* Appearance */}
-        <div className="flex items-center justify-between py-3">
+        <div className="flex items-center justify-between py-2.5">
           <div className="text-base">{t("theme.title", { ns: "common" })}</div>
           <Select
             value={theme}
@@ -43,7 +43,7 @@ export function GeneralSection() {
         <Separator />
 
         {/* Language */}
-        <div className="flex items-center justify-between py-3">
+        <div className="flex items-center justify-between py-2.5">
           <div className="text-base">{t("general.language")}</div>
           <Select
             value={language}
@@ -63,7 +63,7 @@ export function GeneralSection() {
 
       <SettingGroup>
         {/* Auto Launch */}
-        <div className="flex items-center justify-between py-3">
+        <div className="flex items-center justify-between py-2.5">
           <div className="text-base">{t("general.autoLaunch")}</div>
           <Switch checked={autoLaunch} onCheckedChange={setAutoLaunch} />
         </div>

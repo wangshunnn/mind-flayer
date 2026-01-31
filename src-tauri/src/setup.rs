@@ -93,6 +93,11 @@ pub fn init(app: &mut App) -> std::result::Result<(), Box<dyn std::error::Error>
     let child_ref = Arc::clone(&sidecar_state.child);
     app.manage(sidecar_state);
 
+    // Register global shortcuts
+    if let Err(e) = crate::shortcuts::register_global_shortcuts(&app.handle()) {
+        error!("Failed to register global shortcuts: {}", e);
+    }
+
     // Handle application exit
     let app_handle_for_cleanup = app.handle().clone();
     window.on_window_event(move |event| {

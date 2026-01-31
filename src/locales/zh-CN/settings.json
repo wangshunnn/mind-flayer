@@ -46,6 +46,8 @@
     },
     "items": {
       "toggleMainWindow": "唤起/隐藏主窗口",
+      "toggleSidebar": "收起/展开侧边栏",
+      "openSettings": "打开设置窗口",
       "openMiniWindow": "唤起迷你对话窗",
       "screenshotQuestion": "截图提问",
       "searchHistory": "搜索历史对话",

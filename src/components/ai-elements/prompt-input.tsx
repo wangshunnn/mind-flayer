@@ -65,7 +65,10 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import { useShortcutConfig } from "@/hooks/use-shortcut-config"
+import { matchesShortcut } from "@/lib/shortcut-utils"
 import { cn } from "@/lib/utils"
+import { ShortcutAction } from "@/types/settings"
 
 // ============================================================================
 // Provider Context & Types
@@ -771,6 +774,7 @@ export const PromptInputTextarea = forwardRef<PromptInputTextareaHandle, PromptI
     const attachments = usePromptInputAttachments()
     const [isComposing, setIsComposing] = useState(false)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
+    const shortcuts = useShortcutConfig()
 
     // Auto-resize textarea based on content because
     // `field-sizing-content` is not supported in Tauri :(
@@ -798,21 +802,48 @@ export const PromptInputTextarea = forwardRef<PromptInputTextareaHandle, PromptI
         if (isComposing || e.nativeEvent.isComposing) {
           return
         }
-        if (e.shiftKey) {
+
+        const sendShortcut = shortcuts[ShortcutAction.SEND_MESSAGE]
+        const newLineShortcut = shortcuts[ShortcutAction.NEW_LINE]
+
+        // Check if this matches the new line shortcut
+        if (newLineShortcut.enabled && matchesShortcut(e.nativeEvent, newLineShortcut.key)) {
+          // Manually insert newline at cursor position
+          e.preventDefault()
+          const target = e.currentTarget
+          const start = target.selectionStart
+          const end = target.selectionEnd
+          const value = target.value
+          const newValue = `${value.substring(0, start)}\n${value.substring(end)}`
+
+          if (controller) {
+            controller.textInput.setInput(newValue)
+          } else {
+            target.value = newValue
+          }
+          // Set cursor position after the newline
+          const newPosition = start + 1
+          target.setSelectionRange(newPosition, newPosition)
+          adjustHeight()
+
           return
         }
-        e.preventDefault()
 
-        // Check if the submit button is disabled before submitting
-        const form = e.currentTarget.form
-        const submitButton = form?.querySelector(
-          'button[type="submit"]'
-        ) as HTMLButtonElement | null
-        if (submitButton?.disabled) {
-          return
+        // Check if this matches the send shortcut
+        if (sendShortcut.enabled && matchesShortcut(e.nativeEvent, sendShortcut.key)) {
+          e.preventDefault()
+
+          // Check if the submit button is disabled before submitting
+          const form = e.currentTarget.form
+          const submitButton = form?.querySelector(
+            'button[type="submit"]'
+          ) as HTMLButtonElement | null
+          if (submitButton?.disabled) {
+            return
+          }
+
+          form?.requestSubmit()
         }
-
-        form?.requestSubmit()
       }
 
       // Remove last attachment when Backspace is pressed and textarea is empty

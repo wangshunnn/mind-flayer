@@ -11,12 +11,14 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useIsCompact } from "@/hooks/use-compact"
+import { useLocalShortcut } from "@/hooks/use-local-shortcut"
+import { useShortcutDisplay } from "@/hooks/use-shortcut-config"
 import { cn } from "@/lib/utils"
+import { ShortcutAction } from "@/types/settings"
 
 export const SIDEBAR_WIDTH = "247px" // 235px + 12px padding
 export const SIDEBAR_WIDTH_COMPACT = "235px"
 export const SIDEBAR_WIDTH_ICON = "48px"
-export const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
@@ -78,18 +80,8 @@ function SidebarProvider({
     return isCompact ? setOpenCompact(open => !open) : setOpen(open => !open)
   }, [isCompact, setOpen])
 
-  // Adds a keyboard shortcut to toggle the sidebar.
-  React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && event.metaKey) {
-        event.preventDefault()
-        toggleSidebar()
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [toggleSidebar])
+  // Register keyboard shortcut to toggle sidebar
+  useLocalShortcut(ShortcutAction.TOGGLE_SIDEBAR, toggleSidebar)
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
@@ -248,6 +240,8 @@ function Sidebar({
 function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<typeof Button>) {
   const { t } = useTranslation("common")
   const { toggleSidebar, open, isCompact, openCompact } = useSidebar()
+  const shortcutKeys = useShortcutDisplay(ShortcutAction.TOGGLE_SIDEBAR)
+
   const tooltip =
     (isCompact && openCompact) || (!isCompact && open)
       ? t("sidebar.hideSidebar")
@@ -278,8 +272,9 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
       <TooltipContent>
         {tooltip}{" "}
         <KbdGroup>
-          <Kbd>⌘</Kbd>
-          <Kbd>B</Kbd>
+          {shortcutKeys.map(key => (
+            <Kbd key={key}>{key}</Kbd>
+          ))}
         </KbdGroup>
       </TooltipContent>
     </Tooltip>

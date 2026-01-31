@@ -36,5 +36,8 @@
     "noModelsAvailable": "No models available",
     "noModelsConfigured": "No models available",
     "pleaseConfigureApiKey": "Please configure models"
+  },
+  "toast": {
+    "newChatCreated": "New chat created"
   }
 }

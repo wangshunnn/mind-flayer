@@ -46,6 +46,8 @@
     },
     "items": {
       "toggleMainWindow": "Toggle main window",
+      "toggleSidebar": "Toggle sidebar",
+      "openSettings": "Open settings",
       "openMiniWindow": "Open mini chat",
       "screenshotQuestion": "Screenshot question",
       "searchHistory": "Search chat history",

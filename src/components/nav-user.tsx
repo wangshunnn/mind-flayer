@@ -25,7 +25,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar"
 import { useLanguage } from "@/hooks/use-language"
+import { useShortcutDisplay } from "@/hooks/use-shortcut-config"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
+import { ShortcutAction } from "@/types/settings"
 import { useTheme } from "./theme-provider"
 import { Button } from "./ui/button"
 import { Kbd, KbdGroup } from "./ui/kbd"
@@ -34,6 +36,7 @@ export function NavUser() {
   const { t } = useTranslation(["common", "settings"])
   const { theme, setTheme } = useTheme()
   const { language, changeLanguage } = useLanguage()
+  const openSettingsKeys = useShortcutDisplay(ShortcutAction.OPEN_SETTINGS)
 
   return (
     <SidebarMenu>
@@ -115,8 +118,9 @@ export function NavUser() {
                 {t("nav.settings")}
                 <DropdownMenuShortcut>
                   <KbdGroup>
-                    <Kbd>⌘</Kbd>
-                    <Kbd>,</Kbd>
+                    {openSettingsKeys.map(key => (
+                      <Kbd key={key}>{key}</Kbd>
+                    ))}
                   </KbdGroup>
                 </DropdownMenuShortcut>
               </DropdownMenuItem>

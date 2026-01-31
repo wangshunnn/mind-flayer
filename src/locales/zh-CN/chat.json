@@ -35,5 +35,8 @@
     "noModelsAvailable": "暂无可用模型",
     "noModelsConfigured": "暂无可用模型",
     "pleaseConfigureApiKey": "请在设置中配置启用模型"
+  },
+  "toast": {
+    "newChatCreated": "已创建新聊天"
   }
 }

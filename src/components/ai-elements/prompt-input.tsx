@@ -323,7 +323,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
             </Button>
           </div>
 
-          <span className="flex-1 truncate">{attachmentLabel}</span>
+          {!isImage && <span className="text-xs flex-1 truncate max-w-40">{attachmentLabel}</span>}
         </div>
       </HoverCardTrigger>
       <PromptInputHoverCardContent className="w-auto p-2">
@@ -371,7 +371,7 @@ export function PromptInputAttachments({
   }
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2 p-3 w-full", className)} {...props}>
+    <div className={cn("flex flex-wrap items-center gap-1 px-0 pb-3 w-full", className)} {...props}>
       {attachments.files.map(file => (
         <Fragment key={file.id}>{children(file)}</Fragment>
       ))}
@@ -1033,7 +1033,7 @@ export const PromptInputSubmit = ({
   children,
   ...props
 }: PromptInputSubmitProps) => {
-  let Icon = <Navigation2Icon className="mb-px fixed fill-current" />
+  let Icon = <Navigation2Icon className="mb-px fixed text-white fill-current" />
 
   if (status === "submitted") {
     Icon = <Loader2Icon className="fixedanimate-spin" />
@@ -1046,7 +1046,11 @@ export const PromptInputSubmit = ({
   return (
     <InputGroupButton
       aria-label="Submit"
-      className={cn("rounded-full bg-brand-green hover:bg-brand-green", className)}
+      className={cn(
+        "rounded-full bg-brand-green hover:bg-brand-green",
+        "transition-all duration-200",
+        className
+      )}
       size={size}
       type="submit"
       variant={variant}

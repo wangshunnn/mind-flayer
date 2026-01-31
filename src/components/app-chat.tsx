@@ -699,7 +699,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                 </PromptInputTools>
 
                 {/* Tools in Right */}
-                <PromptInputTools className="gap-3">
+                <PromptInputTools className="gap-2.5">
                   {/* Add attachments */}
                   <PromptInputActionMenu>
                     <PromptInputActionMenuTrigger />

@@ -25,6 +25,39 @@ async function getStore() {
 }
 
 /**
+ * Deep merge two objects, with source taking precedence
+ */
+function deepMerge<T>(target: T, source: Partial<T>): T {
+  if (!source || typeof source !== "object" || Array.isArray(source)) {
+    return source as T
+  }
+
+  const result = { ...target } as T
+
+  for (const key in source) {
+    const sourceValue = source[key]
+    const targetValue = target[key]
+
+    // Check if both values are objects (excluding null and arrays) for deep merge
+    if (
+      sourceValue !== null &&
+      typeof sourceValue === "object" &&
+      !Array.isArray(sourceValue) &&
+      targetValue !== null &&
+      typeof targetValue === "object" &&
+      !Array.isArray(targetValue)
+    ) {
+      result[key] = deepMerge(targetValue, sourceValue)
+    } else if (sourceValue !== undefined) {
+      // @ts-expect-error - Direct assignment is safe here
+      result[key] = sourceValue
+    }
+  }
+
+  return result
+}
+
+/**
  * Get a setting value from the store
  */
 export async function getSetting<K extends keyof AppSettings>(key: K): Promise<AppSettings[K]> {
@@ -35,7 +68,25 @@ export async function getSetting<K extends keyof AppSettings>(key: K): Promise<A
     }
 
     const value = await store.get<AppSettings[K]>(key)
-    return value ?? DEFAULT_SETTINGS[key]
+
+    // If no stored value, use default
+    if (value === null || value === undefined) {
+      return DEFAULT_SETTINGS[key]
+    }
+
+    // For object-type settings (like shortcuts), deep merge with defaults
+    // to ensure new properties are included
+    const defaultValue = DEFAULT_SETTINGS[key]
+    if (
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      typeof defaultValue === "object" &&
+      !Array.isArray(defaultValue)
+    ) {
+      return deepMerge(defaultValue, value as Partial<AppSettings[K]>)
+    }
+
+    return value
   } catch (error) {
     console.warn(`Failed to get setting "${key}", using default:`, error)
     return DEFAULT_SETTINGS[key]

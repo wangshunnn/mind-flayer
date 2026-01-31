@@ -150,7 +150,6 @@ export default function Settings() {
       setSaveStatus("success")
       toast.success(t("providers.toast.saved"))
 
-      console.log("---> debug provider-config-changed event emitted")
       await emit("provider-config-changed", {
         provider: providerId,
         action: "saved"

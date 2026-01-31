@@ -19,27 +19,11 @@ export function useAvailableModels() {
       const configuredProviders = await listProviders()
       const models: ModelOption[] = []
 
-      console.log(
-        "---> debug useAvailableModels enabledProviders:",
-        enabledProviders,
-        "configuredProviders:",
-        configuredProviders
-      )
-
       for (const provider of MODEL_PROVIDERS) {
         // Check if provider is enabled in settings
         const isEnabled = enabledProviders[provider.id] ?? false
         // Check if provider is configured (has API key saved)
         const isConfigured = configuredProviders.includes(provider.id)
-
-        console.log(
-          "---> debug checking provider:",
-          provider.id,
-          "isEnabled:",
-          isEnabled,
-          "isConfigured:",
-          isConfigured
-        )
 
         if (isEnabled && isConfigured && provider.models) {
           for (const model of provider.models) {

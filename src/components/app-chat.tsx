@@ -63,7 +63,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useAvailableModels } from "@/hooks/use-available-models"
 import { useChatStorage } from "@/hooks/use-chat-storage"
 import { useLatest } from "@/hooks/use-latest"
-import { useLocalShortcut } from "@/hooks/use-local-shortcut"
 import { useSetting } from "@/hooks/use-settings-store"
 import {
   useMessageConstants,
@@ -76,7 +75,6 @@ import { getToolResultText } from "@/lib/tool-helpers"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import type { ChatId, MessageId } from "@/types/chat"
-import { ShortcutAction } from "@/types/settings"
 
 interface AppChatProps {
   activeChatId?: ChatId | null
@@ -174,36 +172,6 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
     storedMessageIdsRef.current = new Set()
     setMessages?.([])
   }, [setMessages])
-
-  // Handle new chat shortcut (Ctrl+Tab)
-  const handleNewChat = useCallback(() => {
-    if (status === "streaming") {
-      // Don't allow new chat while streaming
-      return
-    }
-    cleanupChatState()
-    setInput("")
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, cleanupChatState])
-
-  // Handle search history shortcut (Cmd+F)
-  const handleSearchHistory = useCallback(() => {
-    // TODO: Implement search history functionality
-    // For now, show a toast notification
-    toast.info(t("common:sidebar.comingSoon"), {
-      description: t("common:sidebar.searchChat")
-    })
-  }, [t])
-
-  // Handle open settings shortcut (Cmd+,)
-  const handleOpenSettings = useCallback(() => {
-    openSettingsWindow(SettingsSection.GENERAL)
-  }, [])
-
-  // Register local shortcuts
-  useLocalShortcut(ShortcutAction.NEW_CHAT, handleNewChat)
-  useLocalShortcut(ShortcutAction.SEARCH_HISTORY, handleSearchHistory)
-  useLocalShortcut(ShortcutAction.OPEN_SETTINGS, handleOpenSettings)
 
   const createNewChatAsync = useCallback(
     async (title?: string): Promise<ChatId> => {

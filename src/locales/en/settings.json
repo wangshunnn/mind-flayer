@@ -30,7 +30,6 @@
     "configureDescription": "Configure {{provider}} API credentials and endpoint settings"
   },
   "webSearch": {},
-
   "general": {
     "language": "Language",
     "languageEnglish": "English",

@@ -30,11 +30,11 @@ pre-commit:
         - frontend
       glob: "*.{js,ts,html,css,json}"
       run: pnpm -s lint:frontend
-    # test-frontend:
-    #   tags:
-    #     - frontend
-    #   glob: "*.{js,ts,html,css}"
-    #   run: pnpm -s test:frontend
+    test-frontend:
+      tags:
+        - frontend
+      glob: "*.{js,ts,html,css}"
+      run: pnpm -s test:frontend
     format-backend:
       tags:
         - backend

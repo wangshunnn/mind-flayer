@@ -1,5 +1,7 @@
 # GitHub Copilot Instructions for Mind Flayer
 
+> **📝 Document Maintenance**: This file should be kept in sync with `.claude/CLAUDE.md`. When significant architecture changes occur, both documents must be updated. Trigger update with: "Update the AI instruction docs."
+
 ## Code Style and Standards
 
 ### Language Requirements
@@ -115,18 +117,21 @@
 - Use the `useProviderConfig` hook for all frontend keychain operations
 
 ### Settings Page
-- Multi-section layout with sidebar navigation (提供商/通用/高级/关于)
-- Provider configuration UI located at `/settings`
-- Supported providers: MiniMax, OpenAI, Anthropic, Parallel (Web Search)
-- Features:
-  - Password visibility toggle for API key input
-  - Optional base URL override with default values
-  - Real-time form validation
-  - Save/Delete operations with confirmation dialogs
-  - Proper loading states and error handling
-- UI components: Uses InputGroup with password toggle, responsive layout
-- macOS traffic lights support with drag region
-- Entry animation with smooth transitions
+
+**Location**: `src/pages/Settings/index.tsx`
+
+**Six Sections**: Providers, Web Search, General, Keyboard, Advanced, About
+
+**Key Features**:
+- Provider configuration with API key management (MiniMax, OpenAI, Anthropic, etc.)
+- Web search provider setup (Parallel)
+- Theme/language/auto-launch settings
+- Keyboard shortcuts display (read-only)
+- Advanced tools configuration
+- Enable/disable toggle for each provider (requires saved API key)
+- Cross-window synchronization via `provider-config-changed` events
+
+**Window Management**: Use `openSettingsWindow(SettingsSection)` to open/focus settings window
 
 ### Internationalization (i18n)
 
@@ -219,6 +224,64 @@ toast.error(t("toast.error"), { description: t("toast.failedToDeleteChat") })
 - ❌ Don't mix languages in the same file
 - ❌ Don't use translations for code logic (identifiers, conditions)
 
+### Settings Store System
+
+**File**: `src/hooks/use-settings-store.ts` (Tauri Plugin Store with auto-save)
+
+**Main Hooks**:
+- `useSetting<K>(key)` - Single setting (recommended): `const [theme, setTheme] = useSetting("theme")`
+- `useSettings()` - All settings: `const [settings, updateSetting] = useSettings()`
+- `getSetting(key)` / `setSetting(key, value)` - Outside React
+
+**Features**:
+- Auto-save to `settings.json`
+- Deep merge for nested settings (e.g., shortcuts)
+- Cross-window sync via `setting-changed` event
+- Schema migration support
+
+### Keyboard Shortcuts System
+
+**Types**: `src/types/settings.ts` | **Utilities**: `src/lib/shortcut-*.ts` | **Backend**: `src-tauri/src/shortcuts.rs`
+
+**Shortcut Actions** (ShortcutAction enum):
+- Global: `TOGGLE_WINDOW` (Shift+Alt+W)
+- Local: `TOGGLE_SIDEBAR`, `OPEN_SETTINGS`, `SEARCH_HISTORY`, `SEND_MESSAGE`, `NEW_LINE`, `NEW_CHAT`
+
+**Main Hooks**:
+- `useShortcutConfig()` - Get all shortcuts
+- `useShortcut(action)` - Get specific shortcut
+- `useShortcutDisplay(action)` - Get formatted keys (e.g., ["⌘", "B"])
+
+**Utilities**:
+- `formatShortcutForDisplay(key)` - Convert to platform symbols
+- `matchesShortcut(event, key)` - Check if event matches shortcut
+
+**Global Shortcuts**: Registered in Rust (`src-tauri/src/shortcuts.rs`) using `tauri-plugin-global-shortcut`
+
+### Database & Chat Storage
+
+**File**: `src/lib/database.ts` (Tauri Plugin SQL - SQLite)
+
+**API**:
+- `getDatabase()` - Get DB instance (preferred, auto-initializes)
+- `initDatabase()` - Manual initialization
+
+**Usage**: `const db = await getDatabase(); const chats = await db.select("SELECT * FROM chats WHERE id = ?", [id])`
+
+**Tables**: `chats`, `messages` (check `src-tauri/migrations/` for schema)
+
+**Best Practice**: Always use parameterized queries to prevent SQL injection
+
+### Provider Logo System
+
+**Component**: `src/components/ui/provider-logo.tsx`
+
+**Usage**: `<ProviderLogo providerId="minimax" className="size-5" />`
+
+**Supported**: MiniMax, OpenAI, Anthropic, Gemini, Kimi, Zhipu (custom SVG icons in `src/components/icons/`)
+
+**Fallback**: Uses Lucide `icon` from provider config if no custom logo
+
 ## Code Review Checklist
 - [ ] All comments are in English
 - [ ] TypeScript types are properly defined
@@ -228,3 +291,7 @@ toast.error(t("toast.error"), { description: t("toast.failedToDeleteChat") })
 - [ ] Accessibility considerations are addressed
 - [ ] Tests are included for new features
 - [ ] Documentation is updated if needed
+- [ ] Settings changes use `useSetting` hook (auto-persisted and synced)
+- [ ] Cross-window events emitted for important state changes
+- [ ] Keyboard shortcuts registered in settings schema if global
+- [ ] Database queries use parameterization

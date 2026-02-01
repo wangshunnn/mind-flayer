@@ -2,17 +2,19 @@
 
 /* Headings */
 [data-streamdown="heading-1"] {
-  font-size: 1.4rem;
+  font-size: 1.3rem;
 }
 
 [data-streamdown="heading-2"] {
-  font-size: 1.2rem;
+  font-size: 1.15rem;
+  margin-top: 20px;
+  margin-bottom: 20px;
 }
 
 [data-streamdown="heading-3"] {
   font-size: 1rem;
   margin-top: 16px;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
 }
 
 [data-streamdown="heading-4"],
@@ -37,24 +39,12 @@
     letter-spacing: trim-start ideograph-alpha;
   }
 
-  ul {
-    list-style: none;
-    padding-left: 0;
-
-    li {
-      position: relative;
-      padding-left: 14px;
-    }
-
-    li::before {
-      content: "";
-      position: absolute;
-      left: 2px;
-      top: calc(50% - 1px);
-      width: 3px;
-      height: 3px;
-      background: var(--foreground);
-      border-radius: 50%;
+  [data-streamdown="unordered-list"] {
+    [data-streamdown="list-item"] {
+      padding-left: 0.5rem;
+      list-style-type: disc;
+      list-style-image: none;
+      list-style-position: inside;
     }
   }
 }
@@ -69,25 +59,12 @@
     font-size: 14px;
   }
 
-  ul {
-    list-style: none;
-    padding-left: 0;
-
-    li {
-      position: relative;
-      padding-left: 14px;
-    }
-
-    li::before {
-      content: "";
-      position: absolute;
-      left: 2px;
-      top: calc(50% - 1px);
-      width: 3px;
-      height: 3px;
-      background: var(--muted-foreground);
-      opacity: 0.6;
-      border-radius: 50%;
+  [data-streamdown="unordered-list"] {
+    [data-streamdown="list-item"] {
+      padding-left: 0.5rem;
+      list-style-type: disc;
+      list-style-image: none;
+      list-style-position: inside;
     }
   }
 }

@@ -71,22 +71,25 @@ export const webSearchTool = (apiKey: string) => {
       }
     ],
 
-    execute: async ({ objective, searchQueries, maxResults }) => {
+    execute: async ({ objective, searchQueries, maxResults }, { abortSignal }) => {
       console.log(
         `[sidecar] Executing web search for objective: "${objective}" (max: ${maxResults} results)`
       )
 
       try {
         // Use Parallel Web Search API with agentic mode
-        const searchResponse = await parallelClient.beta.search({
-          mode: "agentic",
-          objective,
-          search_queries: searchQueries,
-          max_results: maxResults,
-          excerpts: {
-            max_chars_per_result: 3000
-          }
-        })
+        const searchResponse = await parallelClient.beta.search(
+          {
+            mode: "agentic",
+            objective,
+            search_queries: searchQueries,
+            max_results: maxResults,
+            excerpts: {
+              max_chars_per_result: 3000
+            }
+          },
+          { signal: abortSignal }
+        )
 
         // Transform Parallel results to our expected format
         const results = searchResponse.results.map(result => ({

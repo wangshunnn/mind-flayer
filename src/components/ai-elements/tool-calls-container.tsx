@@ -1,5 +1,5 @@
 import { useControllableState } from "@radix-ui/react-use-controllable-state"
-import type { ChatAddToolApproveResponseFunction, ToolUIPart } from "ai"
+import type { ChatAddToolApproveResponseFunction, DynamicToolUIPart, ToolUIPart } from "ai"
 import { ChevronRightIcon, WrenchIcon } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useContext } from "react"
@@ -148,7 +148,7 @@ export const ToolCallsContainerContent = memo(
 )
 
 export type ToolCallsListProps = {
-  toolParts: ToolUIPart[]
+  toolParts: (ToolUIPart | DynamicToolUIPart)[]
   onToolApprovalResponse: ChatAddToolApproveResponseFunction
 }
 

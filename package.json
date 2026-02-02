@@ -110,6 +110,9 @@
       "@ai-sdk/openai": "$@ai-sdk/openai",
       "@ai-sdk/provider": "$@ai-sdk/provider",
       "@ai-sdk/provider-utils": "$@ai-sdk/provider-utils"
-    }
+    },
+    "ignoredBuiltDependencies": [
+      "msw"
+    ]
   }
 }

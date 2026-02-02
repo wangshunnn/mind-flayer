@@ -1,24 +1,43 @@
-import type { ToolUIPart } from "ai"
+import type { DynamicToolUIPart, ToolUIPart } from "ai"
 import type { useToolConstants } from "@/lib/constants"
+
+export type ToolWebSearch = ToolUIPart & {
+  input?: {
+    objective: string
+    searchQueries: string[]
+    maxResults?: number
+  }
+  output?: {
+    totalResults?: number
+    searchedAt?: string
+    result?: { title: string; url: string; snippet: string; publish_date: string }[]
+  }
+}
+
+// Determine if tool is in progress
+export const isToolUIPartInProgress = (part: ToolUIPart | DynamicToolUIPart): boolean =>
+  part.state === "input-streaming" ||
+  part.state === "input-available" ||
+  part.state === "approval-requested" ||
+  part.state === "approval-responded"
+
+export const isWebSearchToolUIPart = (
+  tool: ToolUIPart | DynamicToolUIPart
+): tool is ToolWebSearch => tool.type === "tool-webSearch"
 
 /**
  * Get the display text for a tool's current state
  */
 export function getToolResultText(
-  tool: {
-    type: string
-    state?: ToolUIPart["state"]
-    output?: { totalResults?: number; [key: string]: unknown }
-  },
+  tool: ToolUIPart | DynamicToolUIPart,
   toolConstants: ReturnType<typeof useToolConstants>
 ): string {
   const { states, webSearch } = toolConstants
-  const isWebSearch = tool.type === "tool-webSearch"
 
   switch (tool.state) {
     case "output-available": {
       if (tool.output) {
-        if (isWebSearch && tool.output.totalResults !== undefined) {
+        if (isWebSearchToolUIPart(tool) && tool.output.totalResults !== undefined) {
           return webSearch.searchedResults(tool.output.totalResults)
         }
         return states.done
@@ -33,7 +52,7 @@ export function getToolResultText(
     }
     case "input-streaming":
     case "input-available": {
-      return isWebSearch ? webSearch.searching : states.running
+      return isWebSearchToolUIPart(tool) ? webSearch.searching : states.running
     }
     case "approval-requested": {
       return states.awaitingApproval

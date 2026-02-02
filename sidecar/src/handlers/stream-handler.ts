@@ -8,7 +8,8 @@ import {
   type ToolSet,
   type UIMessage
 } from "ai"
-import { processMessages } from "../utils/message-processing"
+import { processMessages } from "../utils/message-processor"
+import { buildSystemPrompt } from "../utils/system-prompt-builder"
 
 /**
  * Options for creating a stream response.
@@ -31,6 +32,10 @@ export interface StreamHandlerOptions {
 export async function createStreamResponse(options: StreamHandlerOptions) {
   const { model, messages, tools, toolChoice, abortSignal } = options
 
+  // Process system prompt
+  const systemPrompt = buildSystemPrompt()
+  console.info("[sidecar] systemPrompt:", systemPrompt)
+
   // Process and prune messages
   const prunedMessages = await processMessages(messages, tools)
   console.dir({ prunedMessages }, { depth: null })
@@ -38,6 +43,7 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
   // Create streaming response
   const result = streamText({
     model,
+    system: systemPrompt,
     messages: prunedMessages,
     tools,
     toolChoice,

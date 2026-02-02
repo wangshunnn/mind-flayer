@@ -29,11 +29,14 @@ export class ToolService {
    *
    * @param options - Tool configuration options
    * @param options.useWebSearch - Whether to enable web search
+   * @param options.chatId - Chat session ID for bash execution workspace isolation
    * @returns Tools object for AI SDK
    */
-  getRequestTools(options: { useWebSearch: boolean }): AllTools {
-    const { useWebSearch } = options
+  getRequestTools(options: { useWebSearch: boolean; chatId?: string }): AllTools {
+    const { useWebSearch, chatId } = options
+    const tools: AllTools = {}
 
+    // Add web search tool if enabled
     if (useWebSearch) {
       let webSearchInstance = this.toolInstances.get("webSearch") as AllTools["webSearch"]
 
@@ -45,10 +48,16 @@ export class ToolService {
         webSearchInstance = this.toolInstances.get("webSearch") as AllTools["webSearch"]
       }
 
-      return { webSearch: webSearchInstance }
+      tools.webSearch = webSearchInstance
     }
 
-    return {}
+    // Always add bash execution tool (use temporary ID if chatId not provided)
+    const toolPlugin = toolRegistry.get("bashExecution")
+    const effectiveChatId = chatId || ""
+    const bashInstance = toolPlugin.createInstance(effectiveChatId) as AllTools["bashExecution"]
+    tools.bashExecution = bashInstance
+
+    return tools
   }
 
   /**

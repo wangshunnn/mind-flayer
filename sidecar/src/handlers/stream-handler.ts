@@ -47,7 +47,7 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
     messages: prunedMessages,
     tools,
     toolChoice,
-    stopWhen: Object.keys(tools).length ? stepCountIs(5) : stepCountIs(1),
+    stopWhen: Object.keys(tools).length ? stepCountIs(20) : stepCountIs(1),
     abortSignal
   })
 

@@ -108,6 +108,18 @@ export function useChatStorage() {
         const storageKey = `stored-messages-${chatId}`
         localStorage.removeItem(storageKey)
 
+        // Clean up bash execution workspace via sidecar
+        try {
+          await fetch(`http://localhost:${__SIDECAR_PORT__}/api/cleanup-workspace`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chatId })
+          })
+        } catch (cleanupErr) {
+          // Log but don't fail the deletion if workspace cleanup fails
+          console.warn("[ChatStorage] Failed to cleanup workspace:", cleanupErr)
+        }
+
         await loadChats()
 
         if (activeChatId === chatId) {

@@ -37,10 +37,11 @@ describe("ToolService", () => {
   })
 
   describe("getRequestTools", () => {
-    it("should return empty object when web search is disabled", () => {
+    it("should return bash execution tool when web search is disabled", () => {
       const tools = service.getRequestTools({ useWebSearch: false })
 
-      expect(tools).toEqual({})
+      expect(tools).toHaveProperty("bashExecution")
+      expect(tools.bashExecution).toBeDefined()
     })
 
     it("should return web search tool when enabled and available", () => {

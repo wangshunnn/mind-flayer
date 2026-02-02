@@ -142,7 +142,8 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
         "X-Model-Provider": selectedModelRef.current.provider,
         "X-Model-Id": selectedModelRef.current.api_id,
         "X-Use-Web-Search": useWebSearchRef.current.toString(),
-        "X-Web-Search-Mode": webSearchModeRef.current
+        "X-Web-Search-Mode": webSearchModeRef.current,
+        "X-Chat-Id": currentChatIdRef.current || ""
       })
     }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
@@ -345,6 +346,8 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
     (status === "submitted" && lastMessage?.role === "user") ||
     ((status === "streaming" || status === "error") && lastMessage?.parts.length === 0)
 
+  console.dir(messages, { depth: null })
+
   return (
     <div className="flex h-full flex-col">
       {/* Top */}
@@ -464,7 +467,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                       )}
 
                       {/* Tool Calls Container - only show after thinking is done */}
-                      {isAssistantMessage && hasTools && isThinkingComplete && (
+                      {isAssistantMessage && hasTools && (
                         <ToolCallsContainer toolCount={toolParts.length}>
                           <ToolCallsContainerTrigger toolNames={toolNames} />
                           <ToolCallsList

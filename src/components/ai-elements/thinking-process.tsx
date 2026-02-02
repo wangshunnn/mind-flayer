@@ -26,6 +26,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useThinkingConstants, useToolConstants } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import {
+  getToolInputMeta,
   getToolResultText,
   isToolUIPartInProgress,
   isWebSearchToolUIPart
@@ -266,13 +267,12 @@ const ReasoningPartToolContent = memo(
     // Determine if tool is in progress
     const isToolInProgress = isChatStreaming && isToolUIPart(part) && isToolUIPartInProgress(part)
     const toolConstants = useToolConstants()
+    const toolInputMeta = getToolInputMeta(part)
     const toolResult = getToolResultText(part, toolConstants)
 
     return (
       <div className="text-muted-foreground text-xs">
-        <div className="mb-2.5 text-sm">
-          {(isWebSearchToolUIPart(part) && part.input?.objective) || ""}
-        </div>
+        <div className="mb-2.5 text-sm">{toolInputMeta?.content || ""}</div>
         {isToolInProgress ? (
           <div className="flex items-center gap-1.5">
             <Loader2Icon className="size-3 animate-spin" />

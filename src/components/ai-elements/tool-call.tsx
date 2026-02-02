@@ -5,6 +5,7 @@ import {
   CircleXIcon,
   GlobeIcon,
   Loader2Icon,
+  TerminalIcon,
   WrenchIcon,
   XIcon
 } from "lucide-react"
@@ -141,6 +142,8 @@ const getToolIcon = (toolName: string) => {
   switch (toolName.toLowerCase()) {
     case "websearch":
       return <GlobeIcon className={iconClass} />
+    case "bashexecution":
+      return <TerminalIcon className={iconClass} />
     default:
       return <WrenchIcon className={iconClass} />
   }
@@ -375,6 +378,60 @@ export const ToolCallWebSearchResults = memo(({ results }: ToolCallWebSearchResu
   </div>
 ))
 
+// Bash Execution specific result component
+export type BashExecResult = {
+  command: string
+  args: string[]
+  stdout: string
+  stderr: string
+  exitCode: number
+  workingDir: string
+  executedAt: string
+}
+
+export type ToolCallBashExecResultsProps = {
+  result: BashExecResult
+}
+
+export const ToolCallBashExecResults = memo(({ result }: ToolCallBashExecResultsProps) => {
+  const hasStdout = result.stdout && result.stdout.trim().length > 0
+  const hasStderr = result.stderr && result.stderr.trim().length > 0
+
+  return (
+    <div className="space-y-2">
+      {/* Command line */}
+      <div className="rounded-md border border-border/50 bg-muted/50 px-3 py-2">
+        <div className="flex items-start gap-2">
+          <span className="text-xs text-muted-foreground shrink-0">$</span>
+          <code className="text-xs font-mono text-foreground flex-1">
+            {result.command} {result.args.join(" ")}
+          </code>
+        </div>
+      </div>
+
+      {/* Stdout */}
+      {hasStdout && (
+        <div className="space-y-1">
+          <div className="text-xs text-muted-foreground">Output:</div>
+          <pre className="rounded-md border border-border/50 bg-muted/30 px-3 py-2 text-xs font-mono text-foreground overflow-x-auto max-h-64 overflow-y-auto">
+            {result.stdout}
+          </pre>
+        </div>
+      )}
+
+      {/* Stderr */}
+      {hasStderr && (
+        <div className="space-y-1">
+          <div className="text-xs text-muted-foreground">Error output:</div>
+          <pre className="rounded-md border border-destructive/50 bg-destructive/5 px-3 py-2 text-xs font-mono text-destructive overflow-x-auto max-h-48 overflow-y-auto">
+            {result.stderr}
+          </pre>
+        </div>
+      )}
+    </div>
+  )
+})
+
 ToolCall.displayName = "ToolCall"
 ToolCallTrigger.displayName = "ToolCallTrigger"
 ToolCallContent.displayName = "ToolCallContent"
@@ -384,3 +441,4 @@ ToolCallApprovalRequested.displayName = "ToolCallApprovalRequested"
 ToolCallOutputError.displayName = "ToolCallOutputError"
 ToolCallOutputDenied.displayName = "ToolCallOutputDenied"
 ToolCallWebSearchResults.displayName = "ToolCallWebSearchResults"
+ToolCallBashExecResults.displayName = "ToolCallBashExecResults"

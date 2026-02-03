@@ -38,11 +38,17 @@ function buildTimeContext(): string {
  * @returns Environment context string
  */
 function buildEnvironmentContext(): string {
-  // TODO: Add more environment info as needed
-  // - OS type (macOS, Windows, Linux)
-  // - App version
-  // - User language preference
-  return ""
+  const platform = process.platform
+  const osName =
+    platform === "darwin"
+      ? "macOS"
+      : platform === "win32"
+        ? "Windows"
+        : platform === "linux"
+          ? "Linux"
+          : "Unknown"
+  const lines = [`- os: ${osName}`, `- platform: ${platform}`]
+  return lines.join("\n")
 }
 
 /**
@@ -55,8 +61,8 @@ export function buildSystemPrompt(): string {
   const sections = [
     "You are Mind Flayer, a local desktop AI agent.",
     "System context:",
-    buildTimeContext(),
-    buildEnvironmentContext()
+    buildEnvironmentContext(),
+    buildTimeContext()
   ].filter(Boolean)
 
   return sections.join("\n")

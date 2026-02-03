@@ -190,6 +190,7 @@ const ToolCallWebSearch = ({
       toolName="webSearch"
       state={part.state}
       resultCount={output?.totalResults}
+      defaultOpen={part.state === "approval-requested"}
     >
       <ToolCallTrigger />
       <ToolCallContent>
@@ -198,11 +199,7 @@ const ToolCallWebSearch = ({
         )}
         {part.state === "approval-requested" && approvalId && (
           <ToolCallApprovalRequested
-            description={
-              <>
-                The AI wants to search the web for: <strong>"{input?.objective ?? ""}"</strong>
-              </>
-            }
+            description={<span>{input?.objective ?? ""}</span>}
             onApprove={() => onToolApprovalResponse({ id: approvalId, approved: true })}
             onDeny={() => onToolApprovalResponse({ id: approvalId, approved: false })}
           />
@@ -239,6 +236,7 @@ const ToolCallBashExec = ({
       toolName="bashExecution"
       state={part.state}
       resultCount={output?.exitCode === 0 ? 1 : 0}
+      defaultOpen={true}
     >
       <BashExecTrigger exitCode={output?.exitCode} />
       <ToolCallContent>
@@ -250,12 +248,9 @@ const ToolCallBashExec = ({
         {part.state === "approval-requested" && approvalId && (
           <ToolCallApprovalRequested
             description={
-              <>
-                The AI wants to execute command:{" "}
-                <code className="text-xs font-mono">
-                  {input?.command || ""} {input?.args?.join(" ") || ""}
-                </code>
-              </>
+              <code className="text-xs font-mono">
+                {input?.command || ""} {input?.args?.join(" ") || ""}
+              </code>
             }
             onApprove={() => onToolApprovalResponse({ id: approvalId, approved: true })}
             onDeny={() => onToolApprovalResponse({ id: approvalId, approved: false })}

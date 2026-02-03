@@ -4,6 +4,7 @@
  */
 
 import { execFile, spawn } from "node:child_process"
+import { homedir } from "node:os"
 import { promisify } from "node:util"
 
 const execFileAsync = promisify(execFile)
@@ -26,6 +27,26 @@ export interface ExecutionResult {
  * Cache for resolved command paths to avoid repeated lookups
  */
 const commandPathCache = new Map<string, string>()
+
+/**
+ * Real user's home directory (cached)
+ */
+const USER_HOME = homedir()
+
+/**
+ * Expands tilde (~) in a path to the user's real home directory
+ * @param path - Path that may contain tilde
+ * @returns Expanded path
+ */
+function expandTilde(path: string): string {
+  if (path.startsWith("~/")) {
+    return path.replace("~", USER_HOME)
+  }
+  if (path === "~") {
+    return USER_HOME
+  }
+  return path
+}
 
 /**
  * Resolves a command to its full path using 'which'
@@ -80,6 +101,9 @@ export async function executeCommand(
   // Resolve command to full path
   const resolvedPath = await resolveCommandPath(cmd)
 
+  // Expand tilde in all arguments to support paths like ~/Desktop
+  const expandedArgs = args.map(expandTilde)
+
   // Restricted environment to prevent PATH manipulation
   const restrictedEnv = {
     PATH: RESTRICTED_PATH,
@@ -93,8 +117,8 @@ export async function executeCommand(
     let stderrData = ""
     let outputTruncated = false
 
-    // Spawn the process
-    const child = spawn(resolvedPath, args, {
+    // Spawn the process with expanded arguments
+    const child = spawn(resolvedPath, expandedArgs, {
       cwd: workingDir,
       shell: false, // Critical: no shell to prevent injection
       env: restrictedEnv

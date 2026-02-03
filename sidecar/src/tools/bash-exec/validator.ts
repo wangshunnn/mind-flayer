@@ -91,6 +91,6 @@ export function validateCommand(command: string): ValidationResult {
   return {
     isAllowed: false,
     requiresApproval: false,
-    reason: `Command '${bareCommand}' is not in the allowed command list. Safe commands include: ${SAFE_COMMANDS.slice(0, 10).join(", ")}, etc.`
+    reason: `Command '${bareCommand}' is not in the allowed command list.`
   }
 }

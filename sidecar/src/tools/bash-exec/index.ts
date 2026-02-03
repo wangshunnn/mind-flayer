@@ -92,6 +92,17 @@ Examples:
       }
     ],
 
+    needsApproval: input => {
+      const { command } = input
+      const { requiresApproval } = validateCommand(command)
+      if (requiresApproval) {
+        console.info(
+          `[BashExec] Command '${command}' is marked as dangerous - approval should be required`
+        )
+      }
+      return requiresApproval
+    },
+
     execute: async ({ command, args }, { abortSignal }) => {
       console.log(`[BashExec] Executing command: ${command} ${args.join(" ")}`)
 
@@ -99,14 +110,6 @@ Examples:
       const validation = validateCommand(command)
       if (!validation.isAllowed) {
         throw new Error(validation.reason || `Command '${command}' is not allowed for execution`)
-      }
-
-      // Log if approval would be required (for future implementation)
-      if (validation.requiresApproval) {
-        console.warn(
-          `[BashExec] Command '${command}' is marked as dangerous - approval should be required`
-        )
-        // TODO: Implement approval flow when AI SDK supports it
       }
 
       try {

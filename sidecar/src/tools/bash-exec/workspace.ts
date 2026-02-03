@@ -5,9 +5,10 @@
 
 import { mkdir, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, resolve, sep } from "node:path"
 
 const BASE_DIR = join(tmpdir(), "mind-flayer-bash")
+const SAFE_CHAT_ID_REGEX = /^[a-zA-Z0-9_-]+$/
 
 const README_CONTENT = `# Mind Flayer Bash Sandbox
 
@@ -36,7 +37,17 @@ Created: ${new Date().toISOString()}
 export async function ensureChatWorkspace(chatId: string): Promise<string> {
   // Use a temporary ID if chatId is not provided
   const effectiveChatId = chatId || `temp-${Date.now()}`
-  const workspacePath = join(BASE_DIR, effectiveChatId)
+
+  if (!SAFE_CHAT_ID_REGEX.test(effectiveChatId)) {
+    throw new Error(`Invalid chatId '${effectiveChatId}'`)
+  }
+
+  const workspacePath = resolve(BASE_DIR, effectiveChatId)
+
+  // Defense-in-depth: ensure resolved path is within BASE_DIR
+  if (!workspacePath.startsWith(`${BASE_DIR}${sep}`)) {
+    throw new Error(`Invalid workspace path for chatId '${effectiveChatId}'`)
+  }
 
   try {
     // Create workspace directory (and parent if needed)
@@ -59,7 +70,17 @@ export async function ensureChatWorkspace(chatId: string): Promise<string> {
  * @param chatId - Unique identifier for the chat session
  */
 export async function cleanupWorkspace(chatId: string): Promise<void> {
-  const workspacePath = join(BASE_DIR, chatId)
+  if (!chatId || !SAFE_CHAT_ID_REGEX.test(chatId)) {
+    console.warn(`[BashExec] Refusing to cleanup workspace with invalid chatId '${chatId}'`)
+    return
+  }
+
+  const workspacePath = resolve(BASE_DIR, chatId)
+
+  if (!workspacePath.startsWith(`${BASE_DIR}${sep}`)) {
+    console.warn(`[BashExec] Refusing to cleanup workspace outside base dir: ${workspacePath}`)
+    return
+  }
 
   try {
     await rm(workspacePath, { recursive: true, force: true })
@@ -77,5 +98,13 @@ export async function cleanupWorkspace(chatId: string): Promise<void> {
  * @returns Absolute path to the workspace directory
  */
 export function getWorkspacePath(chatId: string): string {
-  return join(BASE_DIR, chatId)
+  if (!SAFE_CHAT_ID_REGEX.test(chatId)) {
+    throw new Error(`Invalid chatId '${chatId}'`)
+  }
+
+  const workspacePath = resolve(BASE_DIR, chatId)
+  if (!workspacePath.startsWith(`${BASE_DIR}${sep}`)) {
+    throw new Error(`Invalid workspace path for chatId '${chatId}'`)
+  }
+  return workspacePath
 }

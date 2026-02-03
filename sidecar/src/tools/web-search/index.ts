@@ -1,7 +1,7 @@
 import { tool } from "ai"
 import Parallel from "parallel-web"
 import { z } from "zod"
-import type { ITool } from "./base-tool"
+import type { ITool } from "../base-tool"
 
 /**
  * Web search tool implementation using Parallel API.

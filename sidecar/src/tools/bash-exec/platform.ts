@@ -7,7 +7,7 @@
  * Checks if the current platform supports bash execution
  * @returns true if platform is macOS or Linux
  */
-export function isSupportedPlatform(): boolean {
+export function isBashExecSupportedPlatform(): boolean {
   return process.platform !== "win32"
 }
 
@@ -16,7 +16,7 @@ export function isSupportedPlatform(): boolean {
  * @throws Error if platform is Windows
  */
 export function assertPlatformSupported(): void {
-  if (!isSupportedPlatform()) {
+  if (!isBashExecSupportedPlatform()) {
     throw new Error(
       "Bash execution is not supported on Windows. This tool requires macOS or Linux."
     )

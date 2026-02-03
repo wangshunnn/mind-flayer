@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest"
-import { assertPlatformSupported, isSupportedPlatform } from "../platform"
+import { assertPlatformSupported, isBashExecSupportedPlatform } from "../platform"
 
 describe("Platform Checker", () => {
-  describe("isSupportedPlatform", () => {
+  describe("isBashExecSupportedPlatform", () => {
     it("should return boolean", () => {
-      const result = isSupportedPlatform()
+      const result = isBashExecSupportedPlatform()
       expect(typeof result).toBe("boolean")
     })
 
     it("should return true on non-Windows platforms", () => {
       if (process.platform !== "win32") {
-        expect(isSupportedPlatform()).toBe(true)
+        expect(isBashExecSupportedPlatform()).toBe(true)
       }
     })
   })

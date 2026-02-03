@@ -1,5 +1,6 @@
 import type { AllTools } from "../tools"
 import { toolRegistry } from "../tools"
+import { isBashExecSupportedPlatform } from "../tools/bash-exec/platform"
 
 /**
  * Service for managing tool instances and configurations.
@@ -51,11 +52,13 @@ export class ToolService {
       tools.webSearch = webSearchInstance
     }
 
-    // Always add bash execution tool (use temporary ID if chatId not provided)
-    const toolPlugin = toolRegistry.get("bashExecution")
-    const effectiveChatId = chatId || ""
-    const bashInstance = toolPlugin.createInstance(effectiveChatId) as AllTools["bashExecution"]
-    tools.bashExecution = bashInstance
+    // Add bash execution tool only on supported platforms
+    if (isBashExecSupportedPlatform()) {
+      const toolPlugin = toolRegistry.get("bashExecution")
+      const effectiveChatId = chatId || ""
+      const bashInstance = toolPlugin.createInstance(effectiveChatId) as AllTools["bashExecution"]
+      tools.bashExecution = bashInstance
+    }
 
     return tools
   }

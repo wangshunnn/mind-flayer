@@ -8,6 +8,9 @@ import { promisify } from "node:util"
 
 const execFileAsync = promisify(execFile)
 
+// Keep PATH restriction consistent across resolution and execution
+const RESTRICTED_PATH = "/usr/bin:/bin:/usr/local/bin"
+
 // Safety constants
 const TIMEOUT_MS = 30000 // 30 seconds
 const MAX_OUTPUT_BYTES = 51200 // 50KB
@@ -39,7 +42,10 @@ async function resolveCommandPath(command: string): Promise<string> {
 
   try {
     const { stdout } = await execFileAsync("which", [command], {
-      timeout: 5000
+      timeout: 5000,
+      env: {
+        PATH: RESTRICTED_PATH
+      }
     })
     const resolvedPath = stdout.trim()
 
@@ -76,7 +82,7 @@ export async function executeCommand(
 
   // Restricted environment to prevent PATH manipulation
   const restrictedEnv = {
-    PATH: "/usr/bin:/bin:/usr/local/bin",
+    PATH: RESTRICTED_PATH,
     LANG: "en_US.UTF-8",
     HOME: workingDir // Set HOME to sandbox for safety
   }

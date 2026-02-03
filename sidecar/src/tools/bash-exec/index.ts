@@ -5,11 +5,11 @@
 
 import { tool } from "ai"
 import { z } from "zod"
-import type { ITool } from "./base-tool"
-import { executeCommand } from "./bash-exec/executor"
-import { assertPlatformSupported } from "./bash-exec/platform"
-import { validateCommand } from "./bash-exec/validator"
-import { ensureChatWorkspace } from "./bash-exec/workspace"
+import type { ITool } from "../base-tool"
+import { executeCommand } from "./executor"
+import { assertPlatformSupported } from "./platform"
+import { validateCommand } from "./validator"
+import { ensureChatWorkspace } from "./workspace"
 
 /**
  * Bash execution tool implementation.
@@ -39,11 +39,11 @@ export const bashExecutionTool = (chatId: string) => {
   }
 
   return tool({
-    description: `Execute shell commands in an isolated sandbox environment.
+    description: `Execute shell commands in an isolated sandbox environment (macOS/Linux only; not supported on Windows).
 
 IMPORTANT: Commands are executed using direct process spawn (not shell).
 - Use 'command' field for the executable name (e.g., "ls", "cat", "grep")  
-- Use 'args' array for all arguments (e.g., ["- la"], ["/path/to/file"])
+- Each flag or parameter must be a separate array element (e.g., ["-la"] or ["-l","-a"] NOT ["- la"])
 - Do NOT use shell syntax like pipes (|), redirects (>, <), or command chains (;, &&, ||)
 - Working directory is a temporary sandbox, but args can reference real file paths
 - Safe commands (ls, cat, grep, etc.) execute immediately
@@ -54,7 +54,9 @@ Examples:
   ✅ { command: "cat", args: ["~/Documents/file.txt"] } - Read real file
   ✅ { command: "find", args: [".", "-name", "*.ts"] } - Find in sandbox
   ❌ { command: "ls | grep test" } - NO: shell syntax not supported
-  ❌ { command: "cat file.txt > output.txt" } - NO: use 'cp' command instead`,
+  ❌ { command: "cat file.txt > output.txt" } - NO: use 'cp' command instead
+  ❌ { command: "ls - la" } - NO: flags/args must be separate elements
+  ❌ { command: "rm -rf /" } - NO: extremely dangerous command`,
 
     inputSchema: z.object({
       command: z

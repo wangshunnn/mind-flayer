@@ -389,11 +389,12 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
               const isCurrentlyStreaming = status === "streaming" && isLastMessage
               const lastPart = message.parts[message.parts.length - 1]
               const isThinkingStreaming =
-                isCurrentlyStreaming &&
-                lastPart?.type &&
-                (lastPart.type === "step-start" ||
-                  isReasoningUIPart(lastPart) ||
-                  isToolUIPart(lastPart))
+                (isCurrentlyStreaming &&
+                  lastPart?.type &&
+                  (lastPart.type === "step-start" ||
+                    isReasoningUIPart(lastPart) ||
+                    isToolUIPart(lastPart))) ||
+                (!isCurrentlyStreaming && lastPart?.type && isToolUIPart(lastPart))
               const steps: ThinkingStep[][] = []
               let currentStep: ThinkingStep[] = []
 

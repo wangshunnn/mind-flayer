@@ -66,7 +66,7 @@ export const ToolCallsContainer = memo(
 
     return (
       <ToolCallsContainerContext.Provider value={{ isOpen, setIsOpen, toolCount }}>
-        <div className={cn("rounded-lg border border-border/50 bg-muted/30 p-3", className)}>
+        <div className={cn("rounded-lg p-0", className)}>
           <Collapsible
             className="not-prose"
             onOpenChange={handleOpenChange}
@@ -107,7 +107,7 @@ export const ToolCallsContainerTrigger = memo(
     return (
       <CollapsibleTrigger
         className={cn(
-          "flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground",
+          "flex w-full items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground",
           className
         )}
         {...props}
@@ -144,7 +144,7 @@ export const ToolCallsContainerContent = memo(
       )}
       {...props}
     >
-      <div className="overflow-y-auto pr-2" style={{ maxHeight }}>
+      <div className="overflow-y-auto pr-2">
         <div className="space-y-3">{children}</div>
       </div>
     </CollapsibleContent>
@@ -163,7 +163,7 @@ const ToolCallWebSearch = ({
   part: ToolUIPart
   onToolApprovalResponse: ToolCallsListProps["onToolApprovalResponse"]
 }) => {
-  const callId = part.toolCallId
+  const toolCallId = part.toolCallId
   const input = part.input as {
     objective: string
     searchQueries: string[]
@@ -186,15 +186,17 @@ const ToolCallWebSearch = ({
 
   return (
     <ToolCall
-      key={callId}
+      key={toolCallId}
       toolName="webSearch"
       state={part.state}
       resultCount={output?.totalResults}
-      defaultOpen={part.state === "approval-requested"}
+      defaultOpen
     >
       <ToolCallTrigger />
       <ToolCallContent>
-        {(part.state === "input-streaming" || part.state === "input-available") && (
+        {(part.state === "input-streaming" ||
+          part.state === "input-available" ||
+          part.state === "approval-responded") && (
           <ToolCallInputStreaming message={input?.objective} />
         )}
         {part.state === "approval-requested" && approvalId && (
@@ -221,7 +223,7 @@ const ToolCallBashExec = ({
   part: ToolUIPart
   onToolApprovalResponse: ToolCallsListProps["onToolApprovalResponse"]
 }) => {
-  const callId = part.toolCallId
+  const toolCallId = part.toolCallId
   const input = part.input as {
     command: string
     args: string[]
@@ -232,15 +234,17 @@ const ToolCallBashExec = ({
 
   return (
     <ToolCall
-      key={callId}
+      key={toolCallId}
       toolName="bashExecution"
       state={part.state}
       resultCount={output?.exitCode === 0 ? 1 : 0}
-      defaultOpen={true}
+      defaultOpen
     >
       <BashExecTrigger exitCode={output?.exitCode} />
       <ToolCallContent>
-        {(part.state === "input-streaming" || part.state === "input-available") && (
+        {(part.state === "input-streaming" ||
+          part.state === "input-available" ||
+          part.state === "approval-responded") && (
           <ToolCallInputStreaming
             message={`${input?.command || ""} ${input?.args?.join(" ") || ""}`.trim()}
           />
@@ -269,7 +273,7 @@ const BashExecTrigger = ({ exitCode }: { exitCode?: number }) => {
   const { t } = useTranslation(["tools", "common"])
   const displayName = t("tools:names.bashExecution", { defaultValue: "bashExecution" })
   const isCompleted = ["output-available", "output-error", "output-denied"].includes(state)
-  const isSuccess = exitCode === 0
+  const isSuccess = exitCode === 0 && state === "output-available"
 
   const getMessage = () => {
     if (!isCompleted) {
@@ -277,15 +281,21 @@ const BashExecTrigger = ({ exitCode }: { exitCode?: number }) => {
     }
     if (state === "output-error") {
       return (
-        <span>
-          {displayName} {t("tools:states.failed").toLowerCase()}
-        </span>
+        <div>
+          {displayName}
+          <span className="inline-flex items-center rounded-md ml-2 px-2 py-0.5 text-xs min-w-max bg-red-500/10 text-red-600 dark:text-red-400">
+            {t("tools:states.failed").toLowerCase()}
+          </span>
+        </div>
       )
     }
     if (state === "output-denied") {
       return (
         <span>
-          {displayName} {t("tools:states.cancelled").toLowerCase()}
+          {displayName}{" "}
+          <span className="inline-flex items-center rounded-md ml-2 px-2 py-0.5 text-xs min-w-max bg-red-500/10 text-red-600 dark:text-red-400">
+            {t("tools:states.cancelled").toLowerCase()}
+          </span>
         </span>
       )
     }
@@ -299,7 +309,7 @@ const BashExecTrigger = ({ exitCode }: { exitCode?: number }) => {
       {state === "output-available" && exitCode !== undefined && (
         <span
           className={cn(
-            "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium min-w-max",
+            "inline-flex items-center rounded-md px-2 py-0.5 text-xs min-w-max",
             isSuccess
               ? "bg-green-500/10 text-green-600 dark:text-green-400"
               : "bg-red-500/10 text-red-600 dark:text-red-400"

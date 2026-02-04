@@ -14,12 +14,39 @@ export async function processMessages(messages: UIMessage[], tools: ToolSet = {}
     ignoreIncompleteToolCalls: true
   })
 
-  const prunedMessages = pruneMessages({
-    messages: modelMessages,
+  console.dir({ modelMessages }, { depth: null })
+
+  // Only prune history messages before the last user question
+  if (modelMessages.length <= 1) {
+    return modelMessages
+  }
+
+  // Find the last user message index
+  let lastUserIndex = -1
+  for (let i = modelMessages.length - 1; i >= 0; i--) {
+    if (modelMessages[i].role === "user") {
+      lastUserIndex = i
+      break
+    }
+  }
+
+  // If no user message found or it's the first message, return as is
+  if (lastUserIndex <= 0) {
+    return modelMessages
+  }
+
+  // Split: history (up to and including last user msg) and after (tool calls, etc.)
+  const historyMessages = modelMessages.slice(0, lastUserIndex + 1)
+  const currentMessages = modelMessages.slice(lastUserIndex + 1)
+
+  // Prune only history messages
+  const prunedHistory = pruneMessages({
+    messages: historyMessages,
     reasoning: "all",
-    toolCalls: "before-last-1-messages",
+    toolCalls: "all", // Keep all tool calls to preserve approval workflow
     emptyMessages: "remove"
   })
 
-  return prunedMessages
+  // Merge pruned history with messages after last user question
+  return prunedHistory.concat(currentMessages)
 }

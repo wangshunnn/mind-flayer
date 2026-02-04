@@ -166,7 +166,7 @@ export const ThinkingProcessTrigger = memo(
     return (
       <CollapsibleTrigger
         className={cn(
-          "flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground",
+          "flex w-full items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground",
           className
         )}
         {...props}
@@ -319,11 +319,6 @@ export const ReasoningPartHeader = memo(
       return t("message.usingTool")
     }
 
-    const isStreaming =
-      isChatStreaming &&
-      ((isReasoningUIPart(part) && part.state === "streaming") ||
-        (isToolUIPart(part) && isToolUIPartInProgress(part)))
-
     return (
       <div
         className={cn(
@@ -334,7 +329,7 @@ export const ReasoningPartHeader = memo(
         {...props}
       >
         {getIcon()}
-        {isStreaming ? <Shimmer duration={1}>{getLabel()}</Shimmer> : <span>{getLabel()}</span>}
+        <span>{getLabel()}</span>
       </div>
     )
   }

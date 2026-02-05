@@ -59,7 +59,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                os: [ubuntu-latest, macos-latest, windows-latest]
+                os: [macos-latest]
 
         steps:
             - name: Checkout repository
@@ -87,6 +87,21 @@ jobs:
                     libssl-dev \
                     libayatana-appindicator3-dev \
                     librsvg2-dev
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "24"
+                  cache: "pnpm"
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build sidecar (dev)
+              run: pnpm build:sidecar
 
             - name: Format check (Backend)
               working-directory: src-tauri

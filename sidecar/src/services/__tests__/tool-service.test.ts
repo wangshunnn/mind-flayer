@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ToolService } from "../tool-service"
 
+// Mock platform detection
+vi.mock("../../tools/bash-exec/platform", () => ({
+  isBashExecSupportedPlatform: vi.fn(() => true)
+}))
+
 // Mock the tool registry
 vi.mock("../../tools", () => ({
   toolRegistry: {

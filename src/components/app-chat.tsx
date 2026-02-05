@@ -346,8 +346,6 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
     (status === "submitted" && lastMessage?.role === "user") ||
     ((status === "streaming" || status === "error") && lastMessage?.parts.length === 0)
 
-  console.dir(messages, { depth: null })
-
   return (
     <div className="flex h-full flex-col">
       {/* Top */}

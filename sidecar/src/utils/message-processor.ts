@@ -14,8 +14,6 @@ export async function processMessages(messages: UIMessage[], tools: ToolSet = {}
     ignoreIncompleteToolCalls: true
   })
 
-  console.dir({ modelMessages }, { depth: null })
-
   // Only prune history messages before the last user question
   if (modelMessages.length <= 1) {
     return modelMessages

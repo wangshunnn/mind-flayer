@@ -6,7 +6,10 @@ import { homedir } from "node:os"
 import { describe, expect, it } from "vitest"
 import { executeCommand } from "../executor"
 
-describe("executeCommand", () => {
+const isWindows = process.platform === "win32"
+const describeIfSupported = isWindows ? describe.skip : describe
+
+describeIfSupported("executeCommand", () => {
   it("should expand tilde in arguments to user's home directory", async () => {
     const userHome = homedir()
     const result = await executeCommand("echo", ["~/Desktop"], "/tmp", new AbortController().signal)

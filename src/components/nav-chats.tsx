@@ -1,4 +1,5 @@
 import { Folder, MoreVertical, Share, Trash2 } from "lucide-react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   DropdownMenu,
@@ -12,10 +13,45 @@ import {
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuAction,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem
 } from "@/components/ui/sidebar"
 import type { Chat, ChatId } from "@/types/chat"
+
+const MINUTE_MS = 60 * 1000
+const HOUR_MS = 60 * MINUTE_MS
+const DAY_MS = 24 * HOUR_MS
+const WEEK_MS = 7 * DAY_MS
+const MONTH_MS = 30 * DAY_MS
+const YEAR_MS = 365 * DAY_MS
+
+const formatCreatedAge = (createdAt: number, now: number) => {
+  const elapsedMs = Math.max(0, now - createdAt)
+
+  if (elapsedMs < DAY_MS) {
+    const hours = Math.max(1, Math.floor(elapsedMs / HOUR_MS))
+    return `${hours}h`
+  }
+
+  if (elapsedMs < WEEK_MS) {
+    const days = Math.max(1, Math.floor(elapsedMs / DAY_MS))
+    return `${days}d`
+  }
+
+  if (elapsedMs < MONTH_MS) {
+    const weeks = Math.max(1, Math.floor(elapsedMs / WEEK_MS))
+    return `${weeks}w`
+  }
+
+  if (elapsedMs < YEAR_MS) {
+    const months = Math.max(1, Math.floor(elapsedMs / MONTH_MS))
+    return `${months}m`
+  }
+
+  const years = Math.max(1, Math.floor(elapsedMs / YEAR_MS))
+  return `${years}y`
+}
 
 export function NavChats({
   chats,
@@ -29,7 +65,10 @@ export function NavChats({
   onDeleteChat: (chatId: ChatId) => void
 }) {
   const { t } = useTranslation("common")
-  console.log("[NavChats] Rendering with chats:", chats)
+  const now = Date.now()
+  const [showAll, setShowAll] = useState(false)
+  const visibleChats = showAll ? chats : chats.slice(0, 10)
+  const canToggle = chats.length > 10
 
   return (
     <SidebarGroup>
@@ -40,7 +79,7 @@ export function NavChats({
             {t("nav.noChatsYet")}
           </div>
         )}
-        {chats.map(chat => (
+        {visibleChats.map(chat => (
           <SidebarMenuItem key={chat.id}>
             <SidebarMenuButton
               isActive={activeChatId === chat.id}
@@ -48,6 +87,9 @@ export function NavChats({
             >
               <span className="truncate">{chat.title}</span>
             </SidebarMenuButton>
+            <SidebarMenuBadge className="text-muted-foreground/60 group-hover/menu-item:opacity-0">
+              {formatCreatedAge(chat.created_at, now)}
+            </SidebarMenuBadge>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuAction showOnHover>
@@ -78,6 +120,15 @@ export function NavChats({
             </DropdownMenu>
           </SidebarMenuItem>
         ))}
+        {canToggle && (
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => setShowAll(current => !current)}>
+              <SidebarMenuBadge className="truncate text-muted-foreground/60 left-1 justify-between">
+                {showAll ? t("nav.showLess") : t("nav.showMore")}
+              </SidebarMenuBadge>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )}
       </SidebarMenu>
     </SidebarGroup>
   )

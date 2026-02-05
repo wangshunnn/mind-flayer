@@ -1,5 +1,12 @@
 import { useControllableState } from "@radix-ui/react-use-controllable-state"
-import type { ToolUIPart } from "ai"
+import {
+  type DynamicToolUIPart,
+  getToolName,
+  isReasoningUIPart,
+  isToolUIPart,
+  type ReasoningUIPart,
+  type ToolUIPart
+} from "ai"
 import {
   BrainIcon,
   ChevronRightIcon,
@@ -18,6 +25,12 @@ import { Shimmer } from "@/components/ai-elements/shimmer"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { useThinkingConstants, useToolConstants } from "@/lib/constants"
 import { cn } from "@/lib/utils"
+import {
+  getToolInputMeta,
+  getToolResultText,
+  isToolUIPartInProgress,
+  isWebSearchToolUIPart
+} from "~/src/lib/tool-helpers"
 
 type ThinkingProcessContextValue = {
   isStreaming: boolean
@@ -153,7 +166,7 @@ export const ThinkingProcessTrigger = memo(
     return (
       <CollapsibleTrigger
         className={cn(
-          "flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground",
+          "flex w-full items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground",
           className
         )}
         {...props}
@@ -207,38 +220,23 @@ export const ThinkingProcessContent = memo(
 
 // Reasoning segment component for individual reasoning blocks
 
-export type ReasoningSegmentProps = ComponentProps<"div"> & {
-  isStreaming?: boolean
-  toolType?: "reasoning" | `tool-${string}`
-  toolResult?: string
-  toolState?: ToolUIPart["state"]
-  toolDescription?: string
+export type ReasoningPartProps = ComponentProps<"div"> & {
+  partSource: ReasoningUIPart | ToolUIPart | DynamicToolUIPart
+  /** isChatStreaming indicates if the message is still streaming, not been manually stopped */
+  isChatStreaming: boolean
 }
 
-export const ReasoningSegment = memo(
+export const ReasoningPart = memo(
   ({
     className,
-    isStreaming = false,
-    toolType = "reasoning",
-    toolResult,
-    toolState,
-    toolDescription,
+    partSource: part,
+    isChatStreaming = false,
     children,
     ...props
-  }: ReasoningSegmentProps) => {
-    const { toolRunning, toolDone } = useThinkingConstants()
-
-    // Determine if tool is in progress
-    const isToolInProgress = Boolean(
-      toolState &&
-        ["input-streaming", "input-available", "approval-requested", "approval-responded"].includes(
-          toolState
-        )
-    )
-
+  }: ReasoningPartProps) => {
     return (
       <div className={cn("relative my-0", className)} {...props}>
-        <ReasoningSegmentHeader toolType={toolType} isToolInProgress={isToolInProgress} />
+        <ReasoningPartHeader partSource={part} isChatStreaming={isChatStreaming} />
         <div
           className={cn(
             "relative pl-6 py-1",
@@ -246,24 +244,10 @@ export const ReasoningSegment = memo(
             "before:bg-muted-foreground/20"
           )}
         >
-          {toolType.startsWith("tool-") ? (
-            <div className="text-muted-foreground text-xs">
-              <div className="mb-2.5 text-sm">{toolDescription}</div>
-              {isToolInProgress ? (
-                <div className="flex items-center gap-1.5">
-                  <Loader2Icon className="size-3 animate-spin" />
-                  <span>{toolResult || toolRunning}</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  {toolState === "output-available" && <CircleCheckIcon className="size-3" />}
-                  {toolState === "output-error" && <CircleXIcon className="size-3" />}
-                  <span>{toolResult || toolDone}</span>
-                </div>
-              )}
-            </div>
+          {isToolUIPart(part) ? (
+            <ReasoningPartToolContent part={part} isChatStreaming={isChatStreaming} />
           ) : (
-            children
+            <ReasoningPartContent>{part.text || ""}</ReasoningPartContent>
           )}
         </div>
       </div>
@@ -271,42 +255,68 @@ export const ReasoningSegment = memo(
   }
 )
 
-export type ReasoningSegmentHeaderProps = ComponentProps<"div"> & {
-  toolType?: "reasoning" | `tool-${string}`
-  toolName?: string
-  isToolInProgress?: boolean
-}
-
-export const ReasoningSegmentHeader = memo(
+const ReasoningPartToolContent = memo(
   ({
-    className,
-    children,
-    toolType = "reasoning",
-    isToolInProgress = false,
-    ...props
-  }: ReasoningSegmentHeaderProps) => {
+    part,
+    isChatStreaming = false
+  }: {
+    part: ToolUIPart | DynamicToolUIPart
+    isChatStreaming?: boolean
+  }) => {
+    const { toolRunning, toolDone } = useThinkingConstants()
+    // Determine if tool is in progress
+    const isToolInProgress = isChatStreaming && isToolUIPart(part) && isToolUIPartInProgress(part)
+    const toolConstants = useToolConstants()
+    const toolInputMeta = getToolInputMeta(part)
+    const toolResult = getToolResultText(part, toolConstants)
+
+    return (
+      <div className="text-muted-foreground text-xs">
+        <div className="mb-2.5 text-sm">{toolInputMeta?.content || ""}</div>
+        {isToolInProgress ? (
+          <div className="flex items-center gap-1.5">
+            <Loader2Icon className="size-3 animate-spin" />
+            <span>{toolResult || toolRunning}</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            {part.state === "output-available" && <CircleCheckIcon className="size-3" />}
+            {part.state === "output-error" && <CircleXIcon className="size-3" />}
+            <span>{toolResult || toolDone}</span>
+          </div>
+        )}
+      </div>
+    )
+  }
+)
+
+export const ReasoningPartHeader = memo(
+  ({ className, partSource: part, isChatStreaming = false, ...props }: ReasoningPartProps) => {
     const { names } = useToolConstants()
     const { t } = useTranslation("chat")
-    const isWebSearchTool = toolType === "tool-webSearch"
+    const isWebSearchTool = isToolUIPart(part) && isWebSearchToolUIPart(part)
 
     const getIcon = () => {
       if (isWebSearchTool) {
         return <GlobeIcon className="ml-px size-3" />
       }
-      if (toolType === "tool-other") {
+      if (isToolUIPart(part)) {
         return <WrenchIcon className="ml-px size-3" />
       }
       return <CircleIcon className="ml-1 size-1.5 text-muted-foreground/80 fill-current" />
     }
 
     const getLabel = () => {
+      if (isReasoningUIPart(part)) {
+        return t("message.reasoning")
+      }
       if (isWebSearchTool) {
         return names.webSearch
       }
-      if (toolType === "tool-other") {
-        return toolType || t("message.usingTool")
+      if (isToolUIPart(part)) {
+        return getToolName(part) || t("message.usingTool")
       }
-      return t("message.reasoning")
+      return t("message.usingTool")
     }
 
     return (
@@ -319,23 +329,18 @@ export const ReasoningSegmentHeader = memo(
         {...props}
       >
         {getIcon()}
-        {isToolInProgress ? (
-          <Shimmer duration={1}>{getLabel()}</Shimmer>
-        ) : (
-          <span>{getLabel()}</span>
-        )}
-        {children}
+        <span>{getLabel()}</span>
       </div>
     )
   }
 )
 
-export type ReasoningSegmentContentProps = ComponentProps<"div"> & {
+export type ReasoningPartContentProps = ComponentProps<"div"> & {
   children: string
 }
 
-export const ReasoningSegmentContent = memo(
-  ({ className, children, ...props }: ReasoningSegmentContentProps) => (
+export const ReasoningPartContent = memo(
+  ({ className, children, ...props }: ReasoningPartContentProps) => (
     <div className={cn("text-muted-foreground pr-4 text-sm", className)} {...props}>
       <Streamdown className="streamdown-thinking-process space-y-2.5">{children}</Streamdown>
     </div>
@@ -368,7 +373,7 @@ export const ThinkingProcessCompletion = memo(
 ThinkingProcess.displayName = "ThinkingProcess"
 ThinkingProcessTrigger.displayName = "ThinkingProcessTrigger"
 ThinkingProcessContent.displayName = "ThinkingProcessContent"
-ReasoningSegment.displayName = "ReasoningSegment"
-ReasoningSegmentHeader.displayName = "ReasoningSegmentHeader"
-ReasoningSegmentContent.displayName = "ReasoningSegmentContent"
+ReasoningPart.displayName = "ReasoningPart"
+ReasoningPartHeader.displayName = "ReasoningPartHeader"
+ReasoningPartContent.displayName = "ReasoningPartContent"
 ThinkingProcessCompletion.displayName = "ThinkingProcessCompletion"

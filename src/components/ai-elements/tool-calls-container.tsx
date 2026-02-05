@@ -1,18 +1,22 @@
 import { useControllableState } from "@radix-ui/react-use-controllable-state"
-import type { ChatAddToolApproveResponseFunction, ToolUIPart } from "ai"
-import { ChevronRightIcon, WrenchIcon } from "lucide-react"
+import type { ChatAddToolApproveResponseFunction, DynamicToolUIPart, ToolUIPart } from "ai"
+import { ChevronRightIcon, TerminalIcon, WrenchIcon } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useContext } from "react"
 import { useTranslation } from "react-i18next"
+import { Shimmer } from "@/components/ai-elements/shimmer"
 import {
+  type BashExecResult,
   ToolCall,
   ToolCallApprovalRequested,
+  ToolCallBashExecResults,
   ToolCallContent,
   ToolCallInputStreaming,
   ToolCallOutputDenied,
   ToolCallOutputError,
   ToolCallTrigger,
-  ToolCallWebSearchResults
+  ToolCallWebSearchResults,
+  useToolCall
 } from "@/components/ai-elements/tool-call"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { cn } from "@/lib/utils"
@@ -62,7 +66,7 @@ export const ToolCallsContainer = memo(
 
     return (
       <ToolCallsContainerContext.Provider value={{ isOpen, setIsOpen, toolCount }}>
-        <div className={cn("rounded-lg border border-border/50 bg-muted/30 p-3", className)}>
+        <div className={cn("rounded-lg p-0", className)}>
           <Collapsible
             className="not-prose"
             onOpenChange={handleOpenChange}
@@ -103,7 +107,7 @@ export const ToolCallsContainerTrigger = memo(
     return (
       <CollapsibleTrigger
         className={cn(
-          "flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground",
+          "flex w-full items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground",
           className
         )}
         {...props}
@@ -140,7 +144,7 @@ export const ToolCallsContainerContent = memo(
       )}
       {...props}
     >
-      <div className="overflow-y-auto pr-2" style={{ maxHeight }}>
+      <div className="overflow-y-auto pr-2">
         <div className="space-y-3">{children}</div>
       </div>
     </CollapsibleContent>
@@ -148,7 +152,7 @@ export const ToolCallsContainerContent = memo(
 )
 
 export type ToolCallsListProps = {
-  toolParts: ToolUIPart[]
+  toolParts: (ToolUIPart | DynamicToolUIPart)[]
   onToolApprovalResponse: ChatAddToolApproveResponseFunction
 }
 
@@ -159,7 +163,7 @@ const ToolCallWebSearch = ({
   part: ToolUIPart
   onToolApprovalResponse: ToolCallsListProps["onToolApprovalResponse"]
 }) => {
-  const callId = part.toolCallId
+  const toolCallId = part.toolCallId
   const input = part.input as {
     objective: string
     searchQueries: string[]
@@ -182,23 +186,22 @@ const ToolCallWebSearch = ({
 
   return (
     <ToolCall
-      key={callId}
+      key={toolCallId}
       toolName="webSearch"
       state={part.state}
       resultCount={output?.totalResults}
+      defaultOpen
     >
       <ToolCallTrigger />
       <ToolCallContent>
-        {(part.state === "input-streaming" || part.state === "input-available") && (
+        {(part.state === "input-streaming" ||
+          part.state === "input-available" ||
+          part.state === "approval-responded") && (
           <ToolCallInputStreaming message={input?.objective} />
         )}
         {part.state === "approval-requested" && approvalId && (
           <ToolCallApprovalRequested
-            description={
-              <>
-                The AI wants to search the web for: <strong>"{input?.objective ?? ""}"</strong>
-              </>
-            }
+            description={<span>{input?.objective ?? ""}</span>}
             onApprove={() => onToolApprovalResponse({ id: approvalId, approved: true })}
             onDeny={() => onToolApprovalResponse({ id: approvalId, approved: false })}
           />
@@ -210,6 +213,118 @@ const ToolCallWebSearch = ({
         {part.state === "output-denied" && <ToolCallOutputDenied message={part.errorText} />}
       </ToolCallContent>
     </ToolCall>
+  )
+}
+
+const ToolCallBashExec = ({
+  part,
+  onToolApprovalResponse
+}: {
+  part: ToolUIPart
+  onToolApprovalResponse: ToolCallsListProps["onToolApprovalResponse"]
+}) => {
+  const toolCallId = part.toolCallId
+  const input = part.input as {
+    command: string
+    args: string[]
+  }
+  const output = part.state === "output-available" ? (part.output as BashExecResult) : null
+
+  const approvalId = part.approval?.id
+
+  return (
+    <ToolCall
+      key={toolCallId}
+      toolName="bashExecution"
+      state={part.state}
+      resultCount={output?.exitCode === 0 ? 1 : 0}
+      defaultOpen
+    >
+      <BashExecTrigger exitCode={output?.exitCode} />
+      <ToolCallContent>
+        {(part.state === "input-streaming" ||
+          part.state === "input-available" ||
+          part.state === "approval-responded") && (
+          <ToolCallInputStreaming
+            message={`${input?.command || ""} ${input?.args?.join(" ") || ""}`.trim()}
+          />
+        )}
+        {part.state === "approval-requested" && approvalId && (
+          <ToolCallApprovalRequested
+            description={
+              <code className="text-xs font-mono">
+                {input?.command || ""} {input?.args?.join(" ") || ""}
+              </code>
+            }
+            onApprove={() => onToolApprovalResponse({ id: approvalId, approved: true })}
+            onDeny={() => onToolApprovalResponse({ id: approvalId, approved: false })}
+          />
+        )}
+        {part.state === "output-available" && output && <ToolCallBashExecResults result={output} />}
+        {part.state === "output-error" && <ToolCallOutputError errorText={part.errorText} />}
+        {part.state === "output-denied" && <ToolCallOutputDenied message={part.errorText} />}
+      </ToolCallContent>
+    </ToolCall>
+  )
+}
+
+const BashExecTrigger = ({ exitCode }: { exitCode?: number }) => {
+  const { isOpen, state } = useToolCall()
+  const { t } = useTranslation(["tools", "common"])
+  const displayName = t("tools:names.bashExecution", { defaultValue: "bashExecution" })
+  const isCompleted = ["output-available", "output-error", "output-denied"].includes(state)
+  const isSuccess = exitCode === 0 && state === "output-available"
+
+  const getMessage = () => {
+    if (!isCompleted) {
+      return <Shimmer duration={1}>{displayName}</Shimmer>
+    }
+    if (state === "output-error") {
+      return (
+        <div>
+          {displayName}
+          <span className="inline-flex items-center rounded-md ml-2 px-2 py-0.5 text-xs min-w-max bg-red-500/10 text-red-600 dark:text-red-400">
+            {t("tools:states.failed").toLowerCase()}
+          </span>
+        </div>
+      )
+    }
+    if (state === "output-denied") {
+      return (
+        <span>
+          {displayName}{" "}
+          <span className="inline-flex items-center rounded-md ml-2 px-2 py-0.5 text-xs min-w-max bg-red-500/10 text-red-600 dark:text-red-400">
+            {t("tools:states.cancelled").toLowerCase()}
+          </span>
+        </span>
+      )
+    }
+    return <span>{displayName}</span>
+  }
+
+  return (
+    <ToolCallTrigger>
+      <TerminalIcon className="size-3.5 transition-colors" />
+      {getMessage()}
+      {state === "output-available" && exitCode !== undefined && (
+        <span
+          className={cn(
+            "inline-flex items-center rounded-md px-2 py-0.5 text-xs min-w-max",
+            isSuccess
+              ? "bg-green-500/10 text-green-600 dark:text-green-400"
+              : "bg-red-500/10 text-red-600 dark:text-red-400"
+          )}
+        >
+          Exit: {exitCode}
+        </span>
+      )}
+      <ChevronRightIcon
+        className={cn(
+          "size-3.5 transition-transform opacity-50 ml-auto",
+          isOpen ? "rotate-90" : "rotate-0"
+        )}
+      />
+    </ToolCallTrigger>
   )
 }
 
@@ -225,6 +340,17 @@ export const ToolCallsList = memo(({ toolParts, onToolApprovalResponse }: ToolCa
           />
         )
       }
+
+      if (part.type === "tool-bashExecution") {
+        return (
+          <ToolCallBashExec
+            key={part.toolCallId}
+            part={part}
+            onToolApprovalResponse={onToolApprovalResponse}
+          />
+        )
+      }
+
       return null
     })}
   </ToolCallsContainerContent>

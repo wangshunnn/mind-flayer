@@ -1,0 +1,116 @@
+name: CI
+
+on:
+    push:
+    pull_request:
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+    frontend-checks:
+        name: Frontend Checks
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "24"
+                  cache: "pnpm"
+
+            - name: Runtime versions
+              run: |
+                  node -v
+                  npm -v
+                  pnpm -v
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Format check (Frontend)
+              run: pnpm format:frontend
+
+            - name: Lint check (Frontend)
+              run: pnpm lint:frontend
+
+            - name: Biome and TS check (Frontend)
+              run: pnpm check:frontend
+
+            - name: Check i18n completeness
+              run: pnpm check:i18n
+
+            - name: Test (Frontend)
+              run: pnpm test:frontend
+
+            - name: Build (Frontend)
+              run: pnpm build:frontend
+
+    backend-checks:
+        name: Backend Checks (Rust)
+        runs-on: ${{ matrix.os }}
+
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [macos-latest]
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Setup Rust
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  components: rustfmt, clippy
+
+            - name: Cache Rust dependencies
+              uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: src-tauri
+
+            - name: Install system dependencies (Ubuntu)
+              if: matrix.os == 'ubuntu-latest'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y libwebkit2gtk-4.1-dev \
+                    build-essential \
+                    curl \
+                    wget \
+                    file \
+                    libssl-dev \
+                    libayatana-appindicator3-dev \
+                    librsvg2-dev
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "24"
+                  cache: "pnpm"
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build sidecar (dev)
+              run: pnpm build:sidecar
+
+            - name: Format check (Backend)
+              working-directory: src-tauri
+              run: cargo fmt --all -- --check
+
+            - name: Check (Backend)
+              working-directory: src-tauri
+              run: cargo check --all-features
+
+            - name: Test (Backend)
+              working-directory: src-tauri
+              run: cargo test --all-features

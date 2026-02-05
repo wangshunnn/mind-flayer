@@ -1,5 +1,6 @@
 import type { AllTools } from "../tools"
 import { toolRegistry } from "../tools"
+import { isBashExecSupportedPlatform } from "../tools/bash-exec/platform"
 
 /**
  * Service for managing tool instances and configurations.
@@ -29,11 +30,14 @@ export class ToolService {
    *
    * @param options - Tool configuration options
    * @param options.useWebSearch - Whether to enable web search
+   * @param options.chatId - Chat session ID for bash execution workspace isolation
    * @returns Tools object for AI SDK
    */
-  getRequestTools(options: { useWebSearch: boolean }): AllTools {
-    const { useWebSearch } = options
+  getRequestTools(options: { useWebSearch: boolean; chatId?: string }): AllTools {
+    const { useWebSearch, chatId } = options
+    const tools: AllTools = {}
 
+    // Add web search tool if enabled
     if (useWebSearch) {
       let webSearchInstance = this.toolInstances.get("webSearch") as AllTools["webSearch"]
 
@@ -45,10 +49,18 @@ export class ToolService {
         webSearchInstance = this.toolInstances.get("webSearch") as AllTools["webSearch"]
       }
 
-      return { webSearch: webSearchInstance }
+      tools.webSearch = webSearchInstance
     }
 
-    return {}
+    // Add bash execution tool only on supported platforms
+    if (isBashExecSupportedPlatform()) {
+      const toolPlugin = toolRegistry.get("bashExecution")
+      const effectiveChatId = chatId || ""
+      const bashInstance = toolPlugin.createInstance(effectiveChatId) as AllTools["bashExecution"]
+      tools.bashExecution = bashInstance
+    }
+
+    return tools
   }
 
   /**

@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: <any> */
 import type { UIMessage } from "ai"
 import { describe, expect, it, vi } from "vitest"
-import { processMessages } from "../message-processing"
+import { processMessages } from "../message-processor"
 
 /**
  * Helper function to create mock UIMessage with correct AI SDK 6.x structure.

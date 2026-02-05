@@ -5,6 +5,7 @@ import {
   CircleXIcon,
   GlobeIcon,
   Loader2Icon,
+  TerminalIcon,
   WrenchIcon,
   XIcon
 } from "lucide-react"
@@ -80,6 +81,32 @@ export const ToolCall = memo(
     const [startTime, setStartTime] = useState<number | null>(null)
     const [prevState, setPrevState] = useState<ToolCallState>(state)
 
+    // Auto-collapse when reaching final states (unless user manually opened it)
+    useEffect(() => {
+      // Only auto-control when not externally controlled (open prop is undefined)
+      if (open !== undefined) return
+
+      // Auto-collapse when reaching output-available state
+      if (state === "output-available" && prevState !== "output-available") {
+        setIsOpen(false)
+      }
+      // Auto-expand when in active states
+      else if (
+        (state === "input-streaming" ||
+          state === "input-available" ||
+          state === "approval-requested" ||
+          state === "approval-responded") &&
+        ![
+          "input-streaming",
+          "input-available",
+          "approval-requested",
+          "approval-responded"
+        ].includes(prevState)
+      ) {
+        setIsOpen(true)
+      }
+    }, [state, prevState, open, setIsOpen])
+
     // Track duration: start timing after approval is granted or when tool starts execution
     useEffect(() => {
       // Start timing when transitioning from approval-requested to another state (user clicked approve)
@@ -141,6 +168,8 @@ const getToolIcon = (toolName: string) => {
   switch (toolName.toLowerCase()) {
     case "websearch":
       return <GlobeIcon className={iconClass} />
+    case "bashexecution":
+      return <TerminalIcon className={iconClass} />
     default:
       return <WrenchIcon className={iconClass} />
   }
@@ -212,7 +241,7 @@ export const ToolCallTrigger = memo(
             {getToolMessage(toolName, state, resultCount)}
             <ChevronRightIcon
               className={cn(
-                "size-3.5 transition-transform opacity-50",
+                "size-3.5 transition-transform opacity-50 ml-auto",
                 isOpen ? "rotate-90" : "rotate-0"
               )}
             />
@@ -238,7 +267,7 @@ export const ToolCallContent = memo(
       )}
       {...props}
     >
-      <div className={cn("overflow-y-auto pr-2")} style={{ maxHeight }}>
+      <div className={cn("overflow-y-auto pr-2")}>
         <div className="space-y-2">{children}</div>
       </div>
     </CollapsibleContent>
@@ -316,8 +345,10 @@ export const ToolCallOutputError = memo(({ errorText }: ToolCallOutputErrorProps
   const errorConstants = useErrorConstants()
   return (
     <div className="flex items-center gap-2 py-1">
-      <CircleXIcon className="size-3.5 text-destructive" />
-      <span className="text-sm text-destructive">{errorText ?? errorConstants.toolCallError}</span>
+      <CircleXIcon className="size-3.5 shrink-0 text-destructive" />
+      <div className="text-sm text-destructive max-h-48 overflow-y-auto">
+        {errorText ?? errorConstants.toolCallError}
+      </div>
     </div>
   )
 })
@@ -330,10 +361,10 @@ export const ToolCallOutputDenied = memo(({ message }: ToolCallOutputDeniedProps
   const errorConstants = useErrorConstants()
   return (
     <div className="flex items-center gap-2 py-1">
-      <XIcon className="size-3.5 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">
+      <CircleXIcon className="size-3.5 shrink-0 text-destructive" />
+      <div className="text-sm text-destructive max-h-48 overflow-y-auto">
         {message ?? errorConstants.toolExecutionDenied}
-      </span>
+      </div>
     </div>
   )
 })
@@ -350,14 +381,14 @@ export type ToolCallWebSearchResultsProps = {
 }
 
 export const ToolCallWebSearchResults = memo(({ results }: ToolCallWebSearchResultsProps) => (
-  <div className="space-y-2 pr-2">
+  <div className="space-y-2 pr-2 max-h-70 overflow-y-auto">
     {results.map(result => (
       <div key={result.url} className="rounded-md border border-border/50 bg-muted/30 py-1 px-2">
         <a
           href={result.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs font-medium text-foreground hover:underline"
+          className="text-xs font-medium text-foreground hover:underline line-clamp-1"
         >
           {result.title}
         </a>
@@ -375,6 +406,60 @@ export const ToolCallWebSearchResults = memo(({ results }: ToolCallWebSearchResu
   </div>
 ))
 
+// Bash Execution specific result component
+export type BashExecResult = {
+  command: string
+  args: string[]
+  stdout: string
+  stderr: string
+  exitCode: number
+  workingDir: string
+  executedAt: string
+}
+
+export type ToolCallBashExecResultsProps = {
+  result: BashExecResult
+}
+
+export const ToolCallBashExecResults = memo(({ result }: ToolCallBashExecResultsProps) => {
+  const hasStdout = result.stdout && result.stdout.trim().length > 0
+  const hasStderr = result.stderr && result.stderr.trim().length > 0
+
+  return (
+    <div className="space-y-1">
+      {/* Command line */}
+      <div className="rounded-md border border-border/50 bg-muted/50 px-3 py-2">
+        <div className="flex items-start gap-2">
+          <span className="text-xs text-muted-foreground shrink-0">$</span>
+          <code className="text-xs font-mono text-foreground flex-1">
+            {result.command} {result.args.join(" ")}
+          </code>
+        </div>
+      </div>
+
+      {/* Stdout */}
+      {hasStdout && (
+        <div className="space-y-1">
+          {/* <div className="text-xs text-muted-foreground pl-1">Output</div> */}
+          <pre className="scrollbar-thin rounded-md border border-border/50 bg-muted/30 px-3 py-3 text-xs font-mono text-foreground overflow-x-auto max-h-70 overflow-y-auto">
+            {result.stdout}
+          </pre>
+        </div>
+      )}
+
+      {/* Stderr */}
+      {hasStderr && (
+        <div className="space-y-1">
+          {/* <div className="text-xs text-muted-foreground">Error output:</div> */}
+          <pre className="scrollbar-thin rounded-md border border-destructive/50 bg-destructive/5 px-3 py-3 text-xs font-mono text-destructive overflow-x-auto max-h-48 overflow-y-auto">
+            {result.stderr}
+          </pre>
+        </div>
+      )}
+    </div>
+  )
+})
+
 ToolCall.displayName = "ToolCall"
 ToolCallTrigger.displayName = "ToolCallTrigger"
 ToolCallContent.displayName = "ToolCallContent"
@@ -384,3 +469,4 @@ ToolCallApprovalRequested.displayName = "ToolCallApprovalRequested"
 ToolCallOutputError.displayName = "ToolCallOutputError"
 ToolCallOutputDenied.displayName = "ToolCallOutputDenied"
 ToolCallWebSearchResults.displayName = "ToolCallWebSearchResults"
+ToolCallBashExecResults.displayName = "ToolCallBashExecResults"

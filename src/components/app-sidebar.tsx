@@ -1,4 +1,5 @@
 import type * as React from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { NavChats } from "@/components/nav-chats"
 import { NavMain } from "@/components/nav-main"
@@ -23,13 +24,15 @@ export function AppSidebar({
   onDeleteChat,
   ...props
 }: AppSidebarProps) {
+  const { t } = useTranslation("common")
+
   const handleDeleteChat = async (chatId: string) => {
     try {
       await onDeleteChat(chatId)
-      toast.success("Chat deleted")
+      toast.success(t("toast.chatDeleted"))
     } catch (error) {
       console.error("Failed to delete chat:", error)
-      toast.error("Failed to delete chat")
+      toast.error(t("toast.error"), { description: t("toast.failedToDeleteChat") })
     }
   }
 

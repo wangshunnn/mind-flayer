@@ -1,5 +1,6 @@
 import type { Hono } from "hono"
 import { handleChat } from "./chat"
+import { handleCleanupWorkspace } from "./cleanup"
 import { handleHealth } from "./health"
 
 /**
@@ -14,4 +15,7 @@ export function registerRoutes(app: Hono, globalAbortController: AbortController
 
   // AI streaming chat endpoint
   app.post("/api/chat", c => handleChat(c, globalAbortController))
+
+  // Workspace cleanup endpoint
+  app.post("/api/cleanup-workspace", handleCleanupWorkspace)
 }

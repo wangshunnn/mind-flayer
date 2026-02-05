@@ -2,7 +2,8 @@
   "usedTools": "使用了 {{count}} 个工具",
   "results": "{{count}} 条结果",
   "names": {
-    "webSearch": "联网搜索"
+    "webSearch": "联网搜索",
+    "bashExecution": "Shell 命令执行"
   },
   "states": {
     "running": "运行中...",

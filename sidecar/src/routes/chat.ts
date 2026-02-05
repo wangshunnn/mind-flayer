@@ -20,6 +20,7 @@ export async function handleChat(c: Context, globalAbortController: AbortControl
     const modelId = c.req.header("x-model-id") || body.model
     const useWebSearch = c.req.header("x-use-web-search") === "true" || body.useWebSearch
     const webSearchMode = (c.req.header("x-web-search-mode") as WebSearchMode) || "auto"
+    const chatId = c.req.header("x-chat-id") || body.chatId
     const messages = body?.messages as UIMessage[]
 
     // Validate request
@@ -43,14 +44,15 @@ export async function handleChat(c: Context, globalAbortController: AbortControl
       provider,
       modelId,
       useWebSearch,
-      webSearchMode
+      webSearchMode,
+      chatId
     })
 
     // Create model instance
     const model = providerService.createModel(provider, modelId)
 
     // Get tools
-    const requestTools = toolService.getRequestTools({ useWebSearch })
+    const requestTools = toolService.getRequestTools({ useWebSearch, chatId })
 
     // Determine tool choice strategy
     const toolChoice = buildToolChoice({

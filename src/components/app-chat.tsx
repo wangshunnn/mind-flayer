@@ -1,7 +1,14 @@
 import { useChat } from "@ai-sdk/react"
 import {
   DefaultChatTransport,
+  type DynamicToolUIPart,
+  getToolName,
+  isReasoningUIPart,
+  isTextUIPart,
+  isToolUIPart,
   lastAssistantMessageIsCompleteWithApprovalResponses,
+  type ReasoningUIPart,
+  type StepStartUIPart,
   type TextUIPart,
   type ToolUIPart,
   type UIMessage
@@ -44,8 +51,7 @@ import {
   PromptInputTools
 } from "@/components/ai-elements/prompt-input"
 import {
-  ReasoningSegment,
-  ReasoningSegmentContent,
+  ReasoningPart,
   ThinkingProcess,
   ThinkingProcessCompletion,
   ThinkingProcessContent,
@@ -68,10 +74,8 @@ import {
   useMessageConstants,
   useToastConstants,
   useToolButtonConstants,
-  useToolConstants,
   useTooltipConstants
 } from "@/lib/constants"
-import { getToolResultText } from "@/lib/tool-helpers"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import type { ChatId, MessageId } from "@/types/chat"
@@ -81,18 +85,14 @@ interface AppChatProps {
   onChatCreated?: (chatId: ChatId) => void
 }
 
-interface StepSegment {
-  type: "step-start" | "reasoning" | "tool"
+type ThinkingStep = (StepStartUIPart | ReasoningUIPart | ToolUIPart | DynamicToolUIPart) & {
   partIndex: number
-  reasoning?: { text: string; isStreaming: boolean }
-  tool?: { type: string; state?: string; [key: string]: unknown }
 }
 
 const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   const { t } = useTranslation(["common", "chat"])
   const messageConstants = useMessageConstants()
   const toastConstants = useToastConstants()
-  const toolConstants = useToolConstants()
   const toolButtonConstants = useToolButtonConstants()
   const tooltipConstants = useTooltipConstants()
 
@@ -142,7 +142,8 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
         "X-Model-Provider": selectedModelRef.current.provider,
         "X-Model-Id": selectedModelRef.current.api_id,
         "X-Use-Web-Search": useWebSearchRef.current.toString(),
-        "X-Web-Search-Mode": webSearchModeRef.current
+        "X-Web-Search-Mode": webSearchModeRef.current,
+        "X-Chat-Id": currentChatIdRef.current || ""
       })
     }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
@@ -205,7 +206,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
       })
       let chatId = currentChatIdRef.current
       if (!chatId) {
-        const title = allMessages[0].parts.find(part => part.type === "text")?.text
+        const title = allMessages[0].parts.find(isTextUIPart)?.text
         const newChatId = await createNewChatAsync(title)
         chatId = newChatId
         currentChatIdRef.current = newChatId
@@ -220,9 +221,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
           ...(options || {})
         }
         if (options?.isAbort) {
-          // clean tool parts if aborted, otherwise it may crashed the next request
-          lastMessage.parts = lastMessage.parts.filter(part => !part.type.startsWith("tool-"))
-          if (lastMessage.parts.filter(part => part.type === "text").length === 0) {
+          if (lastMessage.parts.filter(isTextUIPart).length === 0) {
             // update text if no parts text
             lastMessage.parts.push({
               type: "text",
@@ -371,7 +370,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
           <ConversationContent>
             {messages.map((message, index) => {
               const messageText = message.parts
-                .filter(part => part.type === "text")
+                .filter(isTextUIPart)
                 .map(part => part.text)
                 .join("")
               const metadata = message.metadata as
@@ -388,39 +387,24 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
               const isCurrentlyStreaming = status === "streaming" && isLastMessage
               const lastPart = message.parts[message.parts.length - 1]
               const isThinkingStreaming =
-                isCurrentlyStreaming &&
-                (lastPart?.type === "reasoning" ||
-                  lastPart?.type === "step-start" ||
-                  lastPart?.type.startsWith("tool-"))
-              const steps: StepSegment[][] = []
-              let currentStep: StepSegment[] = []
+                (isCurrentlyStreaming &&
+                  lastPart?.type &&
+                  (lastPart.type === "step-start" ||
+                    isReasoningUIPart(lastPart) ||
+                    isToolUIPart(lastPart))) ||
+                (!isCurrentlyStreaming && lastPart?.type && isToolUIPart(lastPart))
+              const steps: ThinkingStep[][] = []
+              let currentStep: ThinkingStep[] = []
 
               message.parts.forEach((part, partIndex) => {
                 if (part.type === "step-start") {
                   // Start a new step
                   if (currentStep.length > 0) {
                     steps.push(currentStep)
-                    currentStep = [
-                      {
-                        type: "step-start",
-                        partIndex
-                      }
-                    ]
+                    currentStep = [{ ...part, partIndex }]
                   }
-                } else if (part.type === "reasoning") {
-                  const isReasoningStreaming =
-                    isThinkingStreaming && partIndex === message.parts.length - 1
-                  currentStep.push({
-                    type: "reasoning",
-                    partIndex,
-                    reasoning: { text: part.text, isStreaming: isReasoningStreaming }
-                  })
-                } else if (part.type.startsWith("tool-")) {
-                  currentStep.push({
-                    type: "tool",
-                    partIndex,
-                    tool: part
-                  })
+                } else if (isReasoningUIPart(part) || isToolUIPart(part)) {
+                  currentStep.push({ ...part, partIndex })
                 }
               })
               // Add the last step
@@ -430,21 +414,15 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
 
               const hasThinkingProcess =
                 steps.length > 0 &&
-                steps.some(step =>
-                  step.some(segment => segment.type === "reasoning" || segment.type === "tool")
-                )
-              const lastStepInStep = currentStep.at(-1)
+                steps.some(step => step.some(part => isReasoningUIPart(part) || isToolUIPart(part)))
+              const lastStep = currentStep.at(-1)
               // Check if thinking process is complete (all reasoning and tools are done)
               const isThinkingComplete =
-                lastStepInStep?.type === "reasoning" && !lastStepInStep.reasoning?.isStreaming
+                lastStep && isReasoningUIPart(lastStep) && lastStep.state !== "streaming"
               // Collect tool information for detailed container (show as soon as there are tool calls)
-              const toolParts = message.parts.filter((part): part is ToolUIPart =>
-                part.type.startsWith("tool-")
-              )
-              const toolNames = toolParts.map(part => {
-                const toolType = part.type.replace("tool-", "")
-                return toolType // Direct display, tool names are not translated
-              })
+              const toolParts = message.parts.filter(isToolUIPart)
+              const toolNames = toolParts.map(getToolName)
+
               const hasTools = toolParts.length > 0
               const isUserMessage = message.role === "user"
               const isAssistantMessage = message.role === "assistant"
@@ -468,52 +446,17 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                         >
                           <ThinkingProcessTrigger />
                           <ThinkingProcessContent>
-                            {steps.map(step => {
-                              // Process all segments in this step
-                              return step.map(segment => {
-                                if (segment.type === "reasoning") {
-                                  return (
-                                    <ReasoningSegment
-                                      key={`reasoning-${message.id}-${segment.partIndex}`}
-                                      toolType="reasoning"
-                                      isStreaming={segment.reasoning?.isStreaming}
-                                    >
-                                      <ReasoningSegmentContent>
-                                        {segment.reasoning?.text || ""}
-                                      </ReasoningSegmentContent>
-                                    </ReasoningSegment>
-                                  )
-                                }
-
-                                if (segment.type === "tool" && segment.tool) {
-                                  const tool = segment.tool as {
-                                    type: `tool-${string}`
-                                    state?: ToolUIPart["state"]
-                                    output?: { totalResults?: number; [key: string]: unknown }
-                                    input?: {
-                                      objective: string
-                                      searchQueries: string[]
-                                      maxResults?: number
-                                    }
-                                  }
-                                  const toolType = tool.type
-                                  const isWebSearch = toolType === "tool-webSearch"
-                                  const toolResult = getToolResultText(tool, toolConstants)
-                                  const toolDescription = isWebSearch ? tool.input?.objective : ""
-                                  return (
-                                    <ReasoningSegment
-                                      key={`${toolType}-${message.id}-${segment.partIndex}`}
-                                      toolType={toolType}
-                                      toolState={tool.state}
-                                      toolResult={toolResult}
-                                      toolDescription={toolDescription}
-                                    />
-                                  )
-                                }
-
-                                return null
-                              })
-                            })}
+                            {steps.flatMap(step =>
+                              step
+                                .filter(part => isReasoningUIPart(part) || isToolUIPart(part))
+                                .map(part => (
+                                  <ReasoningPart
+                                    key={`${message.id}-${part.partIndex}`}
+                                    partSource={part}
+                                    isChatStreaming={isCurrentlyStreaming}
+                                  />
+                                ))
+                            )}
 
                             {isThinkingComplete && (
                               <ThinkingProcessCompletion stepCount={steps.length} />
@@ -523,7 +466,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                       )}
 
                       {/* Tool Calls Container - only show after thinking is done */}
-                      {isAssistantMessage && hasTools && isThinkingComplete && (
+                      {isAssistantMessage && hasTools && (
                         <ToolCallsContainer toolCount={toolParts.length}>
                           <ToolCallsContainerTrigger toolNames={toolNames} />
                           <ToolCallsList
@@ -552,9 +495,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                       {isAssistantMessage &&
                         !isCurrentlyStreaming &&
                         !message.parts.some(
-                          part =>
-                            part.type.startsWith("tool-") &&
-                            (part as { state?: string }).state === "approval-requested"
+                          part => isToolUIPart(part) && part.state === "approval-requested"
                         ) && (
                           <AssistantMessageActionsBar
                             messageText={messageText}

@@ -100,7 +100,7 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
-            - name: Build sidecar (dev)
+            - name: Build sidecar (build)
               run: pnpm build:sidecar
 
             - name: Format check (Backend)

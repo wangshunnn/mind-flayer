@@ -109,7 +109,7 @@
 @theme {
   --breakpoint-sm: 600px;
   --chat-content-width: 100%;
-  --chat-content-max-width: 960px;
+  --chat-content-max-width: 740px;
   --chat-input-font-size: 0.875rem;
   --chat-input-line-height: 1.375rem;
   --chat-input-max-height: 13rem;

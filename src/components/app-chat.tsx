@@ -301,7 +301,8 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   }, [messages])
 
   const handleSubmit = (message: PromptInputMessage) => {
-    const hasText = Boolean(message.text)
+    const messageText = message.text?.trim() ?? ""
+    const hasText = Boolean(messageText)
     const hasAttachments = Boolean(message.files?.length)
     if (!(hasText || hasAttachments)) {
       return
@@ -323,8 +324,8 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
         description: toastConstants.filesAttachedDescription(message.files.length)
       })
     }
-    if (message.text) {
-      sendMessage({ text: message.text })
+    if (messageText) {
+      sendMessage({ text: messageText })
       setInput("")
       textareaRef.current?.resetHeight()
     }
@@ -353,7 +354,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
         <div
           className={cn(
             "fixed left-10 flex z-50 items-center justify-center pointer-events-auto gap-1.25",
-            !isCompact && open ? "left-66.75" : "left-42",
+            !isCompact && open ? "left-66.75" : "left-43",
             "transition-left duration-300 ease"
           )}
         >

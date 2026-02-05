@@ -19,12 +19,12 @@ function NewChatTrigger({ className, ...props }: React.ComponentProps<typeof But
           variant="ghost"
           size="icon"
           className={cn(
-            "size-8 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            "size-7 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
             className
           )}
           {...props}
         >
-          <MessageSquarePlus className="cursor-pointer size-4.5" />
+          <MessageSquarePlus className="size-4 lucide-light" />
           <span className="sr-only">{t("nav.newChat")}</span>
         </Button>
       </TooltipTrigger>

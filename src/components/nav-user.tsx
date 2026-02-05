@@ -28,6 +28,7 @@ import { useLanguage } from "@/hooks/use-language"
 import { useShortcutDisplay } from "@/hooks/use-shortcut-config"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import { ShortcutAction } from "@/types/settings"
+import { cn } from "../lib/utils"
 import { useTheme } from "./theme-provider"
 import { Button } from "./ui/button"
 import { Kbd, KbdGroup } from "./ui/kbd"
@@ -43,7 +44,13 @@ export function NavUser() {
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="size-8 transition-transform hover:rotate-12">
+            <Button
+              variant="ghost"
+              className={cn(
+                "size-8 transition-transform opacity-50",
+                "hover:opacity-100 hover:rotate-12"
+              )}
+            >
               <GhostIcon className="size-4" />
             </Button>
           </DropdownMenuTrigger>

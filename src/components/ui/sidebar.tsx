@@ -256,7 +256,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
           variant="ghost"
           size="icon"
           className={cn(
-            "size-8 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            "size-7 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
             className
           )}
           onClick={event => {
@@ -265,7 +265,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
           }}
           {...props}
         >
-          <PanelLeftIcon className="size-4.5" />
+          <PanelLeftIcon className="size-4 lucide-light" />
           <span className="sr-only">{t("sidebar.toggleSidebar")}</span>
         </Button>
       </TooltipTrigger>

@@ -1,9 +1,9 @@
 import type { ChatStatus, FileUIPart } from "ai"
 import {
+  ArrowUpIcon,
   ImageIcon,
   Loader2Icon,
   MicIcon,
-  Navigation2Icon,
   PaperclipIcon,
   PlusIcon,
   SquareIcon,
@@ -912,7 +912,7 @@ export const PromptInputTextarea = forwardRef<PromptInputTextareaHandle, PromptI
     return (
       <InputGroupTextarea
         ref={textareaRef}
-        rows={1}
+        rows={2}
         className={cn(
           "field-sizing-content min-h-(--chat-input-line-height) max-h-(--chat-input-max-height)",
           "text-sm leading-(--chat-input-line-height)",
@@ -1033,7 +1033,7 @@ export const PromptInputSubmit = ({
   children,
   ...props
 }: PromptInputSubmitProps) => {
-  let Icon = <Navigation2Icon className="mb-px fixed text-white fill-current" />
+  let Icon = <ArrowUpIcon className="size-4 fixed" />
 
   if (status === "submitted") {
     Icon = <Loader2Icon className="fixedanimate-spin" />
@@ -1046,11 +1046,7 @@ export const PromptInputSubmit = ({
   return (
     <InputGroupButton
       aria-label="Submit"
-      className={cn(
-        "rounded-full bg-brand-green hover:bg-brand-green",
-        "transition-all duration-200",
-        className
-      )}
+      className={cn("rounded-full bg-foreground", "transition-all duration-200", className)}
       size={size}
       type="submit"
       variant={variant}

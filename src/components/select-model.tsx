@@ -57,14 +57,14 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="ghost"
-              className={cn("h-8 gap-2 data-[state=open]:bg-accent font-medium", className)}
+              variant="outline-no-shadow"
+              className={cn("h-7 gap-2 data-[state=open]:bg-accent font-normal text-xs", className)}
               {...props}
             >
-              <ProviderLogo providerId={selectedModel.provider} className="size-4" />
+              <ProviderLogo providerId={selectedModel.provider} className="size-3.5" />
               {selectedModel.label || t("model.selectModel")}
               <ChevronDown
-                className={cn("size-3.5 transition-transform duration-300", open && "-rotate-180")}
+                className={cn("size-3 transition-transform duration-300", open && "-rotate-180")}
               />
               <span className="sr-only">{t("model.selectModel")}</span>
             </Button>
@@ -73,7 +73,7 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
         <TooltipContent>{t("model.switchModel")}</TooltipContent>
       </Tooltip>
 
-      <DropdownMenuContent align="start" sideOffset={6}>
+      <DropdownMenuContent align="start" sideOffset={4}>
         <DropdownMenuGroup>
           {isLoading ? (
             <DropdownMenuItem disabled className="text-muted-foreground">

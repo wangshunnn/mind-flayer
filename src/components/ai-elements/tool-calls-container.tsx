@@ -137,7 +137,7 @@ export const ToolCallsContainerContent = memo(
   ({ className, maxHeight = "24rem", children, ...props }: ToolCallsContainerContentProps) => (
     <CollapsibleContent
       className={cn(
-        "relative mt-4 text-sm leading-normal",
+        "relative mt-2 text-sm leading-normal",
         "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2",
         "outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
         className

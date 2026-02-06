@@ -67,6 +67,7 @@ export function NavChats({
   const { t } = useTranslation("common")
   const now = Date.now()
   const [showAll, setShowAll] = useState(false)
+  const [openMenuId, setOpenMenuId] = useState<ChatId | null>(null)
   const visibleChats = showAll ? chats : chats.slice(0, 10)
   const canToggle = chats.length > 10
 
@@ -87,10 +88,13 @@ export function NavChats({
             >
               <span className="truncate">{chat.title}</span>
             </SidebarMenuButton>
-            <SidebarMenuBadge className="text-muted-foreground/60 group-hover/menu-item:opacity-0">
+            <SidebarMenuBadge
+              className="text-muted-foreground/60 group-hover/menu-item:opacity-0 data-[hidden=true]:opacity-0"
+              data-hidden={openMenuId === chat.id}
+            >
               {formatCreatedAge(chat.created_at, now)}
             </SidebarMenuBadge>
-            <DropdownMenu>
+            <DropdownMenu onOpenChange={open => setOpenMenuId(open ? chat.id : null)}>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuAction showOnHover>
                   <MoreVertical />

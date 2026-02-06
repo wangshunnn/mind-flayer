@@ -2,25 +2,29 @@
 
 /* Headings */
 [data-streamdown="heading-1"] {
-  font-size: 1.3rem;
+  font-size: 18px;
+  margin: 18px 0;
 }
 
 [data-streamdown="heading-2"] {
-  font-size: 1.15rem;
-  margin-top: 20px;
-  margin-bottom: 20px;
+  font-size: 16px;
+  margin: 16px 0;
 }
 
 [data-streamdown="heading-3"] {
-  font-size: 1rem;
-  margin-top: 16px;
-  margin-bottom: 16px;
+  font-size: 15px;
+  margin: 14px 0;
 }
 
 [data-streamdown="heading-4"],
 [data-streamdown="heading-5"],
 [data-streamdown="heading-6"] {
-  font-size: 1rem;
+  font-size: 14px;
+  margin: 10px 0;
+}
+
+[data-streamdown="horizontal-rule"] {
+  margin: 18px 0;
 }
 
 /* Custom link appearance */
@@ -35,6 +39,8 @@
 }
 
 .app-chat {
+  font-size: 14px;
+
   [data-streamdown] {
     letter-spacing: trim-start ideograph-alpha;
   }

@@ -118,6 +118,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   const inputContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<PromptInputTextareaHandle>(null)
   const thinkingDurationsRef = useRef<Map<MessageId, number>>(new Map())
+  const toolDurationsRef = useRef<Map<MessageId, Record<string, number>>>(new Map())
   const messagesRef = useRef<UIMessage[]>([])
   const storedMessageIdsRef = useRef<Set<MessageId>>(new Set())
   const currentChatIdRef = useRef<ChatId | null>(activeChatId)
@@ -171,6 +172,8 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
     currentChatIdRef.current = null
     messagesRef.current = []
     storedMessageIdsRef.current = new Set()
+    thinkingDurationsRef.current = new Map()
+    toolDurationsRef.current = new Map()
     setMessages?.([])
   }, [setMessages])
 
@@ -193,12 +196,23 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
       }
       const allMessagesWithMetadata = allMessages.map(msg => {
         const cachedDuration = thinkingDurationsRef.current.get(msg.id)
+        const cachedToolDurations = toolDurationsRef.current.get(msg.id)
         if (cachedDuration !== undefined && msg.role === "assistant") {
           return {
             ...msg,
             metadata: {
               ...(msg.metadata || {}),
-              thinkingDuration: cachedDuration
+              thinkingDuration: cachedDuration,
+              ...(cachedToolDurations ? { toolDurations: cachedToolDurations } : {})
+            }
+          }
+        }
+        if (cachedToolDurations && msg.role === "assistant") {
+          return {
+            ...msg,
+            metadata: {
+              ...(msg.metadata || {}),
+              toolDurations: cachedToolDurations
             }
           }
         }
@@ -382,6 +396,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                       totalTokens: number
                     }
                     thinkingDuration?: number
+                    toolDurations?: Record<string, number>
                   }
                 | undefined
               const isLastMessage = index === messages.length - 1
@@ -472,6 +487,16 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
                           <ToolCallsContainerTrigger toolNames={toolNames} />
                           <ToolCallsList
                             toolParts={toolParts}
+                            toolDurations={
+                              metadata?.toolDurations ?? toolDurationsRef.current.get(message.id)
+                            }
+                            onToolDurationChange={(toolCallId, duration) => {
+                              const prev = toolDurationsRef.current.get(message.id) ?? {}
+                              toolDurationsRef.current.set(message.id, {
+                                ...prev,
+                                [toolCallId]: duration
+                              })
+                            }}
                             onToolApprovalResponse={addToolApprovalResponse}
                           />
                         </ToolCallsContainer>

@@ -6,11 +6,12 @@ import {
   GlobeIcon,
   Loader2Icon,
   TerminalIcon,
+  TimerIcon,
   WrenchIcon,
   XIcon
 } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
-import { createContext, memo, useContext, useEffect, useState } from "react"
+import { createContext, memo, useContext, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Streamdown } from "streamdown"
 import { Shimmer } from "@/components/ai-elements/shimmer"
@@ -52,12 +53,33 @@ export type ToolCallProps = ComponentProps<typeof Collapsible> & {
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
   duration?: number
+  onToolDurationChange?: (duration: number) => void
   toolName: string
   resultCount?: number
   state: ToolCallState
 }
 
 const MS_IN_S = 1000
+const FINAL_STATES: ToolCallState[] = ["output-available", "output-error", "output-denied"]
+const ACTIVE_STATES: ToolCallState[] = ["input-streaming", "input-available", "approval-responded"]
+const TOOL_CALL_STATUS_BADGE_BASE =
+  "inline-flex items-center rounded-full ml-1.5 px-2 py-1 text-[10px] min-w-max"
+const TOOL_CALL_STATUS_BADGE_VARIANTS = {
+  success: "bg-green-500/10 text-green-600 dark:text-green-400",
+  error: "bg-red-500/10 text-red-600 dark:text-red-400"
+} as const
+
+const formatDuration = (duration: number) => {
+  const safeDuration = Math.max(0, duration)
+  if (safeDuration < 1) {
+    return `${Math.round(safeDuration * MS_IN_S)}ms`
+  }
+  return `${safeDuration.toFixed(2)} s`
+}
+
+export const getToolCallStatusBadgeClass = (
+  variant: keyof typeof TOOL_CALL_STATUS_BADGE_VARIANTS
+) => cn(TOOL_CALL_STATUS_BADGE_BASE, TOOL_CALL_STATUS_BADGE_VARIANTS[variant])
 
 export const ToolCall = memo(
   ({
@@ -66,6 +88,7 @@ export const ToolCall = memo(
     defaultOpen = false,
     onOpenChange,
     duration: durationProp,
+    onToolDurationChange,
     toolName,
     resultCount,
     state,
@@ -78,30 +101,36 @@ export const ToolCall = memo(
       onChange: onOpenChange
     })
     const [duration, setDuration] = useState<number | undefined>(durationProp)
-    const [startTime, setStartTime] = useState<number | null>(null)
-    const [prevState, setPrevState] = useState<ToolCallState>(state)
+    const startTimeRef = useRef<number | null>(null)
+    const prevStateRef = useRef<ToolCallState>(state)
 
-    // Track duration: start timing after approval is granted or when tool starts execution
+    // Track duration from execution start until terminal output state.
     useEffect(() => {
-      // Start timing when transitioning from approval-requested to another state (user clicked approve)
-      // or when entering a non-approval state directly
-      const shouldStartTiming =
-        (prevState === "approval-requested" && state !== "approval-requested") ||
-        (state === "input-streaming" && startTime === null)
+      const prevState = prevStateRef.current
+      const isFinalState = FINAL_STATES.includes(state)
+      const isActiveState = ACTIVE_STATES.includes(state)
+      const approvedNow = prevState === "approval-requested" && state === "approval-responded"
 
-      if (shouldStartTiming && state !== "output-denied") {
-        setStartTime(Date.now())
+      if (!isFinalState && (approvedNow || (isActiveState && startTimeRef.current === null))) {
+        startTimeRef.current = Date.now()
       }
 
-      // Stop timing when reaching a final state
-      if ((state === "output-available" || state === "output-error") && startTime !== null) {
-        const calculatedDuration = Math.round(((Date.now() - startTime) / MS_IN_S) * 10) / 10
+      if (
+        (state === "output-available" || state === "output-error") &&
+        startTimeRef.current !== null
+      ) {
+        const calculatedDuration =
+          Math.round(((Date.now() - startTimeRef.current) / MS_IN_S) * 10) / 10
         setDuration(calculatedDuration)
-        setStartTime(null)
+        startTimeRef.current = null
       }
 
-      setPrevState(state)
-    }, [state, startTime, prevState])
+      if (state === "output-denied") {
+        startTimeRef.current = null
+      }
+
+      prevStateRef.current = state
+    }, [state])
 
     // Update duration if prop changes
     useEffect(() => {
@@ -109,6 +138,12 @@ export const ToolCall = memo(
         setDuration(durationProp)
       }
     }, [durationProp])
+
+    useEffect(() => {
+      if (duration !== undefined) {
+        onToolDurationChange?.(duration)
+      }
+    }, [duration, onToolDurationChange])
 
     const handleOpenChange = (newOpen: boolean) => {
       setIsOpen(newOpen)
@@ -150,6 +185,8 @@ const getToolIcon = (toolName: string) => {
 }
 
 export type ToolCallTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {
+  icon?: ReactNode
+  trailingContent?: ReactNode
   getToolMessage?: (
     toolName: string,
     state: ToolCallState,
@@ -171,23 +208,39 @@ const defaultGetToolMessage = (toolName: string, state: ToolCallState, resultCou
   if (state === "output-error") {
     return (
       <span>
-        {displayName} {toolConstants.states.failed.toLowerCase()}
+        {displayName}
+        <span className={getToolCallStatusBadgeClass("error")}>
+          {toolConstants.states.failed.toLowerCase()}
+        </span>
       </span>
     )
   }
   if (state === "output-denied") {
     return (
       <span>
-        {displayName} {toolConstants.states.cancelled.toLowerCase()}
+        {displayName}
+        <span className={getToolCallStatusBadgeClass("error")}>
+          {toolConstants.states.cancelled.toLowerCase()}
+        </span>
       </span>
     )
   }
   if (state === "output-available") {
     const parts: string[] = [displayName]
+    const shouldShowDoneBadge = toolName.toLowerCase() !== "bashexecution"
     if (resultCount !== undefined) {
       parts.push(t("results", { count: resultCount }))
     }
-    return <span>{parts.join(" - ")}</span>
+    return (
+      <span>
+        {parts.join(" - ")}
+        {shouldShowDoneBadge && (
+          <span className={getToolCallStatusBadgeClass("success")}>
+            {toolConstants.states.done.toLowerCase()}
+          </span>
+        )}
+      </span>
+    )
   }
   return <span>{displayName}</span>
 }
@@ -196,10 +249,13 @@ export const ToolCallTrigger = memo(
   ({
     className,
     children,
+    icon,
+    trailingContent,
     getToolMessage = defaultGetToolMessage,
     ...props
   }: ToolCallTriggerProps) => {
-    const { isOpen, toolName, resultCount, state } = useToolCall()
+    const { isOpen, toolName, duration, resultCount, state } = useToolCall()
+    const showDuration = FINAL_STATES.includes(state) && duration !== undefined
 
     return (
       <CollapsibleTrigger
@@ -211,14 +267,23 @@ export const ToolCallTrigger = memo(
       >
         {children ?? (
           <>
-            {getToolIcon(toolName)}
+            {icon ?? getToolIcon(toolName)}
             {getToolMessage(toolName, state, resultCount)}
-            <ChevronRightIcon
-              className={cn(
-                "size-3.5 transition-transform opacity-50 ml-auto",
-                isOpen ? "rotate-90" : "rotate-0"
+            {trailingContent}
+            <div className="ml-auto flex items-center gap-2">
+              {showDuration && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/90">
+                  <TimerIcon className="size-3" />
+                  {formatDuration(duration)}
+                </span>
               )}
-            />
+              <ChevronRightIcon
+                className={cn(
+                  "size-3.5 transition-transform opacity-50",
+                  isOpen ? "rotate-90" : "rotate-0"
+                )}
+              />
+            </div>
           </>
         )}
       </CollapsibleTrigger>

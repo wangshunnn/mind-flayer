@@ -7,7 +7,8 @@
     "showLess": "展示更少",
     "more": "更多",
     "myAccount": "我的账户",
-    "settings": "设置"
+    "settings": "设置",
+    "noMatchingChats": "未找到匹配的对话"
   },
   "theme": {
     "title": "外观",
@@ -34,7 +35,11 @@
     "comingSoon": "此功能即将推出，敬请期待！",
     "showSidebar": "展开侧栏",
     "hideSidebar": "收起侧栏",
-    "toggleSidebar": "切换侧栏"
+    "toggleSidebar": "切换侧栏",
+    "searchPlaceholder": "搜索会话标题",
+    "clearSearch": "清空搜索",
+    "searchResultCount": "{{filtered}} / {{total}} 条匹配",
+    "chatCount": "共 {{count}} 条会话"
   },
   "footer": {
     "github": "Github",

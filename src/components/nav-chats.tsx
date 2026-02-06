@@ -1,5 +1,5 @@
 import { Folder, MoreVertical, Share, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   DropdownMenu,
@@ -53,22 +53,59 @@ const formatCreatedAge = (createdAt: number, now: number) => {
   return `${years}y`
 }
 
+const renderHighlightedTitle = (title: string, searchQuery: string) => {
+  const query = searchQuery.trim()
+  if (!query) {
+    return <span className="truncate">{title}</span>
+  }
+
+  const lowerTitle = title.toLocaleLowerCase()
+  const lowerQuery = query.toLocaleLowerCase()
+  const matchIndex = lowerTitle.indexOf(lowerQuery)
+
+  if (matchIndex < 0) {
+    return <span className="truncate">{title}</span>
+  }
+
+  const before = title.slice(0, matchIndex)
+  const matched = title.slice(matchIndex, matchIndex + query.length)
+  const after = title.slice(matchIndex + query.length)
+
+  return (
+    <span className="truncate">
+      {before}
+      <mark className="rounded-xs bg-sidebar-accent px-0.5 text-sidebar-accent-foreground">
+        {matched}
+      </mark>
+      {after}
+    </span>
+  )
+}
+
 export function NavChats({
   chats,
   activeChatId,
   onChatClick,
-  onDeleteChat
+  onDeleteChat,
+  searchQuery = ""
 }: {
   chats: Chat[]
   activeChatId?: ChatId | null
   onChatClick: (chatId: ChatId) => void
   onDeleteChat: (chatId: ChatId) => void
+  searchQuery?: string
 }) {
   const { t } = useTranslation("common")
   const now = Date.now()
   const [showAll, setShowAll] = useState(false)
-  const visibleChats = showAll ? chats : chats.slice(0, 10)
-  const canToggle = chats.length > 10
+  const hasSearchQuery = searchQuery.trim().length > 0
+  const visibleChats = useMemo(() => {
+    if (hasSearchQuery || showAll) {
+      return chats
+    }
+    return chats.slice(0, 10)
+  }, [chats, hasSearchQuery, showAll])
+  const canToggle = !hasSearchQuery && chats.length > 10
 
   return (
     <SidebarGroup>
@@ -76,7 +113,7 @@ export function NavChats({
       <SidebarMenu>
         {chats.length === 0 && (
           <div className="px-2 py-4 text-xs text-muted-foreground/50 text-center">
-            {t("nav.noChatsYet")}
+            {hasSearchQuery ? t("nav.noMatchingChats") : t("nav.noChatsYet")}
           </div>
         )}
         {visibleChats.map(chat => (
@@ -85,7 +122,7 @@ export function NavChats({
               isActive={activeChatId === chat.id}
               onClick={() => onChatClick(chat.id)}
             >
-              <span className="truncate">{chat.title}</span>
+              {renderHighlightedTitle(chat.title, searchQuery)}
             </SidebarMenuButton>
             <SidebarMenuBadge className="text-muted-foreground/60 group-hover/menu-item:opacity-0">
               {formatCreatedAge(chat.created_at, now)}

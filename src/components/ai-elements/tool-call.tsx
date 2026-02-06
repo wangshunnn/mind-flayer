@@ -81,32 +81,6 @@ export const ToolCall = memo(
     const [startTime, setStartTime] = useState<number | null>(null)
     const [prevState, setPrevState] = useState<ToolCallState>(state)
 
-    // Auto-collapse when reaching final states (unless user manually opened it)
-    useEffect(() => {
-      // Only auto-control when not externally controlled (open prop is undefined)
-      if (open !== undefined) return
-
-      // Auto-collapse when reaching output-available state
-      if (state === "output-available" && prevState !== "output-available") {
-        setIsOpen(false)
-      }
-      // Auto-expand when in active states
-      else if (
-        (state === "input-streaming" ||
-          state === "input-available" ||
-          state === "approval-requested" ||
-          state === "approval-responded") &&
-        ![
-          "input-streaming",
-          "input-available",
-          "approval-requested",
-          "approval-responded"
-        ].includes(prevState)
-      ) {
-        setIsOpen(true)
-      }
-    }, [state, prevState, open, setIsOpen])
-
     // Track duration: start timing after approval is granted or when tool starts execution
     useEffect(() => {
       // Start timing when transitioning from approval-requested to another state (user clicked approve)

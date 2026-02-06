@@ -190,7 +190,7 @@ const ToolCallWebSearch = ({
       toolName="webSearch"
       state={part.state}
       resultCount={output?.totalResults}
-      defaultOpen
+      defaultOpen={part.state === "input-streaming"}
     >
       <ToolCallTrigger />
       <ToolCallContent>
@@ -238,7 +238,7 @@ const ToolCallBashExec = ({
       toolName="bashExecution"
       state={part.state}
       resultCount={output?.exitCode === 0 ? 1 : 0}
-      defaultOpen
+      defaultOpen={part.state === "input-streaming"}
     >
       <BashExecTrigger exitCode={output?.exitCode} />
       <ToolCallContent>

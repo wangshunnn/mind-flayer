@@ -1,5 +1,4 @@
 import { useCallback } from "react"
-import { toast } from "sonner"
 import { AppChat } from "@/components/app-chat"
 import { AppSidebar } from "@/components/app-sidebar"
 import { NewChatTrigger } from "@/components/nav-top"
@@ -31,17 +30,9 @@ export default function Page() {
     switchChat(chatId)
   }
 
-  // Handle search history shortcut (Cmd+F)
-  const handleSearchHistory = useCallback(() => {
-    // TODO: Implement search history functionality
-    // For now, show a toast notification
-    toast.info("Coming soon")
-  }, [])
-
   // Register local shortcuts
   useLocalShortcut(ShortcutAction.NEW_CHAT, handleNewChat)
   useLocalShortcut(ShortcutAction.OPEN_SETTINGS, handleOpenSettings)
-  useLocalShortcut(ShortcutAction.SEARCH_HISTORY, handleSearchHistory)
 
   return (
     <SidebarProvider className="h-screen overflow-hidden">

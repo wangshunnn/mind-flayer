@@ -1,4 +1,5 @@
 import type * as React from "react"
+import { useDeferredValue, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { NavChats } from "@/components/nav-chats"
@@ -25,6 +26,17 @@ export function AppSidebar({
   ...props
 }: AppSidebarProps) {
   const { t } = useTranslation("common")
+  const [searchQuery, setSearchQuery] = useState("")
+  const deferredSearchQuery = useDeferredValue(searchQuery)
+
+  const filteredChats = useMemo(() => {
+    const normalizedQuery = deferredSearchQuery.trim().toLocaleLowerCase()
+    if (!normalizedQuery) {
+      return chats
+    }
+
+    return chats.filter(chat => chat.title.toLocaleLowerCase().includes(normalizedQuery))
+  }, [chats, deferredSearchQuery])
 
   const handleDeleteChat = async (chatId: string) => {
     try {
@@ -39,15 +51,21 @@ export function AppSidebar({
   return (
     <Sidebar {...props}>
       <SidebarHeader>
-        <SearchChat />
+        <SearchChat
+          query={searchQuery}
+          onQueryChange={setSearchQuery}
+          totalCount={chats.length}
+          filteredCount={filteredChats.length}
+        />
       </SidebarHeader>
       <SidebarContent>
         <NavMain onNewChat={onNewChat} />
         <NavChats
-          chats={chats}
+          chats={filteredChats}
           activeChatId={activeChatId}
           onChatClick={onChatClick}
           onDeleteChat={handleDeleteChat}
+          searchQuery={deferredSearchQuery}
         />
         {/* Draggable empty space below chat list */}
         <div data-tauri-drag-region className="flex-1 min-h-0" />

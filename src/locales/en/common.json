@@ -7,7 +7,8 @@
     "showLess": "Show less",
     "more": "More",
     "myAccount": "My Account",
-    "settings": "Settings"
+    "settings": "Settings",
+    "noMatchingChats": "No matching chats found"
   },
   "theme": {
     "title": "Appearance",
@@ -34,7 +35,11 @@
     "comingSoon": "This feature is coming soon. Stay tuned!",
     "showSidebar": "Show Sidebar",
     "hideSidebar": "Hide Sidebar",
-    "toggleSidebar": "Toggle Sidebar"
+    "toggleSidebar": "Toggle Sidebar",
+    "searchPlaceholder": "Search chat titles",
+    "clearSearch": "Clear search",
+    "searchResultCount": "{{filtered}} / {{total}} matches",
+    "chatCount": "{{count}} chats total"
   },
   "footer": {
     "github": "Github",

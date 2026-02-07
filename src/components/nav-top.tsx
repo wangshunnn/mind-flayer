@@ -29,11 +29,9 @@ function NewChatTrigger({ className, ...props }: React.ComponentProps<typeof But
         </Button>
       </TooltipTrigger>
       <TooltipContent>
-        {t("nav.newChat")}{" "}
-        <KbdGroup>
-          {shortcutKeys.map(key => (
-            <Kbd key={key}>{key}</Kbd>
-          ))}
+        {t("nav.newChat")}
+        <KbdGroup className="pl-3">
+          <Kbd>{shortcutKeys.join("")}</Kbd>
         </KbdGroup>
       </TooltipContent>
     </Tooltip>

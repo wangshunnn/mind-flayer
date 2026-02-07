@@ -14,7 +14,7 @@ export function NavMain({ onNewChat }: { onNewChat?: () => void }) {
     <SidebarGroup>
       <SidebarMenu>
         <SidebarMenuItem>
-          <SidebarMenuButton asChild className="text-sm font-normal" onClick={onNewChat}>
+          <SidebarMenuButton asChild onClick={onNewChat}>
             <div>
               <MessageSquarePlus className="size-4! opacity-80" />
               <span>{t("nav.newChat")}</span>

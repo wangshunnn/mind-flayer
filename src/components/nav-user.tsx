@@ -1,5 +1,4 @@
 import {
-  GhostIcon,
   LanguagesIcon,
   MonitorIcon,
   MoonStarIcon,
@@ -23,14 +22,13 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar"
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { useLanguage } from "@/hooks/use-language"
 import { useShortcutDisplay } from "@/hooks/use-shortcut-config"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import { ShortcutAction } from "@/types/settings"
 import { cn } from "../lib/utils"
 import { useTheme } from "./theme-provider"
-import { Button } from "./ui/button"
 import { Kbd, KbdGroup } from "./ui/kbd"
 
 export function NavUser() {
@@ -44,21 +42,25 @@ export function NavUser() {
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
+            <SidebarMenuButton
+              asChild
               className={cn(
-                "size-8 transition-transform opacity-50",
-                "hover:opacity-100 hover:rotate-12"
+                "data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
+                "font-light",
+                "group/is-nav-user"
               )}
             >
-              <GhostIcon className="size-4" />
-            </Button>
+              <div>
+                <Settings className="size-4!" />
+                <span>{t("nav.settings")}</span>
+              </div>
+            </SidebarMenuButton>
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
-            className="min-w-max w-44 rounded-lg"
+            className="min-w-max w-(--radix-dropdown-menu-trigger-width) rounded-lg"
             side="top"
-            align="start"
+            align="center"
             sideOffset={8}
           >
             <DropdownMenuSub>
@@ -125,9 +127,7 @@ export function NavUser() {
                 {t("nav.settings")}
                 <DropdownMenuShortcut>
                   <KbdGroup>
-                    {openSettingsKeys.map(key => (
-                      <Kbd key={key}>{key}</Kbd>
-                    ))}
+                    <Kbd>{openSettingsKeys.join("")}</Kbd>
                   </KbdGroup>
                 </DropdownMenuShortcut>
               </DropdownMenuItem>

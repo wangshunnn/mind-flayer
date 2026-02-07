@@ -83,13 +83,15 @@ import type { ChatId, MessageId } from "@/types/chat"
 interface AppChatProps {
   activeChatId?: ChatId | null
   onChatCreated?: (chatId: ChatId) => void
+  focusMessageId?: MessageId | null
+  onFocusHandled?: () => void
 }
 
 type ThinkingStep = (StepStartUIPart | ReasoningUIPart | ToolUIPart | DynamicToolUIPart) & {
   partIndex: number
 }
 
-const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
+const AppChat = ({ activeChatId, onChatCreated, focusMessageId, onFocusHandled }: AppChatProps) => {
   const { t } = useTranslation(["common", "chat"])
   const messageConstants = useMessageConstants()
   const toastConstants = useToastConstants()
@@ -116,12 +118,15 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   const useWebSearchRef = useLatest(useWebSearch)
   const webSearchModeRef = useLatest(webSearchMode)
   const inputContainerRef = useRef<HTMLDivElement>(null)
+  const chatRootRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<PromptInputTextareaHandle>(null)
   const thinkingDurationsRef = useRef<Map<MessageId, number>>(new Map())
   const toolDurationsRef = useRef<Map<MessageId, Record<string, number>>>(new Map())
+  const highlightTimerRef = useRef<number | null>(null)
   const messagesRef = useRef<UIMessage[]>([])
   const storedMessageIdsRef = useRef<Set<MessageId>>(new Set())
   const currentChatIdRef = useRef<ChatId | null>(activeChatId)
+  const [highlightedMessageId, setHighlightedMessageId] = useState<MessageId | null>(null)
 
   const { isCompact, open } = useSidebar()
   const { createChat, loadMessages, saveChatAllMessages } = useChatStorage()
@@ -314,6 +319,51 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
     messagesRef.current = messages
   }, [messages])
 
+  useEffect(
+    () => () => {
+      if (highlightTimerRef.current !== null) {
+        window.clearTimeout(highlightTimerRef.current)
+      }
+    },
+    []
+  )
+
+  useEffect(() => {
+    if (!focusMessageId) {
+      return
+    }
+
+    if (!messages.some(message => message.id === focusMessageId)) {
+      return
+    }
+
+    const rootElement = chatRootRef.current
+    if (!rootElement) {
+      return
+    }
+
+    const messageElements = rootElement.querySelectorAll<HTMLElement>("[data-message-id]")
+    const targetMessage = Array.from(messageElements).find(
+      element => element.dataset.messageId === focusMessageId
+    )
+
+    if (!targetMessage) {
+      return
+    }
+
+    targetMessage.scrollIntoView({ behavior: "smooth", block: "center" })
+    setHighlightedMessageId(focusMessageId)
+
+    if (highlightTimerRef.current !== null) {
+      window.clearTimeout(highlightTimerRef.current)
+    }
+    highlightTimerRef.current = window.setTimeout(() => {
+      setHighlightedMessageId(current => (current === focusMessageId ? null : current))
+    }, 1500)
+
+    onFocusHandled?.()
+  }, [focusMessageId, messages, onFocusHandled])
+
   const handleSubmit = (message: PromptInputMessage) => {
     const messageText = message.text?.trim() ?? ""
     const hasText = Boolean(messageText)
@@ -362,7 +412,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
     ((status === "streaming" || status === "error") && lastMessage?.parts.length === 0)
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col" ref={chatRootRef}>
       {/* Top */}
       <div className="bg-background flex h-11 items-center border-b-[0.5px] pt-0">
         <div
@@ -446,7 +496,16 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
               return (
                 <MessageBranch defaultBranch={0} key={message.id}>
                   <MessageBranchContent>
-                    <Message from={message.role} key={message.id}>
+                    <Message
+                      from={message.role}
+                      key={message.id}
+                      data-message-id={message.id}
+                      className={cn(
+                        "transition-colors duration-300",
+                        highlightedMessageId === message.id &&
+                          "rounded-lg bg-primary/8 ring-1 ring-primary/35"
+                      )}
+                    >
                       {/* Thinking Process - organized by steps */}
                       {isAssistantMessage && hasThinkingProcess && (
                         <ThinkingProcess

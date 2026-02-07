@@ -32,6 +32,18 @@
     "search": "Search",
     "searchChat": "Search Chat",
     "comingSoon": "This feature is coming soon. Stay tuned!",
+    "searchDialog": {
+      "title": "Search Message History",
+      "description": "Search chats by message content keywords",
+      "placeholder": "Type keywords to search message content...",
+      "emptyKeyword": "Type a keyword to start searching",
+      "loading": "Searching...",
+      "noResults": "No matching messages found",
+      "error": "Search failed. Please try again.",
+      "resultCount": "{{count}} results",
+      "roleUser": "User Message",
+      "roleAssistant": "Assistant Message"
+    },
     "showSidebar": "Show Sidebar",
     "hideSidebar": "Hide Sidebar",
     "toggleSidebar": "Toggle Sidebar"

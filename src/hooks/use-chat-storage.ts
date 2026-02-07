@@ -1,8 +1,13 @@
 import type { UIMessage } from "ai"
 import { nanoid } from "nanoid"
 import { useCallback, useEffect, useState } from "react"
+import {
+  buildSnippet,
+  extractPlainTextFromContentJson,
+  normalizeForSearch
+} from "@/lib/chat-search"
 import { getDatabase } from "@/lib/database"
-import type { Chat, ChatId, ChatRow, MessageRow } from "@/types/chat"
+import type { Chat, ChatId, ChatRow, ChatSearchResult, MessageRow } from "@/types/chat"
 import { generateChatTitle, storedMessageToUI, uiMessageToStored } from "@/types/chat"
 
 /**
@@ -274,6 +279,76 @@ export function useChatStorage() {
   }, [])
 
   /**
+   * Search chat history by message content keywords.
+   * Matches only user and assistant messages.
+   */
+  const searchHistoryMessages = useCallback(
+    async (keyword: string, options?: { limit?: number }): Promise<ChatSearchResult[]> => {
+      const trimmedKeyword = keyword.trim()
+      if (!trimmedKeyword) {
+        return []
+      }
+
+      const limit = Math.max(1, options?.limit ?? 50)
+      const normalizedKeyword = normalizeForSearch(trimmedKeyword)
+
+      type SearchRow = {
+        message_id: string
+        chat_id: string
+        chat_title: string
+        role: "user" | "assistant"
+        content_json: string
+        created_at: number
+      }
+
+      const db = await getDatabase()
+      const rows = await db.select<SearchRow[]>(
+        `SELECT
+          m.id AS message_id,
+          m.chat_id AS chat_id,
+          c.title AS chat_title,
+          m.role AS role,
+          m.content_json AS content_json,
+          m.created_at AS created_at
+        FROM messages m
+        JOIN chats c ON c.id = m.chat_id
+        WHERE m.role IN ('user', 'assistant')
+        ORDER BY m.created_at DESC`
+      )
+
+      const results: ChatSearchResult[] = []
+
+      for (const row of rows) {
+        const fullText = extractPlainTextFromContentJson(row.content_json)
+        if (!fullText) {
+          continue
+        }
+
+        if (!normalizeForSearch(fullText).includes(normalizedKeyword)) {
+          continue
+        }
+
+        results.push({
+          chatId: row.chat_id,
+          chatTitle: row.chat_title,
+          messageId: row.message_id,
+          role: row.role,
+          createdAt: row.created_at,
+          snippet: buildSnippet(fullText, trimmedKeyword),
+          fullText
+        })
+
+        if (results.length >= limit) {
+          break
+        }
+      }
+
+      return results
+    },
+    []
+  )
+
+  /**
    * Switch to a different chat
    */
   const switchChat = useCallback((chatId: ChatId | null) => {
@@ -307,6 +382,7 @@ export function useChatStorage() {
     saveChatAllMessages,
     insertChatNewMessages,
     loadMessages,
+    searchHistoryMessages,
     switchChat,
     loadChats
   }

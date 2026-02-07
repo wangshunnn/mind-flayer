@@ -1,7 +1,7 @@
-import { useCallback, useState } from "react"
+import { useCallback } from "react"
+import { toast } from "sonner"
 import { AppChat } from "@/components/app-chat"
 import { AppSidebar } from "@/components/app-sidebar"
-import { ChatHistorySearchDialog } from "@/components/chat-history-search-dialog"
 import { NewChatTrigger } from "@/components/nav-top"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { useChatStorage } from "@/hooks/use-chat-storage"
@@ -16,10 +16,7 @@ const handleOpenSettings = () => {
 }
 
 export default function Page() {
-  const { chats, activeChatId, switchChat, loadChats, deleteChat, searchHistoryMessages } =
-    useChatStorage()
-  const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false)
-  const [pendingFocusMessageId, setPendingFocusMessageId] = useState<string | null>(null)
+  const { chats, activeChatId, switchChat, loadChats, deleteChat } = useChatStorage()
 
   const handleNewChat = useCallback(() => {
     switchChat(null)
@@ -36,20 +33,9 @@ export default function Page() {
 
   // Handle search history shortcut (Cmd+F)
   const handleSearchHistory = useCallback(() => {
-    setIsSearchDialogOpen(true)
-  }, [])
-
-  const handleSearchResultSelect = useCallback(
-    (payload: { chatId: string; messageId: string }) => {
-      switchChat(payload.chatId)
-      setPendingFocusMessageId(payload.messageId)
-      setIsSearchDialogOpen(false)
-    },
-    [switchChat]
-  )
-
-  const handleMessageFocusHandled = useCallback(() => {
-    setPendingFocusMessageId(null)
+    // TODO: Implement search history functionality
+    // For now, show a toast notification
+    toast.info("Coming soon")
   }, [])
 
   // Register local shortcuts
@@ -66,7 +52,6 @@ export default function Page() {
         onChatClick={handleChatClick}
         onDeleteChat={deleteChat}
         onNewChat={handleNewChat}
-        onSearchHistory={handleSearchHistory}
       />
 
       {/* Top drag region */}
@@ -83,20 +68,8 @@ export default function Page() {
 
       {/* Main content area */}
       <SidebarInset className="overflow-hidden">
-        <AppChat
-          activeChatId={activeChatId}
-          onChatCreated={handleChatCreated}
-          focusMessageId={pendingFocusMessageId}
-          onFocusHandled={handleMessageFocusHandled}
-        />
+        <AppChat activeChatId={activeChatId} onChatCreated={handleChatCreated} />
       </SidebarInset>
-
-      <ChatHistorySearchDialog
-        open={isSearchDialogOpen}
-        onOpenChange={setIsSearchDialogOpen}
-        onSelectResult={handleSearchResultSelect}
-        searchHistoryMessages={searchHistoryMessages}
-      />
     </SidebarProvider>
   )
 }

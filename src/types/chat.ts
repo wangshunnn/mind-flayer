@@ -45,16 +45,6 @@ export interface MessageRow {
   created_at: number
 }
 
-export interface ChatSearchResult {
-  chatId: ChatId
-  chatTitle: string
-  messageId: MessageId
-  role: "user" | "assistant"
-  createdAt: number
-  snippet: string
-  fullText: string
-}
-
 /**
  * Convert UIMessage to StoredMessage
  */

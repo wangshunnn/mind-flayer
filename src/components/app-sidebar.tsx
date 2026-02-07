@@ -14,7 +14,6 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   onDeleteChat: (chatId: ChatId) => Promise<void>
   activeChatId?: ChatId | null
   onNewChat?: () => void
-  onSearchHistory: () => void
 }
 
 export function AppSidebar({
@@ -22,7 +21,6 @@ export function AppSidebar({
   activeChatId,
   onChatClick,
   onNewChat,
-  onSearchHistory,
   onDeleteChat,
   ...props
 }: AppSidebarProps) {
@@ -41,7 +39,7 @@ export function AppSidebar({
   return (
     <Sidebar {...props}>
       <SidebarHeader>
-        <SearchChat onClick={onSearchHistory} />
+        <SearchChat />
       </SidebarHeader>
       <SidebarContent>
         <NavMain onNewChat={onNewChat} />

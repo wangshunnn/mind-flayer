@@ -1,6 +1,7 @@
 import { defineConfig } from "tsup"
 
-const isDev = process.env.NODE_ENV === "development"
+const NODE_ENV = process.env.NODE_ENV || "production"
+const isDev = NODE_ENV === "development"
 
 export default defineConfig({
   entry: ["src/index.ts"],
@@ -16,6 +17,9 @@ export default defineConfig({
   minify: false,
   sourcemap: isDev,
   shims: true,
+  define: {
+    __IS_DEV__: JSON.stringify(isDev)
+  },
   ...(isDev && {
     banner: {
       js: "import { createRequire } from 'module';const require = createRequire(import.meta.url);"

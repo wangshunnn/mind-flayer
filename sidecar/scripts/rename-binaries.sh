@@ -10,8 +10,9 @@ BINARIES_DIR="../src-tauri/binaries"
 
 echo "📦 Copying binaries to Tauri..."
 
-# Ensure binaries directory exists
-echo "📁 Creating binaries directory..."
+# Clean and ensure binaries directory exists
+echo "📁 Cleaning and creating binaries directory..."
+npx rimraf "$BINARIES_DIR"
 mkdir -p "$BINARIES_DIR"
 
 cp "scripts/$BINARY_NAME" "$BINARIES_DIR/$BINARY_NAME"

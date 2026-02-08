@@ -154,11 +154,16 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
       }
       saveAllMessagesAsync(messages, { isAbort, isDisconnect, isError })
     },
-    onError: error => {
+    onError: (error: Error) => {
       // Check if this is a 401 error (API key not configured)
-      if (error.message.includes("API key not configured") || error.message.includes("401")) {
+      if (error.message.includes("API_KEY_NOT_CONFIGURED") || error.message.includes("401")) {
         toast.error(toastConstants.error, {
-          description: toastConstants.apiKeyNotConfigured
+          description: toastConstants.apiKeyNotConfigured,
+          action: {
+            label: t("chat:model.configureModels"),
+            onClick: () => openSettingsWindow(SettingsSection.PROVIDERS)
+          },
+          duration: 3000
         })
       } else {
         toast.error(toastConstants.error, {

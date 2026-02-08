@@ -16,16 +16,14 @@ import { createShutdownHandler, setupStdinListener } from "./utils/lifecycle"
 
 const app = new Hono()
 const PORT = process.env.PORT || 3737
-const isDev = process.env.NODE_ENV !== "production"
 const globalAbortController = new AbortController()
 
 // Register middleware
-app.use(createCorsMiddleware(isDev))
+app.use(createCorsMiddleware())
 app.use(errorHandler)
 
 // Register routes
 registerRoutes(app, globalAbortController)
-
 // Start server
 const server = serve({
   fetch: app.fetch,

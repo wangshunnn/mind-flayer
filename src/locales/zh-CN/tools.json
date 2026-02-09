@@ -3,7 +3,7 @@
   "results": "{{count}} 条结果",
   "names": {
     "webSearch": "联网搜索",
-    "bashExecution": "Shell 命令执行"
+    "bashExecution": "执行 Shell 命令"
   },
   "states": {
     "running": "运行中...",

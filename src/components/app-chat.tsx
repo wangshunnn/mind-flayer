@@ -612,6 +612,14 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
               <PromptInputFooter>
                 {/* Tools in Left */}
                 <PromptInputTools className="-ml-1">
+                  {/* Add attachments */}
+                  <PromptInputActionMenu>
+                    <PromptInputActionMenuTrigger />
+                    <PromptInputActionMenuContent>
+                      <PromptInputActionAddAttachments />
+                    </PromptInputActionMenuContent>
+                  </PromptInputActionMenu>
+
                   <ToolButton
                     icon={GlobeIcon}
                     label={toolButtonConstants.webSearch.label}
@@ -645,14 +653,6 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
 
                 {/* Tools in Right */}
                 <PromptInputTools className="gap-2.5">
-                  {/* Add attachments */}
-                  <PromptInputActionMenu>
-                    <PromptInputActionMenuTrigger />
-                    <PromptInputActionMenuContent>
-                      <PromptInputActionAddAttachments />
-                    </PromptInputActionMenuContent>
-                  </PromptInputActionMenu>
-
                   {/* Submit button */}
                   <Tooltip disableHoverableContent={true} open={undefined}>
                     <TooltipTrigger asChild>

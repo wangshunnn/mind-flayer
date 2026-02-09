@@ -12,7 +12,7 @@
     "usingTool": "使用工具"
   },
   "input": {
-    "placeholder": "输入您的消息...",
+    "placeholder": "输入消息...",
     "addPhotosOrFiles": "添加照片或文件",
     "image": "图片",
     "attachment": "附件",

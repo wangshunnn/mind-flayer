@@ -15,8 +15,12 @@ import { createShutdownHandler, setupStdinListener } from "./utils/lifecycle"
 // setGlobalDispatcher(dispatcher)
 
 const app = new Hono()
-const PORT = process.env.PORT || 3737
+// Use the SIDECAR_PORT environment variable set by the Rust sidecar setup
+const PORT = process.env.SIDECAR_PORT
 const globalAbortController = new AbortController()
+
+console.log("---> debug PORT:", PORT)
+console.log("---> debug process.env", process.env)
 
 // Register middleware
 app.use(createCorsMiddleware())

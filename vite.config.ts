@@ -5,15 +5,10 @@ import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
 const host = process.env.TAURI_DEV_HOST
-const sidecarPort = process.env.SIDECAR_PORT || "3737"
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react(), tailwindcss()],
-
-  define: {
-    __SIDECAR_PORT__: JSON.stringify(sidecarPort)
-  },
 
   resolve: {
     alias: {

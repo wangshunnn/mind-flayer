@@ -67,6 +67,15 @@ fn list_all_providers() -> Vec<String> {
     keychain::list_all_providers()
 }
 
+/// Wait for sidecar startup and return the resolved runtime port
+#[tauri::command]
+async fn wait_for_sidecar_port(
+    app: tauri::AppHandle,
+    timeout_ms: Option<u64>,
+) -> Result<u16, String> {
+    setup::wait_for_sidecar_port(app, timeout_ms).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Initialize logger
@@ -120,7 +129,8 @@ pub fn run() {
             save_provider_config,
             get_provider_config,
             delete_provider_config,
-            list_all_providers
+            list_all_providers,
+            wait_for_sidecar_port
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

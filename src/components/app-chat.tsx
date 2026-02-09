@@ -76,6 +76,7 @@ import {
   useToolButtonConstants,
   useTooltipConstants
 } from "@/lib/constants"
+import { getSidecarUrl } from "@/lib/sidecar-client"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import type { ChatId, MessageId } from "@/types/chat"
@@ -85,11 +86,15 @@ interface AppChatProps {
   onChatCreated?: (chatId: ChatId) => void
 }
 
+interface AppChatInnerProps extends AppChatProps {
+  sidecarApi: string
+}
+
 type ThinkingStep = (StepStartUIPart | ReasoningUIPart | ToolUIPart | DynamicToolUIPart) & {
   partIndex: number
 }
 
-const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
+const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerProps) => {
   const { t } = useTranslation(["common", "chat"])
   const messageConstants = useMessageConstants()
   const toastConstants = useToastConstants()
@@ -138,7 +143,7 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
     stop
   } = useChat({
     transport: new DefaultChatTransport({
-      api: `http://localhost:${__SIDECAR_PORT__}/api/chat`,
+      api: sidecarApi,
       headers: () => ({
         "X-Model-Provider": selectedModelRef.current.provider,
         "X-Model-Id": selectedModelRef.current.api_id,
@@ -681,6 +686,62 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
         {t("common:footer.copyrightWithLink")}
       </div>
     </div>
+  )
+}
+
+const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
+  const [sidecarApi, setSidecarApi] = useState<string | null>(null)
+  const [sidecarApiError, setSidecarApiError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+
+    const loadSidecarApi = async () => {
+      try {
+        const api = await getSidecarUrl("/api/chat")
+        if (!mounted) {
+          return
+        }
+        setSidecarApi(api)
+      } catch (error) {
+        if (!mounted) {
+          return
+        }
+        const message =
+          error instanceof Error ? error.message : "Failed to connect to local AI service"
+        setSidecarApiError(message)
+      }
+    }
+
+    loadSidecarApi()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  if (sidecarApiError) {
+    return (
+      <div className="flex h-full items-center justify-center px-6 text-sm text-muted-foreground">
+        Local AI service failed to start: {sidecarApiError}
+      </div>
+    )
+  }
+
+  if (!sidecarApi) {
+    return (
+      <div className="flex h-full items-center justify-center px-6 text-sm text-muted-foreground">
+        Starting local AI service...
+      </div>
+    )
+  }
+
+  return (
+    <AppChatInner
+      activeChatId={activeChatId}
+      onChatCreated={onChatCreated}
+      sidecarApi={sidecarApi}
+    />
   )
 }
 

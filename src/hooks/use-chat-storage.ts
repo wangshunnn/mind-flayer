@@ -2,6 +2,7 @@ import type { UIMessage } from "ai"
 import { nanoid } from "nanoid"
 import { useCallback, useEffect, useState } from "react"
 import { getDatabase } from "@/lib/database"
+import { getSidecarUrl } from "@/lib/sidecar-client"
 import type { Chat, ChatId, ChatRow, MessageRow } from "@/types/chat"
 import { generateChatTitle, storedMessageToUI, uiMessageToStored } from "@/types/chat"
 
@@ -110,7 +111,8 @@ export function useChatStorage() {
 
         // Clean up bash execution workspace via sidecar
         try {
-          await fetch(`http://localhost:${__SIDECAR_PORT__}/api/cleanup-workspace`, {
+          const cleanupUrl = await getSidecarUrl("/api/cleanup-workspace")
+          await fetch(cleanupUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ chatId })

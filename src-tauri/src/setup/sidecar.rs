@@ -332,23 +332,24 @@ pub async fn cleanup_sidecar(app: tauri::AppHandle) {
     };
 
     // Kill the sidecar process (sends SIGTERM, which triggers graceful shutdown)
-    let sidecar_terminated = if let Ok(mut guard) = state.child.lock() {
+    let (sidecar_pid, sidecar_terminated) = if let Ok(mut guard) = state.child.lock() {
         if let Some(child) = guard.take() {
+            let pid = child.pid();
             match child.kill() {
                 Ok(_) => {
                     info!("Sidecar process termination signal sent");
-                    true
+                    (Some(pid), true)
                 }
                 Err(e) => {
                     error!("Failed to kill sidecar process: {}", e);
-                    false
+                    (Some(pid), false)
                 }
             }
         } else {
-            false
+            (None, false)
         }
     } else {
-        false
+        (None, false)
     };
 
     if sidecar_terminated {
@@ -359,23 +360,55 @@ pub async fn cleanup_sidecar(app: tauri::AppHandle) {
     // Additional cleanup for port (macOS/Linux) - fallback to ensure port is freed
     #[cfg(not(target_os = "windows"))]
     {
-        use std::process::Command;
-
-        if let Some(port) = port_to_cleanup {
-            let port_cleanup = Command::new("sh")
-                .arg("-c")
-                .arg(format!(
-                    "lsof -ti:{} | xargs kill -9 2>/dev/null || true",
-                    port
-                ))
-                .output();
-
-            match port_cleanup {
-                Ok(_) => debug!("Port cleanup completed"),
-                Err(e) => debug!("Port cleanup failed: {}", e),
+        if let (Some(port), Some(pid)) = (port_to_cleanup, sidecar_pid) {
+            if is_pid_listening_on_port(pid, port) {
+                warn!(
+                    "Sidecar pid {} is still listening on port {}, force killing...",
+                    pid, port
+                );
+                force_kill_pid(pid);
+            } else {
+                debug!("No forced port cleanup needed for pid {} on {}", pid, port);
             }
         }
     }
 
     info!("Sidecar cleanup completed");
+}
+
+#[cfg(not(target_os = "windows"))]
+fn is_pid_listening_on_port(pid: u32, port: u16) -> bool {
+    use std::process::Command;
+
+    let output = match Command::new("lsof")
+        .args(["-ti", &format!(":{}", port)])
+        .output()
+    {
+        Ok(output) => output,
+        Err(e) => {
+            debug!("Failed to inspect listeners on port {}: {}", port, e);
+            return false;
+        }
+    };
+
+    if !output.status.success() {
+        return false;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout
+        .lines()
+        .filter_map(|line| line.trim().parse::<u32>().ok())
+        .any(|listening_pid| listening_pid == pid)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn force_kill_pid(pid: u32) {
+    use std::process::Command;
+
+    match Command::new("kill").args(["-9", &pid.to_string()]).status() {
+        Ok(status) if status.success() => debug!("Force killed sidecar pid {}", pid),
+        Ok(status) => debug!("Failed to force kill pid {}: exit status {}", pid, status),
+        Err(e) => debug!("Failed to run force kill for pid {}: {}", pid, e),
+    }
 }

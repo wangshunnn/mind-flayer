@@ -2,9 +2,10 @@ use log::{debug, error, info, warn};
 use std::{
     net::TcpListener,
     sync::{Arc, Mutex},
+    time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::Manager;
-use tauri_plugin_shell::process::CommandChild;
+use tauri_plugin_shell::process::{CommandChild, CommandEvent, TerminatedPayload};
 use tauri_plugin_shell::ShellExt;
 
 /// Sidecar server port
@@ -14,6 +15,10 @@ const SIDECAR_HEALTH_CHECK_TIMEOUT_MS: u64 = 10_000;
 const SIDECAR_HEALTH_CHECK_INTERVAL_MS: u64 = 200;
 const SIDECAR_PORT_WAIT_TIMEOUT_MS: u64 = 15_000;
 const SIDECAR_PORT_WAIT_INTERVAL_MS: u64 = 100;
+const SIDECAR_STDERR_BUFFER_MAX_BYTES: usize = 4 * 1024;
+const SIDECAR_RETRY_DELAY_MS: u64 = 200;
+const SIDECAR_SERVICE_NAME: &str = "mind-flayer-sidecar";
+const SIDECAR_STARTUP_TOKEN_ENV_KEY: &str = "SIDECAR_STARTUP_TOKEN";
 
 /// State to hold the sidecar process handle
 pub struct SidecarState {
@@ -91,8 +96,250 @@ pub async fn start_sidecar(app: tauri::AppHandle) -> Result<u16, String> {
     start_sidecar_internal(app, child_ref, port_ref).await
 }
 
-fn can_bind_to_port(port: u16) -> bool {
-    TcpListener::bind(("127.0.0.1", port)).is_ok()
+#[derive(Debug, Clone)]
+struct SidecarTermination {
+    code: Option<i32>,
+    signal: Option<i32>,
+    reason: String,
+}
+
+impl SidecarTermination {
+    fn from_payload(payload: TerminatedPayload) -> Self {
+        SidecarTermination {
+            code: payload.code,
+            signal: payload.signal,
+            reason: "Received process termination event".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SidecarStartupFailureKind {
+    AddrInUse,
+    Other,
+}
+
+#[derive(Debug)]
+enum SidecarAttemptError {
+    HealthCheck(String),
+    Terminated(SidecarTermination),
+}
+
+struct SidecarAttemptMonitor {
+    stderr_output: Arc<Mutex<String>>,
+    terminated_rx: tokio::sync::oneshot::Receiver<SidecarTermination>,
+}
+
+fn append_stderr_output(stderr_output: &Arc<Mutex<String>>, chunk: &str) {
+    if let Ok(mut guard) = stderr_output.lock() {
+        guard.push_str(chunk.trim_end());
+        guard.push('\n');
+        trim_stderr_output_buffer(&mut guard);
+    } else {
+        error!("Failed to append to sidecar stderr buffer");
+    }
+}
+
+fn trim_stderr_output_buffer(buffer: &mut String) {
+    if buffer.len() <= SIDECAR_STDERR_BUFFER_MAX_BYTES {
+        return;
+    }
+
+    let keep_from = buffer
+        .char_indices()
+        .find_map(|(idx, _)| {
+            if idx >= buffer.len().saturating_sub(SIDECAR_STDERR_BUFFER_MAX_BYTES) {
+                Some(idx)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(0);
+    buffer.drain(..keep_from);
+}
+
+fn snapshot_stderr_output(stderr_output: &Arc<Mutex<String>>) -> String {
+    match stderr_output.lock() {
+        Ok(guard) => guard.trim().to_string(),
+        Err(e) => {
+            error!("Failed to read sidecar stderr buffer: {}", e);
+            String::new()
+        }
+    }
+}
+
+fn extract_structured_bind_error_code(stderr_output: &str) -> Option<String> {
+    for line in stderr_output.lines().rev() {
+        if !line.to_ascii_lowercase().contains("bind_error") {
+            continue;
+        }
+
+        for token in line.split_whitespace() {
+            let (key, value) = match token.split_once('=') {
+                Some(parts) => parts,
+                None => continue,
+            };
+
+            if key.eq_ignore_ascii_case("code") {
+                return Some(
+                    value
+                        .trim_matches(|c: char| c == ',' || c == ';')
+                        .to_string(),
+                );
+            }
+        }
+    }
+
+    None
+}
+
+fn is_addr_in_use_error(stderr_output: &str) -> bool {
+    if let Some(code) = extract_structured_bind_error_code(stderr_output) {
+        return code.eq_ignore_ascii_case("EADDRINUSE") || code.eq_ignore_ascii_case("AddrInUse");
+    }
+
+    let lower = stderr_output.to_ascii_lowercase();
+    lower.contains("eaddrinuse")
+        || lower.contains("addrinuse")
+        || lower.contains("address already in use")
+}
+
+fn classify_startup_failure(stderr_output: &str) -> SidecarStartupFailureKind {
+    if is_addr_in_use_error(stderr_output) {
+        SidecarStartupFailureKind::AddrInUse
+    } else {
+        SidecarStartupFailureKind::Other
+    }
+}
+
+fn should_fallback_to_random_port(attempt: u8, failure_kind: SidecarStartupFailureKind) -> bool {
+    attempt == 1 && matches!(failure_kind, SidecarStartupFailureKind::AddrInUse)
+}
+
+fn format_attempt_failure(
+    port: u16,
+    attempt_error: &SidecarAttemptError,
+    stderr_output: &str,
+) -> String {
+    let mut message = match attempt_error {
+        SidecarAttemptError::HealthCheck(err) => err.clone(),
+        SidecarAttemptError::Terminated(termination) => format!(
+            "Sidecar terminated before becoming healthy on port {} (code: {:?}, signal: {:?}, reason: {})",
+            port, termination.code, termination.signal, termination.reason
+        ),
+    };
+
+    if !stderr_output.is_empty() {
+        message.push_str(&format!(" | stderr: {}", stderr_output));
+    }
+
+    message
+}
+
+fn generate_sidecar_startup_token(attempt: u8, port: u16) -> String {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    format!("{}-{}-{}-{}", std::process::id(), attempt, port, nanos)
+}
+
+fn build_sidecar_health_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .map_err(|e| format!("Failed to create sidecar health client: {}", e))
+}
+
+fn is_expected_health_payload(payload: &serde_json::Value, expected_startup_token: &str) -> bool {
+    let status = payload.get("status").and_then(serde_json::Value::as_str);
+    let service = payload.get("service").and_then(serde_json::Value::as_str);
+    let startup_token = payload
+        .get("startupToken")
+        .and_then(serde_json::Value::as_str);
+
+    status == Some("ok")
+        && service == Some(SIDECAR_SERVICE_NAME)
+        && startup_token == Some(expected_startup_token)
+}
+
+fn spawn_sidecar_event_monitor(
+    mut rx: tauri::async_runtime::Receiver<CommandEvent>,
+) -> SidecarAttemptMonitor {
+    let stderr_output = Arc::new(Mutex::new(String::new()));
+    let stderr_output_for_task = Arc::clone(&stderr_output);
+    let (terminated_tx, terminated_rx) = tokio::sync::oneshot::channel::<SidecarTermination>();
+
+    tauri::async_runtime::spawn(async move {
+        let mut terminated_tx = Some(terminated_tx);
+
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stdout(line) => {
+                    debug!("[Sidecar] {}", String::from_utf8_lossy(&line));
+                }
+                CommandEvent::Stderr(line) => {
+                    let text = String::from_utf8_lossy(&line).into_owned();
+                    error!("[Sidecar Error] {}", text);
+                    append_stderr_output(&stderr_output_for_task, &text);
+                }
+                CommandEvent::Error(text) => {
+                    error!("[Sidecar Process Error] {}", text);
+                    append_stderr_output(&stderr_output_for_task, &text);
+                }
+                CommandEvent::Terminated(payload) => {
+                    let termination = SidecarTermination::from_payload(payload);
+                    warn!(
+                        "Sidecar process terminated (code: {:?}, signal: {:?})",
+                        termination.code, termination.signal
+                    );
+                    if let Some(tx) = terminated_tx.take() {
+                        let _ = tx.send(termination);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if let Some(tx) = terminated_tx.take() {
+            let _ = tx.send(SidecarTermination {
+                code: None,
+                signal: None,
+                reason: "Sidecar process event stream closed".to_string(),
+            });
+        }
+    });
+
+    SidecarAttemptMonitor {
+        stderr_output,
+        terminated_rx,
+    }
+}
+
+async fn wait_for_sidecar_ready(
+    port: u16,
+    timeout: tokio::time::Duration,
+    interval: tokio::time::Duration,
+    terminated_rx: tokio::sync::oneshot::Receiver<SidecarTermination>,
+    expected_startup_token: String,
+) -> Result<(), SidecarAttemptError> {
+    let health_check = wait_for_sidecar_health(port, timeout, interval, &expected_startup_token);
+    tokio::pin!(health_check);
+    let mut terminated_rx = terminated_rx;
+
+    tokio::select! {
+        health_result = &mut health_check => health_result.map_err(SidecarAttemptError::HealthCheck),
+        termination_result = &mut terminated_rx => {
+            match termination_result {
+                Ok(termination) => Err(SidecarAttemptError::Terminated(termination)),
+                Err(_) => Err(SidecarAttemptError::Terminated(SidecarTermination {
+                    code: None,
+                    signal: None,
+                    reason: "Sidecar termination signal channel dropped".to_string(),
+                })),
+            }
+        }
+    }
 }
 
 fn pick_random_available_port() -> Result<u16, String> {
@@ -103,14 +350,6 @@ fn pick_random_available_port() -> Result<u16, String> {
         .map_err(|e| format!("Failed to resolve random local port: {}", e))?
         .port();
     Ok(port)
-}
-
-fn select_port() -> Result<u16, String> {
-    if can_bind_to_port(PREFERRED_SIDECAR_PORT) {
-        return Ok(PREFERRED_SIDECAR_PORT);
-    }
-
-    pick_random_available_port()
 }
 
 fn sidecar_health_url(port: u16) -> String {
@@ -149,9 +388,11 @@ async fn wait_for_sidecar_health(
     port: u16,
     timeout: tokio::time::Duration,
     interval: tokio::time::Duration,
+    expected_startup_token: &str,
 ) -> Result<(), String> {
     let started_at = tokio::time::Instant::now();
     let health_url = sidecar_health_url(port);
+    let health_client = build_sidecar_health_client()?;
     let mut last_error = String::from("Sidecar did not respond yet");
 
     loop {
@@ -164,10 +405,31 @@ async fn wait_for_sidecar_health(
             ));
         }
 
-        match reqwest::get(&health_url).await {
+        match health_client.get(&health_url).send().await {
             Ok(resp) if resp.status().is_success() => {
-                info!("Sidecar health check passed on port {}", port);
-                return Ok(());
+                match resp.json::<serde_json::Value>().await {
+                    Ok(payload) if is_expected_health_payload(&payload, expected_startup_token) => {
+                        info!("Sidecar health check passed on port {}", port);
+                        return Ok(());
+                    }
+                    Ok(payload) => {
+                        let service = payload
+                            .get("service")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("<missing>");
+                        let startup_token = payload
+                            .get("startupToken")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("<missing>");
+                        last_error = format!(
+                        "Health endpoint returned unexpected payload (service={}, startupToken={})",
+                        service, startup_token
+                    );
+                    }
+                    Err(e) => {
+                        last_error = format!("Failed to parse health endpoint response: {}", e);
+                    }
+                }
             }
             Ok(resp) => {
                 last_error = format!("Health endpoint returned {}", resp.status());
@@ -192,11 +454,13 @@ async fn start_sidecar_internal(
     let mut last_error = String::from("Unknown sidecar startup failure");
 
     for attempt in 1..=SIDECAR_START_MAX_ATTEMPTS {
-        let port = if attempt == 1 {
-            select_port()?
+        let use_preferred_port = attempt == 1;
+        let port = if use_preferred_port {
+            PREFERRED_SIDECAR_PORT
         } else {
             pick_random_available_port()?
         };
+        let startup_token = generate_sidecar_startup_token(attempt, port);
 
         info!(
             "Starting sidecar attempt {}/{} on port {}...",
@@ -212,16 +476,21 @@ async fn start_sidecar_internal(
                 error!("{}", err_msg);
                 err_msg
             })?
-            .env("SIDECAR_PORT", port.to_string());
+            .env("SIDECAR_PORT", port.to_string())
+            .env(SIDECAR_STARTUP_TOKEN_ENV_KEY, startup_token.clone());
 
         debug!("Sidecar command created for port {}", port);
 
         // Start process
-        let (mut rx, child) = match sidecar_command.spawn() {
+        let (rx, child) = match sidecar_command.spawn() {
             Ok(result) => result,
             Err(e) => {
                 last_error = format!("Failed to spawn sidecar on port {}: {}", port, e);
                 error!("{}", last_error);
+                if use_preferred_port {
+                    clear_sidecar_port(&port_ref);
+                    return Err(last_error);
+                }
                 continue;
             }
         };
@@ -238,29 +507,22 @@ async fn start_sidecar_internal(
                     error!("Failed to kill orphaned sidecar process: {}", kill_err);
                 }
                 error!("{}", last_error);
+                if use_preferred_port {
+                    clear_sidecar_port(&port_ref);
+                    return Err(last_error);
+                }
                 continue;
             }
         }
 
-        // Listen to output
-        tauri::async_runtime::spawn(async move {
-            while let Some(event) = rx.recv().await {
-                match event {
-                    tauri_plugin_shell::process::CommandEvent::Stdout(line) => {
-                        debug!("[Sidecar] {}", String::from_utf8_lossy(&line));
-                    }
-                    tauri_plugin_shell::process::CommandEvent::Stderr(line) => {
-                        error!("[Sidecar Error] {}", String::from_utf8_lossy(&line));
-                    }
-                    _ => {}
-                }
-            }
-        });
+        let monitor = spawn_sidecar_event_monitor(rx);
 
-        match wait_for_sidecar_health(
+        match wait_for_sidecar_ready(
             port,
             tokio::time::Duration::from_millis(SIDECAR_HEALTH_CHECK_TIMEOUT_MS),
             tokio::time::Duration::from_millis(SIDECAR_HEALTH_CHECK_INTERVAL_MS),
+            monitor.terminated_rx,
+            startup_token,
         )
         .await
         {
@@ -268,14 +530,31 @@ async fn start_sidecar_internal(
                 set_sidecar_port(&port_ref, port);
                 return Ok(port);
             }
-            Err(e) => {
-                last_error = e;
+            Err(attempt_error) => {
+                kill_sidecar_process(&child_ref);
+                tokio::time::sleep(tokio::time::Duration::from_millis(SIDECAR_RETRY_DELAY_MS))
+                    .await;
+
+                let stderr_output = snapshot_stderr_output(&monitor.stderr_output);
+                let failure_kind = classify_startup_failure(&stderr_output);
+                last_error = format_attempt_failure(port, &attempt_error, &stderr_output);
                 warn!(
                     "Sidecar failed to become healthy on attempt {}/{}: {}",
                     attempt, SIDECAR_START_MAX_ATTEMPTS, last_error
                 );
-                kill_sidecar_process(&child_ref);
-                tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+
+                if should_fallback_to_random_port(attempt, failure_kind) {
+                    info!(
+                        "Preferred sidecar port {} is already in use, falling back to random port",
+                        PREFERRED_SIDECAR_PORT
+                    );
+                    continue;
+                }
+
+                if use_preferred_port {
+                    clear_sidecar_port(&port_ref);
+                    return Err(last_error);
+                }
             }
         }
     }
@@ -410,5 +689,73 @@ fn force_kill_pid(pid: u32) {
         Ok(status) if status.success() => debug!("Force killed sidecar pid {}", pid),
         Ok(status) => debug!("Failed to force kill pid {}: exit status {}", pid, status),
         Err(e) => debug!("Failed to run force kill for pid {}: {}", pid, e),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_addr_in_use_from_structured_bind_error() {
+        let stderr = "[sidecar] BIND_ERROR code=EADDRINUSE message=listen EADDRINUSE: address already in use 127.0.0.1:3737";
+        assert!(is_addr_in_use_error(stderr));
+    }
+
+    #[test]
+    fn detects_addr_in_use_from_node_error_text() {
+        let stderr = "Error: listen EADDRINUSE: address already in use 127.0.0.1:3737";
+        assert!(is_addr_in_use_error(stderr));
+    }
+
+    #[test]
+    fn structured_bind_error_takes_priority_over_text_fallback() {
+        let stderr = "[sidecar] BIND_ERROR code=EPERM message=address already in use";
+        assert!(!is_addr_in_use_error(stderr));
+    }
+
+    #[test]
+    fn does_not_detect_addr_in_use_for_non_conflict_error() {
+        let stderr = "Error: listen EPERM: operation not permitted 127.0.0.1:3737";
+        assert!(!is_addr_in_use_error(stderr));
+    }
+
+    #[test]
+    fn fallback_policy_only_allows_first_attempt_addr_in_use() {
+        assert!(should_fallback_to_random_port(
+            1,
+            SidecarStartupFailureKind::AddrInUse
+        ));
+        assert!(!should_fallback_to_random_port(
+            1,
+            SidecarStartupFailureKind::Other
+        ));
+        assert!(!should_fallback_to_random_port(
+            2,
+            SidecarStartupFailureKind::AddrInUse
+        ));
+    }
+
+    #[test]
+    fn health_payload_must_match_service_and_startup_token() {
+        let payload = serde_json::json!({
+            "status": "ok",
+            "service": SIDECAR_SERVICE_NAME,
+            "startupToken": "token-1"
+        });
+
+        assert!(is_expected_health_payload(&payload, "token-1"));
+        assert!(!is_expected_health_payload(&payload, "token-2"));
+    }
+
+    #[test]
+    fn health_payload_with_wrong_service_is_rejected() {
+        let payload = serde_json::json!({
+            "status": "ok",
+            "service": "other-service",
+            "startupToken": "token-1"
+        });
+
+        assert!(!is_expected_health_payload(&payload, "token-1"));
     }
 }

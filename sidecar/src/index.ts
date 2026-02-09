@@ -18,9 +18,7 @@ const app = new Hono()
 // Use the SIDECAR_PORT environment variable set by the Rust sidecar setup
 const PORT = process.env.SIDECAR_PORT
 const globalAbortController = new AbortController()
-
-console.log("---> debug PORT:", PORT)
-console.log("---> debug process.env", process.env)
+const normalizeErrorMessage = (message: string): string => message.replace(/\s+/g, " ").trim()
 
 // Register middleware
 app.use(createCorsMiddleware())
@@ -28,14 +26,25 @@ app.use(errorHandler)
 
 // Register routes
 registerRoutes(app, globalAbortController)
-// Start server
-const server = serve({
-  fetch: app.fetch,
-  port: Number(PORT)
-})
 
-console.log(`Sidecar running on http://localhost:${PORT}`)
-console.log(`API endpoint: http://localhost:${PORT}/api/chat`)
+// Start server
+const server = serve(
+  {
+    fetch: app.fetch,
+    port: Number(PORT)
+  },
+  () => {
+    console.log(`Sidecar running on http://localhost:${PORT}`)
+    console.log(`API endpoint: http://localhost:${PORT}/api/chat`)
+  }
+)
+
+server.on("error", (error: NodeJS.ErrnoException) => {
+  const code = String(error.code ?? "UNKNOWN")
+  const message = normalizeErrorMessage(error.message || String(error))
+  console.error(`[sidecar] BIND_ERROR code=${code} message=${message}`)
+  process.exit(1)
+})
 
 // Setup stdin listener for config updates
 setupStdinListener((message: unknown) => {

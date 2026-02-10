@@ -1,7 +1,8 @@
-import { useChat } from "@ai-sdk/react"
+import { Chat as AiChat, useChat } from "@ai-sdk/react"
 import {
   DefaultChatTransport,
   type DynamicToolUIPart,
+  type FileUIPart,
   getToolName,
   isReasoningUIPart,
   isTextUIPart,
@@ -14,6 +15,7 @@ import {
   type UIMessage
 } from "ai"
 import { AtomIcon, CircleIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
+import { nanoid } from "nanoid"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -67,7 +69,6 @@ import { ToolButton } from "@/components/tool-button"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useAvailableModels } from "@/hooks/use-available-models"
-import { useChatStorage } from "@/hooks/use-chat-storage"
 import { useLatest } from "@/hooks/use-latest"
 import { useSetting } from "@/hooks/use-settings-store"
 import {
@@ -79,11 +80,16 @@ import {
 import { getSidecarUrl } from "@/lib/sidecar-client"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
-import type { ChatId, MessageId } from "@/types/chat"
+import type { ChatId, MessageId, Chat as StoredChat } from "@/types/chat"
 
 interface AppChatProps {
   activeChatId?: ChatId | null
-  onChatCreated?: (chatId: ChatId) => void
+  chats: StoredChat[]
+  newChatToken: string | null
+  createChat: (title?: string, options?: { activate?: boolean }) => Promise<ChatId>
+  loadMessages: (chatId: ChatId) => Promise<UIMessage[]>
+  saveChatAllMessages: (chatId: ChatId, messages: UIMessage[], isNewChat?: boolean) => Promise<void>
+  onRequestActivateChat?: (chatId: ChatId, tokenAtSend: string) => void
 }
 
 interface AppChatInnerProps extends AppChatProps {
@@ -94,27 +100,51 @@ type ThinkingStep = (StepStartUIPart | ReasoningUIPart | ToolUIPart | DynamicToo
   partIndex: number
 }
 
-const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerProps) => {
+type SaveMessageOptions = {
+  isAbort?: boolean
+  isDisconnect?: boolean
+  isError?: boolean
+  isNewChat?: boolean
+}
+
+interface SessionRuntime {
+  chatId: ChatId
+  chat: AiChat<UIMessage>
+  hydrated: boolean
+  isHydrating: boolean
+  thinkingDurations: Map<MessageId, number>
+  toolDurations: Map<MessageId, Record<string, number>>
+}
+
+const getDraftKey = (chatId: ChatId | null | undefined, newChatToken: string | null | undefined) =>
+  chatId ? `chat:${chatId}` : `new:${newChatToken ?? "default"}`
+
+const AppChatInner = ({
+  activeChatId,
+  chats,
+  newChatToken,
+  createChat,
+  loadMessages,
+  saveChatAllMessages,
+  onRequestActivateChat,
+  sidecarApi
+}: AppChatInnerProps) => {
   const { t } = useTranslation(["common", "chat"])
   const messageConstants = useMessageConstants()
   const toastConstants = useToastConstants()
   const toolButtonConstants = useToolButtonConstants()
   const tooltipConstants = useTooltipConstants()
 
-  // Get available models dynamically
   const { availableModels } = useAvailableModels()
 
-  // Settings from store
   const [selectedModelApiId, setSelectedModelApiId] = useSetting("selectedModelApiId")
   const [useWebSearch, setUseWebSearch] = useSetting("webSearchEnabled")
   const [webSearchMode, setWebSearchMode] = useSetting("webSearchMode")
   const [useDeepThink, setUseDeepThink] = useSetting("deepThinkEnabled")
 
-  // Find the selected model from the api_id
   const selectedModel =
-    availableModels.find(m => m.api_id === selectedModelApiId) || availableModels[0]
+    availableModels.find(m => m.api_id === selectedModelApiId) ?? availableModels[0] ?? null
 
-  // Local UI state (responsive, not persisted)
   const [isCondensed, setIsCondensed] = useState(false)
   const [input, setInput] = useState("")
   const selectedModelRef = useLatest(selectedModel)
@@ -122,45 +152,21 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
   const webSearchModeRef = useLatest(webSearchMode)
   const inputContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<PromptInputTextareaHandle>(null)
-  const thinkingDurationsRef = useRef<Map<MessageId, number>>(new Map())
-  const toolDurationsRef = useRef<Map<MessageId, Record<string, number>>>(new Map())
-  const messagesRef = useRef<UIMessage[]>([])
-  const storedMessageIdsRef = useRef<Set<MessageId>>(new Set())
-  const currentChatIdRef = useRef<ChatId | null>(activeChatId)
+  const activeChatIdRef = useRef<ChatId | null>(activeChatId ?? null)
+  const newChatTokenRef = useRef<string | null>(newChatToken)
+
+  const sessionRuntimesRef = useRef<Map<ChatId, SessionRuntime>>(new Map())
+  const pendingChatByTokenRef = useRef<Map<string, Promise<ChatId>>>(new Map())
+  const draftByKeyRef = useRef<Map<string, string>>(new Map())
+  const hydrationRequestSeqRef = useRef<Map<ChatId, number>>(new Map())
+  const draftChatRef = useRef(new AiChat<UIMessage>({ id: "draft-chat-view", messages: [] }))
 
   const { isCompact, open } = useSidebar()
-  const { createChat, loadMessages, saveChatAllMessages } = useChatStorage()
 
-  const {
-    status,
-    messages,
-    error,
-    clearError,
-    setMessages,
-    sendMessage,
-    addToolApprovalResponse,
-    regenerate,
-    stop
-  } = useChat({
-    transport: new DefaultChatTransport({
-      api: sidecarApi,
-      headers: () => ({
-        "X-Model-Provider": selectedModelRef.current.provider,
-        "X-Model-Id": selectedModelRef.current.api_id,
-        "X-Use-Web-Search": useWebSearchRef.current.toString(),
-        "X-Web-Search-Mode": webSearchModeRef.current,
-        "X-Chat-Id": currentChatIdRef.current || ""
-      })
-    }),
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
-    onFinish: ({ messages, isAbort, isDisconnect, isError }) => {
-      if (isError) {
-        return
-      }
-      saveAllMessagesAsync(messages, { isAbort, isDisconnect, isError })
-    },
-    onError: (error: Error) => {
-      // Check if this is a 401 error (API key not configured)
+  const currentDraftKey = getDraftKey(activeChatId, newChatToken)
+
+  const showChatErrorToast = useCallback(
+    (error: Error) => {
       if (error.message.includes("API_KEY_NOT_CONFIGURED") || error.message.includes("401")) {
         toast.error(toastConstants.error, {
           description: toastConstants.apiKeyNotConfigured,
@@ -175,38 +181,25 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
           description: error.message
         })
       }
-    }
-  })
-
-  const cleanupChatState = useCallback(() => {
-    currentChatIdRef.current = null
-    messagesRef.current = []
-    storedMessageIdsRef.current = new Set()
-    thinkingDurationsRef.current = new Map()
-    toolDurationsRef.current = new Map()
-    setMessages?.([])
-  }, [setMessages])
-
-  const createNewChatAsync = useCallback(
-    async (title?: string): Promise<ChatId> => {
-      const newChatId = await createChat(title)
-      onChatCreated?.(newChatId)
-      return newChatId
     },
-    [createChat, onChatCreated]
+    [t, toastConstants]
   )
 
   const saveAllMessagesAsync = useCallback(
-    async (
-      allMessages: UIMessage[],
-      options?: { isAbort?: boolean; isDisconnect?: boolean; isError?: boolean }
-    ) => {
+    async (chatId: ChatId, allMessages: UIMessage[], options?: SaveMessageOptions) => {
       if (!allMessages || allMessages.length === 0) {
         return
       }
+
+      const runtime = sessionRuntimesRef.current.get(chatId)
+      if (!runtime) {
+        return
+      }
+
       const allMessagesWithMetadata = allMessages.map(msg => {
-        const cachedDuration = thinkingDurationsRef.current.get(msg.id)
-        const cachedToolDurations = toolDurationsRef.current.get(msg.id)
+        const cachedDuration = runtime.thinkingDurations.get(msg.id)
+        const cachedToolDurations = runtime.toolDurations.get(msg.id)
+
         if (cachedDuration !== undefined && msg.role === "assistant") {
           return {
             ...msg,
@@ -217,6 +210,7 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
             }
           }
         }
+
         if (cachedToolDurations && msg.role === "assistant") {
           return {
             ...msg,
@@ -226,146 +220,379 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
             }
           }
         }
+
         return msg
       })
-      let chatId = currentChatIdRef.current
-      if (!chatId) {
-        const title = allMessages[0].parts.find(isTextUIPart)?.text
-        const newChatId = await createNewChatAsync(title)
-        chatId = newChatId
-        currentChatIdRef.current = newChatId
-      }
+
       const lastMessage = allMessagesWithMetadata[allMessagesWithMetadata.length - 1]
       if (
-        lastMessage.role === "assistant" &&
+        lastMessage?.role === "assistant" &&
         (options?.isAbort || options?.isDisconnect || options?.isError)
       ) {
         lastMessage.metadata = {
           ...(lastMessage.metadata || {}),
           ...(options || {})
         }
+
         if (options?.isAbort) {
           if (lastMessage.parts.filter(isTextUIPart).length === 0) {
-            // update text if no parts text
             lastMessage.parts.push({
               type: "text",
               text: messageConstants.abortedMessage
             } as TextUIPart)
           }
-          setMessages?.(allMessagesWithMetadata)
+
+          if (activeChatIdRef.current === chatId) {
+            runtime.chat.messages = allMessagesWithMetadata
+          }
         }
       }
-      await saveChatAllMessages(chatId, allMessagesWithMetadata)
-      for (const msg of allMessages) {
-        storedMessageIdsRef.current.add(msg.id)
+
+      await saveChatAllMessages(chatId, allMessagesWithMetadata, options?.isNewChat ?? false)
+    },
+    [messageConstants.abortedMessage, saveChatAllMessages]
+  )
+
+  const createSessionRuntime = useCallback(
+    (
+      chatId: ChatId,
+      options?: { hydrated?: boolean; initialMessages?: UIMessage[] }
+    ): SessionRuntime => {
+      const runtime: SessionRuntime = {
+        chatId,
+        hydrated: options?.hydrated ?? false,
+        isHydrating: false,
+        thinkingDurations: new Map<MessageId, number>(),
+        toolDurations: new Map<MessageId, Record<string, number>>(),
+        chat: new AiChat<UIMessage>({
+          id: chatId,
+          messages: options?.initialMessages ?? [],
+          transport: new DefaultChatTransport({
+            api: sidecarApi,
+            headers: () => ({
+              "X-Model-Provider": selectedModelRef.current?.provider ?? "",
+              "X-Model-Id": selectedModelRef.current?.api_id ?? "",
+              "X-Use-Web-Search": useWebSearchRef.current.toString(),
+              "X-Web-Search-Mode": webSearchModeRef.current,
+              "X-Chat-Id": chatId
+            })
+          }),
+          sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+          onFinish: ({ messages, isAbort, isDisconnect, isError }) => {
+            if (isError) {
+              return
+            }
+            void saveAllMessagesAsync(chatId, messages, { isAbort, isDisconnect, isError })
+          },
+          onError: showChatErrorToast
+        })
+      }
+
+      return runtime
+    },
+    [
+      saveAllMessagesAsync,
+      selectedModelRef,
+      showChatErrorToast,
+      sidecarApi,
+      useWebSearchRef,
+      webSearchModeRef
+    ]
+  )
+
+  const ensureSessionRuntime = useCallback(
+    (
+      chatId: ChatId,
+      options?: { hydrated?: boolean; initialMessages?: UIMessage[] }
+    ): SessionRuntime => {
+      const existing = sessionRuntimesRef.current.get(chatId)
+      if (existing) {
+        if (options?.hydrated) {
+          existing.hydrated = true
+        }
+        if (options?.initialMessages && existing.chat.messages.length === 0) {
+          existing.chat.messages = options.initialMessages
+        }
+        return existing
+      }
+
+      const runtime = createSessionRuntime(chatId, options)
+      sessionRuntimesRef.current.set(chatId, runtime)
+      return runtime
+    },
+    [createSessionRuntime]
+  )
+
+  const hydrateSessionRuntime = useCallback(
+    async (chatId: ChatId, runtime: SessionRuntime) => {
+      if (runtime.hydrated || runtime.isHydrating) {
+        return
+      }
+
+      runtime.isHydrating = true
+      const nextSeq = (hydrationRequestSeqRef.current.get(chatId) ?? 0) + 1
+      hydrationRequestSeqRef.current.set(chatId, nextSeq)
+
+      try {
+        const loadedMessages = await loadMessages(chatId)
+        const latestSeq = hydrationRequestSeqRef.current.get(chatId)
+        const latestRuntime = sessionRuntimesRef.current.get(chatId)
+
+        if (!latestRuntime || latestSeq !== nextSeq) {
+          return
+        }
+
+        if (
+          latestRuntime.chat.messages.length === 0 ||
+          loadedMessages.length > latestRuntime.chat.messages.length
+        ) {
+          latestRuntime.chat.messages = loadedMessages
+        }
+
+        latestRuntime.hydrated = true
+      } catch (error) {
+        console.error("[AppChat] Failed to load chat messages:", error)
+      } finally {
+        const latestSeq = hydrationRequestSeqRef.current.get(chatId)
+        const latestRuntime = sessionRuntimesRef.current.get(chatId)
+        if (latestRuntime && latestSeq === nextSeq) {
+          latestRuntime.isHydrating = false
+        }
       }
     },
-    [createNewChatAsync, saveChatAllMessages, setMessages, messageConstants.abortedMessage]
+    [loadMessages]
+  )
+
+  const getOrCreateChatForToken = useCallback(
+    async (token: string, firstMessageText?: string): Promise<ChatId> => {
+      const pending = pendingChatByTokenRef.current.get(token)
+      if (pending) {
+        return pending
+      }
+
+      const createPromise = (async () => {
+        const newChatId = await createChat(firstMessageText, { activate: false })
+        ensureSessionRuntime(newChatId, { hydrated: true, initialMessages: [] })
+        return newChatId
+      })()
+
+      pendingChatByTokenRef.current.set(token, createPromise)
+
+      try {
+        return await createPromise
+      } finally {
+        const currentPending = pendingChatByTokenRef.current.get(token)
+        if (currentPending === createPromise) {
+          pendingChatByTokenRef.current.delete(token)
+        }
+      }
+    },
+    [createChat, ensureSessionRuntime]
+  )
+
+  const appendUserMessageAndSend = useCallback(
+    async (runtime: SessionRuntime, messageText: string, files: FileUIPart[]) => {
+      const parts: UIMessage["parts"] = [
+        ...files,
+        ...(messageText ? [{ type: "text", text: messageText } as TextUIPart] : [])
+      ]
+      const isNewChat = runtime.chat.messages.length === 0
+
+      runtime.chat.messages = runtime.chat.messages.concat([
+        {
+          id: nanoid(),
+          role: "user",
+          parts
+        }
+      ])
+
+      await saveAllMessagesAsync(runtime.chatId, runtime.chat.messages, { isNewChat })
+      await runtime.chat.sendMessage()
+    },
+    [saveAllMessagesAsync]
   )
 
   useEffect(() => {
-    const lastMessage = messages[messages.length - 1]
-    if (error && lastMessage?.parts.length === 0) {
-      lastMessage.parts = [
-        {
-          type: "text",
-          text: error?.message
-        } as TextUIPart
-      ]
-      const messagesWithError = messages.slice(0, -1).concat([lastMessage])
-      setMessages(messagesWithError)
-      saveAllMessagesAsync(messagesWithError)
-      clearError()
+    activeChatIdRef.current = activeChatId ?? null
+  }, [activeChatId])
+
+  useEffect(() => {
+    newChatTokenRef.current = newChatToken
+  }, [newChatToken])
+
+  useEffect(() => {
+    const draft = draftByKeyRef.current.get(currentDraftKey) ?? ""
+    setInput(draft)
+  }, [currentDraftKey])
+
+  useEffect(() => {
+    const knownChatIds = new Set(chats.map(chat => chat.id))
+
+    for (const chatId of sessionRuntimesRef.current.keys()) {
+      if (!knownChatIds.has(chatId)) {
+        sessionRuntimesRef.current.delete(chatId)
+        hydrationRequestSeqRef.current.delete(chatId)
+      }
     }
-  }, [error, messages, setMessages, saveAllMessagesAsync, clearError])
+
+    for (const draftKey of draftByKeyRef.current.keys()) {
+      if (!draftKey.startsWith("chat:")) {
+        continue
+      }
+      const chatId = draftKey.slice(5)
+      if (!knownChatIds.has(chatId)) {
+        draftByKeyRef.current.delete(draftKey)
+      }
+    }
+  }, [chats])
+
+  const runtimeForActiveChat = activeChatId ? ensureSessionRuntime(activeChatId) : undefined
+
+  useEffect(() => {
+    if (!activeChatId || !runtimeForActiveChat) {
+      return
+    }
+    void hydrateSessionRuntime(activeChatId, runtimeForActiveChat)
+  }, [activeChatId, hydrateSessionRuntime, runtimeForActiveChat])
+
+  const {
+    status,
+    messages,
+    error,
+    clearError,
+    setMessages,
+    addToolApprovalResponse,
+    regenerate,
+    stop
+  } = useChat({ chat: runtimeForActiveChat?.chat ?? draftChatRef.current })
+
+  useEffect(() => {
+    const runtime = activeChatId ? sessionRuntimesRef.current.get(activeChatId) : null
+    const lastMessage = messages[messages.length - 1]
+
+    if (!runtime || !error || lastMessage?.parts.length !== 0) {
+      return
+    }
+
+    const messagesWithError = messages.slice(0, -1).concat([
+      {
+        ...lastMessage,
+        parts: [
+          {
+            type: "text",
+            text: error.message
+          } as TextUIPart
+        ]
+      }
+    ])
+
+    setMessages(messagesWithError)
+    void saveAllMessagesAsync(runtime.chatId, messagesWithError)
+    clearError()
+  }, [activeChatId, clearError, error, messages, saveAllMessagesAsync, setMessages])
 
   useEffect(() => {
     const el = inputContainerRef.current
-    if (!el) return
+    if (!el) {
+      return
+    }
+
     const observer = new ResizeObserver(([entry]) => {
-      // show only input menu icons without text label, like Web Search
       setIsCondensed(entry.contentRect.width < 448)
     })
+
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
 
-  // Load messages when activeChat changes
-  useEffect(() => {
-    const changeActiveChat = async () => {
-      if (activeChatId) {
-        try {
-          const msgs = await loadMessages(activeChatId)
-          if (
-            activeChatId === currentChatIdRef.current &&
-            messagesRef.current.length >= msgs.length
-          ) {
-            return
-          }
-          messagesRef.current = msgs
-          storedMessageIdsRef.current = new Set(msgs.map(m => m.id))
-          setMessages?.(msgs ?? [])
-        } catch (error) {
-          cleanupChatState()
-          console.error("[AppChat] Failed to load chat messages:", error)
-        } finally {
-          currentChatIdRef.current = activeChatId
-        }
-      } else {
-        // Start a new chat
-        cleanupChatState()
+  const handleInputChange = useCallback(
+    (value: string) => {
+      setInput(value)
+      draftByKeyRef.current.set(currentDraftKey, value)
+    },
+    [currentDraftKey]
+  )
+
+  const handleSubmit = useCallback(
+    async (message: PromptInputMessage) => {
+      const messageText = message.text?.trim() ?? ""
+      const hasText = Boolean(messageText)
+      const hasAttachments = Boolean(message.files?.length)
+
+      if (!(hasText || hasAttachments)) {
+        return
       }
-    }
 
-    changeActiveChat()
-  }, [activeChatId, loadMessages, setMessages, cleanupChatState])
+      if (!availableModels || availableModels.length === 0) {
+        toast.error(t("chat:model.noModelsConfigured"), {
+          description: t("chat:model.pleaseConfigureApiKey"),
+          action: {
+            label: t("chat:model.configureModels"),
+            onClick: () => openSettingsWindow(SettingsSection.PROVIDERS)
+          },
+          duration: 3000
+        })
+        return
+      }
 
-  useEffect(() => {
-    messagesRef.current = messages
-  }, [messages])
+      if (message.files?.length) {
+        toast.success(toastConstants.filesAttached, {
+          description: toastConstants.filesAttachedDescription(message.files.length)
+        })
+      }
 
-  const handleSubmit = (message: PromptInputMessage) => {
-    const messageText = message.text?.trim() ?? ""
-    const hasText = Boolean(messageText)
-    const hasAttachments = Boolean(message.files?.length)
-    if (!(hasText || hasAttachments)) {
-      return
-    }
-    // Check if there are available models
-    if (!availableModels || availableModels.length === 0) {
-      toast.error(t("chat:model.noModelsConfigured"), {
-        description: t("chat:model.pleaseConfigureApiKey"),
-        action: {
-          label: t("chat:model.configureModels"),
-          onClick: () => openSettingsWindow(SettingsSection.PROVIDERS)
-        },
-        duration: 3000
-      })
-      return
-    }
-    if (message.files?.length) {
-      toast.success(toastConstants.filesAttached, {
-        description: toastConstants.filesAttachedDescription(message.files.length)
-      })
-    }
-    if (messageText) {
-      sendMessage({ text: messageText })
-      setInput("")
-      textareaRef.current?.resetHeight()
-    }
-  }
+      const draftKeyAtSubmit = currentDraftKey
+
+      try {
+        let runtime: SessionRuntime
+
+        if (activeChatIdRef.current) {
+          runtime = ensureSessionRuntime(activeChatIdRef.current)
+        } else {
+          const tokenAtSend = newChatTokenRef.current ?? globalThis.crypto.randomUUID()
+          const chatId = await getOrCreateChatForToken(tokenAtSend, messageText)
+          runtime = ensureSessionRuntime(chatId, { hydrated: true })
+          onRequestActivateChat?.(chatId, tokenAtSend)
+        }
+
+        await appendUserMessageAndSend(runtime, messageText, message.files)
+        draftByKeyRef.current.set(draftKeyAtSubmit, "")
+
+        const currentKey = getDraftKey(activeChatIdRef.current, newChatTokenRef.current)
+        if (currentKey === draftKeyAtSubmit) {
+          setInput("")
+          textareaRef.current?.resetHeight()
+        }
+      } catch (sendError) {
+        console.error("[AppChat] Failed to submit message:", sendError)
+      }
+    },
+    [
+      appendUserMessageAndSend,
+      availableModels,
+      currentDraftKey,
+      ensureSessionRuntime,
+      getOrCreateChatForToken,
+      onRequestActivateChat,
+      t,
+      toastConstants
+    ]
+  )
 
   const handleStop = () => {
-    if (isStreaming) {
-      stop()
+    if (status === "streaming") {
+      void stop()
     }
   }
+
+  const activeRuntime = runtimeForActiveChat
+  const thinkingDurations = activeRuntime?.thinkingDurations
+  const toolDurations = activeRuntime?.toolDurations
 
   const isStreaming = status === "streaming"
   const isSubmitDisabled = isStreaming ? false : !input.trim() || status !== "ready"
   const submitTooltip = isStreaming ? tooltipConstants.stop : tooltipConstants.submit
 
-  // Loading before reply from assistant
   const lastMessage = messages[messages.length - 1]
   const isAwaitingAssistantReply =
     (status === "submitted" && lastMessage?.role === "user") ||
@@ -383,7 +610,7 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
           )}
         >
           <SelectModel
-            value={selectedModel}
+            value={selectedModel ?? undefined}
             onChange={model => setSelectedModelApiId(model.api_id)}
           />
         </div>
@@ -424,7 +651,6 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
 
               message.parts.forEach((part, partIndex) => {
                 if (part.type === "step-start") {
-                  // Start a new step
                   if (currentStep.length > 0) {
                     steps.push(currentStep)
                     currentStep = [{ ...part, partIndex }]
@@ -433,7 +659,7 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
                   currentStep.push({ ...part, partIndex })
                 }
               })
-              // Add the last step
+
               if (currentStep.length > 0) {
                 steps.push(currentStep)
               }
@@ -442,10 +668,8 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
                 steps.length > 0 &&
                 steps.some(step => step.some(part => isReasoningUIPart(part) || isToolUIPart(part)))
               const lastStep = currentStep.at(-1)
-              // Check if thinking process is complete (all reasoning and tools are done)
               const isThinkingComplete =
                 lastStep && isReasoningUIPart(lastStep) && lastStep.state !== "streaming"
-              // Collect tool information for detailed container (show as soon as there are tool calls)
               const toolParts = message.parts.filter(isToolUIPart)
               const toolNames = toolParts.map(getToolName)
 
@@ -457,17 +681,18 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
                 <MessageBranch defaultBranch={0} key={message.id}>
                   <MessageBranchContent>
                     <Message from={message.role} key={message.id}>
-                      {/* Thinking Process - organized by steps */}
                       {isAssistantMessage && hasThinkingProcess && (
                         <ThinkingProcess
                           isStreaming={isThinkingStreaming}
                           defaultOpen={isThinkingStreaming}
                           totalDuration={
-                            metadata?.thinkingDuration ??
-                            thinkingDurationsRef.current.get(message.id)
+                            metadata?.thinkingDuration ?? thinkingDurations?.get(message.id)
                           }
                           onTotalDurationChange={duration => {
-                            thinkingDurationsRef.current.set(message.id, duration)
+                            if (!thinkingDurations) {
+                              return
+                            }
+                            thinkingDurations.set(message.id, duration)
                           }}
                         >
                           <ThinkingProcessTrigger />
@@ -491,18 +716,20 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
                         </ThinkingProcess>
                       )}
 
-                      {/* Tool Calls Container - only show after thinking is done */}
                       {isAssistantMessage && hasTools && (
                         <ToolCallsContainer toolCount={toolParts.length}>
                           <ToolCallsContainerTrigger toolNames={toolNames} />
                           <ToolCallsList
                             toolParts={toolParts}
                             toolDurations={
-                              metadata?.toolDurations ?? toolDurationsRef.current.get(message.id)
+                              metadata?.toolDurations ?? toolDurations?.get(message.id)
                             }
                             onToolDurationChange={(toolCallId, duration) => {
-                              const prev = toolDurationsRef.current.get(message.id) ?? {}
-                              toolDurationsRef.current.set(message.id, {
+                              if (!toolDurations) {
+                                return
+                              }
+                              const prev = toolDurations.get(message.id) ?? {}
+                              toolDurations.set(message.id, {
                                 ...prev,
                                 [toolCallId]: duration
                               })
@@ -512,7 +739,6 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
                         </ToolCallsContainer>
                       )}
 
-                      {/* Message content */}
                       <MessageContent>
                         {isUserMessage ? (
                           <div className="whitespace-pre-wrap wrap-break-word">{messageText}</div>
@@ -546,7 +772,7 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
                               /** noop */
                             }}
                             onRefresh={() => {
-                              regenerate({ messageId: message.id })
+                              void regenerate({ messageId: message.id })
                             }}
                             showRefresh={isLastMessage}
                           />
@@ -603,7 +829,7 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
               <PromptInputBody>
                 <PromptInputTextarea
                   ref={textareaRef}
-                  onChange={event => setInput(event.target.value)}
+                  onChange={event => handleInputChange(event.target.value)}
                   value={input}
                 />
               </PromptInputBody>
@@ -689,7 +915,15 @@ const AppChatInner = ({ activeChatId, onChatCreated, sidecarApi }: AppChatInnerP
   )
 }
 
-const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
+const AppChat = ({
+  activeChatId,
+  chats,
+  newChatToken,
+  createChat,
+  loadMessages,
+  saveChatAllMessages,
+  onRequestActivateChat
+}: AppChatProps) => {
   const [sidecarApi, setSidecarApi] = useState<string | null>(null)
   const [sidecarApiError, setSidecarApiError] = useState<string | null>(null)
 
@@ -739,7 +973,12 @@ const AppChat = ({ activeChatId, onChatCreated }: AppChatProps) => {
   return (
     <AppChatInner
       activeChatId={activeChatId}
-      onChatCreated={onChatCreated}
+      chats={chats}
+      newChatToken={newChatToken}
+      createChat={createChat}
+      loadMessages={loadMessages}
+      saveChatAllMessages={saveChatAllMessages}
+      onRequestActivateChat={onRequestActivateChat}
       sidecarApi={sidecarApi}
     />
   )

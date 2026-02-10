@@ -1,4 +1,4 @@
-import { useCallback } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { AppChat } from "@/components/app-chat"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -15,21 +15,47 @@ const handleOpenSettings = () => {
   openSettingsWindow(SettingsSection.GENERAL)
 }
 
+const createNewChatToken = () => globalThis.crypto.randomUUID()
+
 export default function Page() {
-  const { chats, activeChatId, switchChat, loadChats, deleteChat } = useChatStorage()
+  const {
+    chats,
+    activeChatId,
+    switchChat,
+    deleteChat,
+    createChat,
+    loadMessages,
+    saveChatAllMessages
+  } = useChatStorage()
+  const [newChatToken, setNewChatToken] = useState(createNewChatToken)
+  const activeChatIdRef = useRef(activeChatId)
+  const newChatTokenRef = useRef(newChatToken)
+
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId
+  }, [activeChatId])
+
+  useEffect(() => {
+    newChatTokenRef.current = newChatToken
+  }, [newChatToken])
 
   const handleNewChat = useCallback(() => {
     switchChat(null)
+    setNewChatToken(createNewChatToken())
   }, [switchChat])
 
   const handleChatClick = (chatId: ChatId) => {
     switchChat(chatId)
   }
 
-  const handleChatCreated = async (chatId: ChatId) => {
-    await loadChats()
-    switchChat(chatId)
-  }
+  const handleRequestActivateChat = useCallback(
+    (chatId: ChatId, tokenAtSend: string) => {
+      if (activeChatIdRef.current === null && newChatTokenRef.current === tokenAtSend) {
+        switchChat(chatId)
+      }
+    },
+    [switchChat]
+  )
 
   // Handle search history shortcut (Cmd+F)
   const handleSearchHistory = useCallback(() => {
@@ -68,7 +94,15 @@ export default function Page() {
 
       {/* Main content area */}
       <SidebarInset className="overflow-hidden">
-        <AppChat activeChatId={activeChatId} onChatCreated={handleChatCreated} />
+        <AppChat
+          activeChatId={activeChatId}
+          chats={chats}
+          newChatToken={newChatToken}
+          createChat={createChat}
+          loadMessages={loadMessages}
+          saveChatAllMessages={saveChatAllMessages}
+          onRequestActivateChat={handleRequestActivateChat}
+        />
       </SidebarInset>
     </SidebarProvider>
   )

@@ -36,10 +36,11 @@ export function useChatStorage() {
    * Create a new chat
    */
   const createChat = useCallback(
-    async (title?: string): Promise<ChatId> => {
+    async (title?: string, options?: { activate?: boolean }): Promise<ChatId> => {
       try {
         console.log("[ChatStorage] Creating new chat...", title)
         const now = Date.now()
+        const shouldActivate = options?.activate ?? true
         const newChat: Chat = {
           id: nanoid(),
           title: title || "New Chat",
@@ -55,7 +56,9 @@ export function useChatStorage() {
 
         console.log("[ChatStorage] Chat created:", newChat.id)
         await loadChats()
-        setActiveChatId(newChat.id)
+        if (shouldActivate) {
+          setActiveChatId(newChat.id)
+        }
         setError(null)
         return newChat.id
       } catch (err) {

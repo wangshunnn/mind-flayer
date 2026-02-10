@@ -841,7 +841,7 @@ const AppChatInner = ({
                   {/* Add attachments */}
                   <PromptInputActionMenu>
                     <PromptInputActionMenuTrigger />
-                    <PromptInputActionMenuContent>
+                    <PromptInputActionMenuContent align="start">
                       <PromptInputActionAddAttachments />
                     </PromptInputActionMenuContent>
                   </PromptInputActionMenu>

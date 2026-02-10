@@ -31,7 +31,7 @@ function NewChatTrigger({ className, ...props }: React.ComponentProps<typeof But
       <TooltipContent>
         {t("nav.newChat")}
         <KbdGroup className="pl-3">
-          <Kbd>{shortcutKeys.join("")}</Kbd>
+          <Kbd>{shortcutKeys.join(" ")}</Kbd>
         </KbdGroup>
       </TooltipContent>
     </Tooltip>

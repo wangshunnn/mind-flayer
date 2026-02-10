@@ -7,6 +7,7 @@ import {
   SunIcon
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { useTheme } from "@/components/theme-provider"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,14 +23,13 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { useLanguage } from "@/hooks/use-language"
 import { useShortcutDisplay } from "@/hooks/use-shortcut-config"
+import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import { ShortcutAction } from "@/types/settings"
-import { cn } from "../lib/utils"
-import { useTheme } from "./theme-provider"
-import { Kbd, KbdGroup } from "./ui/kbd"
 
 export function NavUser() {
   const { t } = useTranslation(["common", "settings"])
@@ -127,7 +127,7 @@ export function NavUser() {
                 {t("nav.settings")}
                 <DropdownMenuShortcut>
                   <KbdGroup>
-                    <Kbd>{openSettingsKeys.join("")}</Kbd>
+                    <Kbd>{openSettingsKeys.join(" ")}</Kbd>
                   </KbdGroup>
                 </DropdownMenuShortcut>
               </DropdownMenuItem>

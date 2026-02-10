@@ -272,7 +272,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
       <TooltipContent>
         {tooltip}
         <KbdGroup className="pl-3">
-          <Kbd>{shortcutKeys.join("")}</Kbd>
+          <Kbd>{shortcutKeys.join(" ")}</Kbd>
         </KbdGroup>
       </TooltipContent>
     </Tooltip>

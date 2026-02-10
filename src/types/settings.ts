@@ -110,7 +110,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     [ShortcutAction.NEW_CHAT]: {
       id: ShortcutAction.NEW_CHAT,
-      key: "Control+Tab",
+      key: "CommandOrControl+N",
       enabled: true,
       scope: "local"
     }

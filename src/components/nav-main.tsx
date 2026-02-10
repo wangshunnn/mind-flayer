@@ -1,14 +1,19 @@
 import { MessageSquarePlus } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import {
   SidebarGroup,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem
 } from "@/components/ui/sidebar"
+import { useShortcutDisplay } from "@/hooks/use-shortcut-config"
+import { ShortcutAction } from "@/types/settings"
 
 export function NavMain({ onNewChat }: { onNewChat?: () => void }) {
   const { t } = useTranslation("common")
+  const shortcutKeys = useShortcutDisplay(ShortcutAction.NEW_CHAT)
 
   return (
     <SidebarGroup>
@@ -20,6 +25,14 @@ export function NavMain({ onNewChat }: { onNewChat?: () => void }) {
               <span>{t("nav.newChat")}</span>
             </div>
           </SidebarMenuButton>
+
+          <SidebarMenuBadge>
+            <KbdGroup>
+              <Kbd className="bg-transparent text-muted-foreground/60 p-0">
+                {shortcutKeys.join(" ")}
+              </Kbd>
+            </KbdGroup>{" "}
+          </SidebarMenuBadge>
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarGroup>

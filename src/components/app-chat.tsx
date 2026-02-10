@@ -117,8 +117,7 @@ interface SessionRuntime {
   toolDurations: Map<MessageId, Record<string, number>>
 }
 
-const getDraftKey = (chatId: ChatId | null | undefined, newChatToken: string | null | undefined) =>
-  chatId ? `chat:${chatId}` : `new:${newChatToken ?? "default"}`
+const getDraftKey = (chatId: ChatId | null | undefined) => (chatId ? `chat:${chatId}` : "new")
 
 const AppChatInner = ({
   activeChatId,
@@ -165,7 +164,7 @@ const AppChatInner = ({
 
   const { isCompact, open } = useSidebar()
 
-  const currentDraftKey = getDraftKey(activeChatId, newChatToken)
+  const currentDraftKey = getDraftKey(activeChatId)
 
   const showChatErrorToast = useCallback(
     (error: Error) => {
@@ -564,6 +563,16 @@ const AppChatInner = ({
       }
 
       const draftKeyAtSubmit = currentDraftKey
+      const submittedInputText = message.text ?? ""
+
+      // Optimistically clear draft immediately for responsive UX.
+      draftByKeyRef.current.set(draftKeyAtSubmit, "")
+
+      const currentKeyAtSubmit = getDraftKey(activeChatIdRef.current)
+      if (currentKeyAtSubmit === draftKeyAtSubmit) {
+        setInput("")
+        textareaRef.current?.resetHeight()
+      }
 
       try {
         let runtime: SessionRuntime
@@ -578,14 +587,18 @@ const AppChatInner = ({
         }
 
         await appendUserMessageAndSend(runtime, messageText, message.files)
-        draftByKeyRef.current.set(draftKeyAtSubmit, "")
+      } catch (sendError) {
+        const draftForKey = draftByKeyRef.current.get(draftKeyAtSubmit) ?? ""
+        if (!draftForKey) {
+          draftByKeyRef.current.set(draftKeyAtSubmit, submittedInputText)
+        }
 
-        const currentKey = getDraftKey(activeChatIdRef.current, newChatTokenRef.current)
+        const currentKey = getDraftKey(activeChatIdRef.current)
         if (currentKey === draftKeyAtSubmit) {
-          setInput("")
+          setInput(prev => (prev ? prev : submittedInputText))
           textareaRef.current?.resetHeight()
         }
-      } catch (sendError) {
+
         console.error("[AppChat] Failed to submit message:", sendError)
       }
     },

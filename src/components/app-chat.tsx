@@ -90,6 +90,7 @@ interface AppChatProps {
   loadMessages: (chatId: ChatId) => Promise<UIMessage[]>
   saveChatAllMessages: (chatId: ChatId, messages: UIMessage[], isNewChat?: boolean) => Promise<void>
   onRequestActivateChat?: (chatId: ChatId, tokenAtSend: string) => void
+  onChatUnread?: (chatId: ChatId) => void
 }
 
 interface AppChatInnerProps extends AppChatProps {
@@ -127,6 +128,7 @@ const AppChatInner = ({
   loadMessages,
   saveChatAllMessages,
   onRequestActivateChat,
+  onChatUnread,
   sidecarApi
 }: AppChatInnerProps) => {
   const { t } = useTranslation(["common", "chat"])
@@ -282,7 +284,26 @@ const AppChatInner = ({
             if (isError) {
               return
             }
-            void saveAllMessagesAsync(chatId, messages, { isAbort, isDisconnect, isError })
+
+            void (async () => {
+              try {
+                await saveAllMessagesAsync(chatId, messages, { isAbort, isDisconnect, isError })
+
+                const lastMessage = messages.at(-1)
+                const shouldMarkUnread =
+                  !isAbort &&
+                  !isDisconnect &&
+                  !isError &&
+                  lastMessage?.role === "assistant" &&
+                  activeChatIdRef.current !== chatId
+
+                if (shouldMarkUnread) {
+                  onChatUnread?.(chatId)
+                }
+              } catch (error) {
+                console.error("[AppChat] Failed to persist finished messages:", error)
+              }
+            })()
           },
           onError: showChatErrorToast
         })
@@ -294,6 +315,7 @@ const AppChatInner = ({
       saveAllMessagesAsync,
       selectedModelRef,
       showChatErrorToast,
+      onChatUnread,
       sidecarApi,
       useWebSearchRef,
       webSearchModeRef
@@ -922,7 +944,8 @@ const AppChat = ({
   createChat,
   loadMessages,
   saveChatAllMessages,
-  onRequestActivateChat
+  onRequestActivateChat,
+  onChatUnread
 }: AppChatProps) => {
   const [sidecarApi, setSidecarApi] = useState<string | null>(null)
   const [sidecarApiError, setSidecarApiError] = useState<string | null>(null)
@@ -979,6 +1002,7 @@ const AppChat = ({
       loadMessages={loadMessages}
       saveChatAllMessages={saveChatAllMessages}
       onRequestActivateChat={onRequestActivateChat}
+      onChatUnread={onChatUnread}
       sidecarApi={sidecarApi}
     />
   )

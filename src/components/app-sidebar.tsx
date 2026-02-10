@@ -13,12 +13,14 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   onChatClick: (chatId: ChatId) => void
   onDeleteChat: (chatId: ChatId) => Promise<void>
   activeChatId?: ChatId | null
+  unreadChatIds?: ReadonlySet<ChatId>
   onNewChat?: () => void
 }
 
 export function AppSidebar({
   chats,
   activeChatId,
+  unreadChatIds,
   onChatClick,
   onNewChat,
   onDeleteChat,
@@ -46,6 +48,7 @@ export function AppSidebar({
         <NavChats
           chats={chats}
           activeChatId={activeChatId}
+          unreadChatIds={unreadChatIds}
           onChatClick={onChatClick}
           onDeleteChat={handleDeleteChat}
         />

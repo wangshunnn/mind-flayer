@@ -28,6 +28,7 @@ export default function Page() {
     saveChatAllMessages
   } = useChatStorage()
   const [newChatToken, setNewChatToken] = useState(createNewChatToken)
+  const [unreadChatIds, setUnreadChatIds] = useState<Set<ChatId>>(new Set())
   const activeChatIdRef = useRef(activeChatId)
   const newChatTokenRef = useRef(newChatToken)
 
@@ -44,9 +45,31 @@ export default function Page() {
     setNewChatToken(createNewChatToken())
   }, [switchChat])
 
-  const handleChatClick = (chatId: ChatId) => {
-    switchChat(chatId)
-  }
+  const handleChatClick = useCallback(
+    (chatId: ChatId) => {
+      setUnreadChatIds(prev => {
+        if (!prev.has(chatId)) {
+          return prev
+        }
+        const next = new Set(prev)
+        next.delete(chatId)
+        return next
+      })
+      switchChat(chatId)
+    },
+    [switchChat]
+  )
+
+  const handleChatUnread = useCallback((chatId: ChatId) => {
+    setUnreadChatIds(prev => {
+      if (prev.has(chatId)) {
+        return prev
+      }
+      const next = new Set(prev)
+      next.add(chatId)
+      return next
+    })
+  }, [])
 
   const handleRequestActivateChat = useCallback(
     (chatId: ChatId, tokenAtSend: string) => {
@@ -56,6 +79,36 @@ export default function Page() {
     },
     [switchChat]
   )
+
+  useEffect(() => {
+    if (!activeChatId) {
+      return
+    }
+    setUnreadChatIds(prev => {
+      if (!prev.has(activeChatId)) {
+        return prev
+      }
+      const next = new Set(prev)
+      next.delete(activeChatId)
+      return next
+    })
+  }, [activeChatId])
+
+  useEffect(() => {
+    const chatIds = new Set(chats.map(chat => chat.id))
+    setUnreadChatIds(prev => {
+      let changed = false
+      const next = new Set<ChatId>()
+      for (const chatId of prev) {
+        if (chatIds.has(chatId)) {
+          next.add(chatId)
+        } else {
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [chats])
 
   // Handle search history shortcut (Cmd+F)
   const handleSearchHistory = useCallback(() => {
@@ -75,6 +128,7 @@ export default function Page() {
       <AppSidebar
         chats={chats}
         activeChatId={activeChatId}
+        unreadChatIds={unreadChatIds}
         onChatClick={handleChatClick}
         onDeleteChat={deleteChat}
         onNewChat={handleNewChat}
@@ -102,6 +156,7 @@ export default function Page() {
           loadMessages={loadMessages}
           saveChatAllMessages={saveChatAllMessages}
           onRequestActivateChat={handleRequestActivateChat}
+          onChatUnread={handleChatUnread}
         />
       </SidebarInset>
     </SidebarProvider>

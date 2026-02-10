@@ -765,6 +765,7 @@ export type PromptInputTextareaProps = ComponentProps<typeof InputGroupTextarea>
 
 export type PromptInputTextareaHandle = {
   resetHeight: () => void
+  focus: () => void
 }
 
 export const PromptInputTextarea = forwardRef<PromptInputTextareaHandle, PromptInputTextareaProps>(
@@ -904,6 +905,9 @@ export const PromptInputTextarea = forwardRef<PromptInputTextareaHandle, PromptI
           if (textareaRef.current) {
             textareaRef.current.style.height = "auto"
           }
+        },
+        focus: () => {
+          textareaRef.current?.focus()
         }
       }),
       []

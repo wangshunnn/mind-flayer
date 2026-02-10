@@ -165,6 +165,7 @@ const AppChatInner = ({
   const { isCompact, open } = useSidebar()
 
   const currentDraftKey = getDraftKey(activeChatId)
+  const focusTargetKey = activeChatId ?? `new:${newChatToken ?? "default"}`
 
   const showChatErrorToast = useCallback(
     (error: Error) => {
@@ -445,6 +446,17 @@ const AppChatInner = ({
     const draft = draftByKeyRef.current.get(currentDraftKey) ?? ""
     setInput(draft)
   }, [currentDraftKey])
+
+  useEffect(() => {
+    const frameId = requestAnimationFrame(() => {
+      if (!focusTargetKey) {
+        return
+      }
+      textareaRef.current?.focus()
+    })
+
+    return () => cancelAnimationFrame(frameId)
+  }, [focusTargetKey])
 
   useEffect(() => {
     const knownChatIds = new Set(chats.map(chat => chat.id))

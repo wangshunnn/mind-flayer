@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.29.1",
+  "packageManager": "pnpm@10.29.2",
   "description": "A powerful open-source cross-platform desktop AI assistant app.",
   "author": "Soon Wang",
   "license": "MIT",
@@ -110,9 +110,6 @@
       "@ai-sdk/openai": "$@ai-sdk/openai",
       "@ai-sdk/provider": "$@ai-sdk/provider",
       "@ai-sdk/provider-utils": "$@ai-sdk/provider-utils"
-    },
-    "ignoredBuiltDependencies": [
-      "msw"
-    ]
+    }
   }
 }

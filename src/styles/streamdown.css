@@ -29,13 +29,11 @@
 
 /* Custom link appearance */
 [data-streamdown="link"] {
-  /* color: var(--color-brand-green); */
   text-decoration: none;
-  border-bottom: 1px solid oklch(from var(--color-brand-green) l c h / 0.5);
-  transition: border-color 0.2s;
+  border-bottom: 1px dotted oklch(from var(--color-brand-green) l c h / 0.5);
 }
 [data-streamdown="link"]:hover {
-  border-bottom-color: var(--color-brand-green);
+  color: var(--color-brand-green);
 }
 
 .app-chat {

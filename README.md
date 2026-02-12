@@ -48,8 +48,6 @@ pnpm test             # Run all tests (vitest + cargo)
 pnpm build            # Build for production
 ```
 
-> **Note:** more
-
 <br>
 
 ## Tech Stack

@@ -48,8 +48,6 @@ pnpm test             # 运行全部测试（vitest + cargo）
 pnpm build            # 构建生产版本
 ```
 
-> **说明：** more
-
 <br>
 
 ## 技术栈

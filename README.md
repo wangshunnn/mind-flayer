@@ -1,12 +1,10 @@
-<p align="center">> Logo design in progress (PR Welcome)</p>
-
-<h1 align="center">Mind Flayer</h1>
-
-<p align="center">👻 A powerful desktop AI assistant app built with Tauri, React, Vite7, TS and more!</p>
+# 👻 Mind Flayer
 
 <p align="center">
-  English | <a href="README.zh-CN.md">简体中文</a>
+  <img src="src-tauri/icons/256x256.png" width="128" alt="Mind Flayer Logo" />
 </p>
+
+<p align="center">A powerful desktop AI assistant app built with Tauri, React, Vercel AI SDK and more!</p>
 
 <br>
 
@@ -16,54 +14,41 @@
     <img src="https://img.shields.io/badge/Rust-c57c54?logo=rust&logoColor=E34F26">
     <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=fff">
     <img src="https://img.shields.io/badge/React%2019-2C4F7C?logo=react&logoColor=61DAFB">
-    <img src="https://img.shields.io/badge/Tailwind%20CSS-%2338B2AC.svg?logo=tailwind-css&logoColor=white">
+    <img src="https://img.shields.io/badge/Vercel%20AI%20SDK-000000?logo=vercel&logoColor=white">
     <img src="https://img.shields.io/badge/shadcn/ui-000000?logo=shadcnui&logoColor=fff">
+    <img src="https://img.shields.io/badge/Tailwind%20CSS-%2338B2AC.svg?logo=tailwind-css&logoColor=white">
     <img src="https://img.shields.io/badge/Biome-60A5FA?logo=biome&logoColor=fff">
     <img src="https://img.shields.io/badge/Vite7-646CFF?logo=vite&logoColor=fff">
-    <img src="https://img.shields.io/badge/vitest-6E9F18?logo=vitest&logoColor=fff">
+    <img src="https://img.shields.io/badge/Vitest4-6E9F18?logo=vitest&logoColor=fff">
     <img src="https://img.shields.io/badge/pnpm10-F69220?logo=pnpm&logoColor=fff">
     <img src="https://img.shields.io/badge/lefthook-E93d30?logo=lefthook&logoColor=fff">
   </p>
 </div>
+
+<p align="center">
+  English | <a href="README.zh-CN.md">简体中文</a>
+</p>
 
 <br>
 
 ## Screenshots
 
 <p align="center">
-  <img height="400" alt="App Screenshot 1" src="https://github.com/user-attachments/assets/e6ca86e8-c854-4705-88de-130bf2f88051" />
-  <img height="400" alt="App Screenshot 2" src="https://github.com/user-attachments/assets/1e7e3569-17be-4654-b2b3-20407d34871c" />
-
-  <img height="400" alt="App Screenshot 3" src="https://github.com/user-attachments/assets/11ad5a84-cdee-4833-a1f5-c4212033ea25" />
-  <img height="400" alt="App Screenshot 4" src="https://github.com/user-attachments/assets/361c2f13-3758-456f-8fee-ae3b8c7b7630" />
-  <img height="400" alt="App Screenshot 5" src="https://github.com/user-attachments/assets/32815892-2a2f-4902-98e6-ae51d27133ac" />
+  <img height="500" alt="App Screenshot 1" src="preview/img-1.png" />
 </p>
 
 <br>
 
-## Getting Started
-
-### Install Dependencies
+## Development
 
 ```sh
-pnpm install
+pnpm install          # Install all dependencies
+pnpm dev              # Start development (frontend + Tauri)
+pnpm test             # Run all tests (vitest + cargo)
+pnpm build            # Build for production
 ```
 
-### Dev
-
-Start the development server (launches both frontend and Tauri app):
-
-```sh
-pnpm dev
-```
-
-### Build
-
-Build for production:
-
-```sh
-pnpm build
-```
+> **Note:** more
 
 <br>
 

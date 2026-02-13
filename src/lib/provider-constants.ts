@@ -32,6 +32,8 @@ export const MODEL_PROVIDERS: Provider[] = [
     icon: Bot,
     logo: MinimaxIcon,
     models: [
+      { label: "MiniMax M2.5", api_id: "MiniMax-M2.5" },
+      { label: "MiniMax M2.5 lightning", api_id: "MiniMax-M2.5-lightning" },
       { label: "MiniMax M2.1", api_id: "MiniMax-M2.1" },
       { label: "MiniMax M2.1 lightning", api_id: "MiniMax-M2.1-lightning" },
       { label: "MiniMax M2", api_id: "MiniMax-M2" }

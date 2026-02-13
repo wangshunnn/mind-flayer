@@ -316,17 +316,17 @@ export const ToolCallContent = memo(
 // Sub-components for different tool states
 
 export type ToolCallInputStreamingProps = {
-  message?: string
+  description: ReactNode
 }
 
-export const ToolCallInputStreaming = memo(({ message }: ToolCallInputStreamingProps) => {
+export const ToolCallInputStreaming = memo(({ description }: ToolCallInputStreamingProps) => {
   const toolConstants = useToolConstants()
   return (
     <div className="flex items-center gap-2 py-1">
       <Loader2Icon className="size-3.5 animate-spin" />
-      <span className="text-sm text-muted-foreground">
-        {message ?? toolConstants.states.running}
-      </span>
+      <div className="text-sm text-muted-foreground">
+        {description ?? toolConstants.states.running}
+      </div>
     </div>
   )
 })
@@ -350,7 +350,7 @@ export const ToolCallApprovalRequested = memo(
     const actionConstants = useActionConstants()
     return (
       <div className="py-1">
-        <p className="mb-3 text-sm text-muted-foreground">{description}</p>
+        <div className="mb-3 text-sm text-muted-foreground">{description}</div>
         <div className="flex gap-2">
           <Button
             size="sm"
@@ -376,17 +376,45 @@ export const ToolCallApprovalRequested = memo(
   }
 )
 
-export type ToolCallOutputErrorProps = {
-  errorText?: string
+export type BashExecInput = {
+  command?: string
+  args?: string[]
 }
 
-export const ToolCallOutputError = memo(({ errorText }: ToolCallOutputErrorProps) => {
+const formatBashExecCommand = (input?: BashExecInput) =>
+  `${input?.command ?? ""} ${input?.args?.join(" ") ?? ""}`.trim()
+
+export const BashExecCommandLine = ({ input }: { input?: BashExecInput }) => {
+  const command = formatBashExecCommand(input)
+  if (!command) {
+    return null
+  }
+
+  return (
+    <div className="rounded-md border border-border/50 bg-muted/50 px-3 py-2">
+      <div className="flex items-start gap-2">
+        <span className="text-xs text-muted-foreground shrink-0">$</span>
+        <code className="text-xs font-mono text-foreground flex-1">{command}</code>
+      </div>
+    </div>
+  )
+}
+
+export type ToolCallOutputErrorProps = {
+  errorText?: string
+  input?: BashExecInput
+}
+
+export const ToolCallOutputError = memo(({ errorText, input }: ToolCallOutputErrorProps) => {
   const errorConstants = useErrorConstants()
   return (
-    <div className="flex items-center gap-2 py-1">
-      <CircleXIcon className="size-3.5 shrink-0 text-destructive" />
-      <div className="text-sm text-destructive max-h-48 overflow-y-auto">
-        {errorText ?? errorConstants.toolCallError}
+    <div className="space-y-1 py-1">
+      <BashExecCommandLine input={input} />
+      <div className="flex items-center gap-2">
+        <CircleXIcon className="size-3.5 shrink-0 text-destructive" />
+        <div className="text-sm text-destructive max-h-48 overflow-y-auto">
+          {errorText ?? errorConstants.toolCallError}
+        </div>
       </div>
     </div>
   )
@@ -394,15 +422,19 @@ export const ToolCallOutputError = memo(({ errorText }: ToolCallOutputErrorProps
 
 export type ToolCallOutputDeniedProps = {
   message?: string
+  input?: BashExecInput
 }
 
-export const ToolCallOutputDenied = memo(({ message }: ToolCallOutputDeniedProps) => {
+export const ToolCallOutputDenied = memo(({ message, input }: ToolCallOutputDeniedProps) => {
   const errorConstants = useErrorConstants()
   return (
-    <div className="flex items-center gap-2 py-1">
-      <CircleXIcon className="size-3.5 shrink-0 text-destructive" />
-      <div className="text-sm text-destructive max-h-48 overflow-y-auto">
-        {message ?? errorConstants.toolExecutionDenied}
+    <div className="space-y-1 py-1">
+      <BashExecCommandLine input={input} />
+      <div className="flex items-center gap-2">
+        <CircleXIcon className="size-3.5 shrink-0 text-destructive" />
+        <div className="text-sm text-destructive max-h-48 overflow-y-auto">
+          {message ?? errorConstants.toolExecutionDenied}
+        </div>
       </div>
     </div>
   )
@@ -457,24 +489,17 @@ export type BashExecResult = {
 }
 
 export type ToolCallBashExecResultsProps = {
+  input: BashExecInput
   result: BashExecResult
 }
 
-export const ToolCallBashExecResults = memo(({ result }: ToolCallBashExecResultsProps) => {
+export const ToolCallBashExecResults = memo(({ input, result }: ToolCallBashExecResultsProps) => {
   const hasStdout = result.stdout && result.stdout.trim().length > 0
   const hasStderr = result.stderr && result.stderr.trim().length > 0
 
   return (
     <div className="space-y-1">
-      {/* Command line */}
-      <div className="rounded-md border border-border/50 bg-muted/50 px-3 py-2">
-        <div className="flex items-start gap-2">
-          <span className="text-xs text-muted-foreground shrink-0">$</span>
-          <code className="text-xs font-mono text-foreground flex-1">
-            {result.command} {result.args.join(" ")}
-          </code>
-        </div>
-      </div>
+      <BashExecCommandLine input={input} />
 
       {/* Stdout */}
       {hasStdout && (

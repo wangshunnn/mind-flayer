@@ -5,6 +5,8 @@ import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useContext } from "react"
 import { useTranslation } from "react-i18next"
 import {
+  BashExecCommandLine,
+  type BashExecInput,
   type BashExecResult,
   getToolCallStatusBadgeClass,
   ToolCall,
@@ -204,11 +206,11 @@ const ToolCallWebSearch = ({
         {(part.state === "input-streaming" ||
           part.state === "input-available" ||
           part.state === "approval-responded") && (
-          <ToolCallInputStreaming message={input?.objective} />
+          <ToolCallInputStreaming description={input?.objective} />
         )}
         {part.state === "approval-requested" && approvalId && (
           <ToolCallApprovalRequested
-            description={<span>{input?.objective ?? ""}</span>}
+            description={input?.objective ?? ""}
             onApprove={() => onToolApprovalResponse({ id: approvalId, approved: true })}
             onDeny={() => onToolApprovalResponse({ id: approvalId, approved: false })}
           />
@@ -235,10 +237,7 @@ const ToolCallBashExec = ({
   onDurationChange?: (duration: number) => void
 }) => {
   const toolCallId = part.toolCallId
-  const input = part.input as {
-    command: string
-    args: string[]
-  }
+  const input = part.input as BashExecInput
   const output = part.state === "output-available" ? (part.output as BashExecResult) : null
 
   const approvalId = part.approval?.id
@@ -271,24 +270,24 @@ const ToolCallBashExec = ({
         {(part.state === "input-streaming" ||
           part.state === "input-available" ||
           part.state === "approval-responded") && (
-          <ToolCallInputStreaming
-            message={`${input?.command || ""} ${input?.args?.join(" ") || ""}`.trim()}
-          />
+          <ToolCallInputStreaming description={<BashExecCommandLine input={input} />} />
         )}
         {part.state === "approval-requested" && approvalId && (
           <ToolCallApprovalRequested
-            description={
-              <code className="text-xs font-mono">
-                {input?.command || ""} {input?.args?.join(" ") || ""}
-              </code>
-            }
+            description={<BashExecCommandLine input={input} />}
             onApprove={() => onToolApprovalResponse({ id: approvalId, approved: true })}
             onDeny={() => onToolApprovalResponse({ id: approvalId, approved: false })}
           />
         )}
-        {part.state === "output-available" && output && <ToolCallBashExecResults result={output} />}
-        {part.state === "output-error" && <ToolCallOutputError errorText={part.errorText} />}
-        {part.state === "output-denied" && <ToolCallOutputDenied message={part.errorText} />}
+        {part.state === "output-available" && output && (
+          <ToolCallBashExecResults input={input} result={output} />
+        )}
+        {part.state === "output-error" && (
+          <ToolCallOutputError input={input} errorText={part.errorText} />
+        )}
+        {part.state === "output-denied" && (
+          <ToolCallOutputDenied input={input} message={part.errorText} />
+        )}
       </ToolCallContent>
     </ToolCall>
   )

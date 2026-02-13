@@ -42,7 +42,7 @@ export interface AppSettings {
   language: Language
 
   // Model settings
-  selectedModelApiId: string
+  selectedModelApiId?: string
 
   // Provider settings
   enabledProviders: Record<string, boolean>
@@ -62,7 +62,6 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: "system",
   language: "system",
-  selectedModelApiId: "MiniMax-M2.1",
   enabledProviders: {
     minimax: false,
     parallel: false

@@ -23,7 +23,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { useLanguage } from "@/hooks/use-language"
 import { useShortcutDisplay } from "@/hooks/use-shortcut-config"
@@ -35,7 +34,7 @@ export function NavUser() {
   const { t } = useTranslation(["common", "settings"])
   const { theme, setTheme } = useTheme()
   const { language, changeLanguage } = useLanguage()
-  const openSettingsKeys = useShortcutDisplay(ShortcutAction.OPEN_SETTINGS)
+  const shortcutKeys = useShortcutDisplay(ShortcutAction.OPEN_SETTINGS)
 
   return (
     <SidebarMenu>
@@ -125,11 +124,7 @@ export function NavUser() {
               <DropdownMenuItem onClick={() => openSettingsWindow(SettingsSection.GENERAL)}>
                 <Settings />
                 {t("nav.settings")}
-                <DropdownMenuShortcut>
-                  <KbdGroup>
-                    <Kbd>{openSettingsKeys.join(" ")}</Kbd>
-                  </KbdGroup>
-                </DropdownMenuShortcut>
+                <DropdownMenuShortcut>{shortcutKeys.join("")}</DropdownMenuShortcut>
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>

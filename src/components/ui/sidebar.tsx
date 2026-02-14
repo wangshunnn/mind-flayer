@@ -4,6 +4,7 @@ import { PanelLeftIcon } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
+import { CommandShortcut } from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { Separator } from "@/components/ui/separator"
@@ -271,9 +272,11 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
       </TooltipTrigger>
       <TooltipContent>
         {tooltip}
-        <KbdGroup className="pl-3">
-          <Kbd>{shortcutKeys.join(" ")}</Kbd>
-        </KbdGroup>
+        <CommandShortcut>
+          <KbdGroup className="pl-3">
+            <Kbd>{shortcutKeys.join("")}</Kbd>
+          </KbdGroup>
+        </CommandShortcut>
       </TooltipContent>
     </Tooltip>
   )

@@ -1,6 +1,6 @@
 import { MessageSquarePlus } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { Kbd, KbdGroup } from "@/components/ui/kbd"
+import { CommandShortcut } from "@/components/ui/command"
 import {
   SidebarGroup,
   SidebarMenu,
@@ -27,11 +27,9 @@ export function NavMain({ onNewChat }: { onNewChat?: () => void }) {
           </SidebarMenuButton>
 
           <SidebarMenuBadge>
-            <KbdGroup>
-              <Kbd className="bg-transparent text-muted-foreground/60 p-0">
-                {shortcutKeys.join(" ")}
-              </Kbd>
-            </KbdGroup>{" "}
+            <CommandShortcut className="text-muted-foreground/60">
+              {shortcutKeys.join("")}
+            </CommandShortcut>
           </SidebarMenuBadge>
         </SidebarMenuItem>
       </SidebarMenu>

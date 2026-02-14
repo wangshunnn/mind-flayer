@@ -2,6 +2,7 @@ import { MessageSquarePlus } from "lucide-react"
 import type * as React from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
+import { CommandShortcut } from "@/components/ui/command"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useShortcutDisplay } from "@/hooks/use-shortcut-config"
@@ -30,9 +31,11 @@ function NewChatTrigger({ className, ...props }: React.ComponentProps<typeof But
       </TooltipTrigger>
       <TooltipContent>
         {t("nav.newChat")}
-        <KbdGroup className="pl-3">
-          <Kbd>{shortcutKeys.join(" ")}</Kbd>
-        </KbdGroup>
+        <CommandShortcut>
+          <KbdGroup className="pl-3">
+            <Kbd>{shortcutKeys.join("")}</Kbd>
+          </KbdGroup>
+        </CommandShortcut>
       </TooltipContent>
     </Tooltip>
   )

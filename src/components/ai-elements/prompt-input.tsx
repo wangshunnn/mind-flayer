@@ -777,8 +777,8 @@ export const PromptInputTextarea = forwardRef<PromptInputTextareaHandle, PromptI
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const shortcuts = useShortcutConfig()
 
-    // Auto-resize textarea based on content because
-    // `field-sizing-content` is not supported in Tauri :(
+    // Auto-resize textarea based on content
+    // (fallback for platforms where `field-sizing: content` is not supported)
     const adjustHeight = useCallback(() => {
       const textarea = textareaRef.current
       if (!textarea) return
@@ -918,7 +918,7 @@ export const PromptInputTextarea = forwardRef<PromptInputTextareaHandle, PromptI
         ref={textareaRef}
         rows={2}
         className={cn(
-          "field-sizing-content min-h-(--chat-input-line-height) max-h-(--chat-input-max-height)",
+          "field-sizing-content min-h-[calc(var(--chat-input-line-height)*2)] max-h-(--chat-input-max-height)",
           "text-sm leading-(--chat-input-line-height)",
           "p-0 pr-2.5 placeholder:text-chat-input-placeholder",
           "bg-chat-input-bg",

@@ -5,12 +5,27 @@
 
 import { execFile, spawn } from "node:child_process"
 import { homedir } from "node:os"
+import { dirname } from "node:path"
 import { promisify } from "node:util"
 
 const execFileAsync = promisify(execFile)
 
-// Keep PATH restriction consistent across resolution and execution
-const RESTRICTED_PATH = "/usr/bin:/bin:/usr/local/bin"
+// Keep PATH restriction consistent across resolution and execution.
+// Include common system locations plus the current Node runtime bin directory
+// so node/npm/pnpm from nvm/asdf style installs can be resolved.
+const BASE_RESTRICTED_PATH_ENTRIES = [
+  "/usr/bin",
+  "/bin",
+  "/usr/local/bin",
+  "/usr/sbin",
+  "/sbin",
+  "/opt/homebrew/bin",
+  "/opt/homebrew/sbin"
+] as const
+
+const RESTRICTED_PATH = Array.from(
+  new Set([...BASE_RESTRICTED_PATH_ENTRIES, dirname(process.execPath)])
+).join(":")
 
 // Safety constants
 const TIMEOUT_MS = 30000 // 30 seconds

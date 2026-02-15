@@ -21,8 +21,28 @@ describe("Command Validator", () => {
       }
     })
 
+    it("should allow common execution commands with approval", () => {
+      for (const command of [
+        "python3",
+        "python",
+        "tee",
+        "curl",
+        "wget",
+        "git",
+        "ssh",
+        "scp",
+        "ping",
+        "sed",
+        "awk"
+      ]) {
+        const result = validateCommand(command)
+        expect(result.isAllowed).toBe(true)
+        expect(result.requiresApproval).toBe(true)
+      }
+    })
+
     it("should reject commands not in whitelist", () => {
-      const result = validateCommand("curl")
+      const result = validateCommand("kubectl")
       expect(result.isAllowed).toBe(false)
       expect(result.requiresApproval).toBe(false)
       expect(result.reason).toContain("not in the allowed command list")
@@ -38,6 +58,12 @@ describe("Command Validator", () => {
       const result = validateCommand("/usr/local/bin/cat")
       expect(result.isAllowed).toBe(true)
       expect(result.requiresApproval).toBe(false)
+    })
+
+    it("should extract bare dangerous command from path", () => {
+      const result = validateCommand("/usr/bin/python3")
+      expect(result.isAllowed).toBe(true)
+      expect(result.requiresApproval).toBe(true)
     })
   })
 })

@@ -512,7 +512,7 @@ export const ToolCallBashExecResults = memo(({ input, result }: ToolCallBashExec
       )}
 
       {/* Stderr */}
-      {hasStderr && (
+      {hasStderr && !hasStdout && (
         <div className="space-y-1">
           {/* <div className="text-xs text-muted-foreground">Error output:</div> */}
           <pre className="scrollbar-thin rounded-md border border-destructive/50 bg-destructive/5 px-3 py-3 text-xs font-mono text-destructive overflow-x-auto max-h-48 overflow-y-auto">

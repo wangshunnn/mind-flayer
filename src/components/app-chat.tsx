@@ -885,6 +885,10 @@ const AppChatInner = ({
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
+      if (status !== "ready") {
+        throw new Error("CHAT_NOT_READY")
+      }
+
       const messageText = message.text?.trim() ?? ""
       const hasText = Boolean(messageText)
       const hasAttachments = Boolean(message.files?.length)
@@ -960,6 +964,7 @@ const AppChatInner = ({
       ensureSessionRuntime,
       getOrCreateChatForToken,
       onRequestActivateChat,
+      status,
       startPendingPin,
       t,
       toastConstants

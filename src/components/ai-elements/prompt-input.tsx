@@ -834,16 +834,21 @@ export const PromptInputTextarea = forwardRef<PromptInputTextareaHandle, PromptI
         if (sendShortcut.enabled && matchesShortcut(e.nativeEvent, sendShortcut.key)) {
           e.preventDefault()
 
-          // Check if the submit button is disabled before submitting
           const form = e.currentTarget.form
-          const submitButton = form?.querySelector(
-            'button[type="submit"]'
-          ) as HTMLButtonElement | null
-          if (submitButton?.disabled) {
+          if (!form) {
             return
           }
 
-          form?.requestSubmit()
+          // Require an enabled submit button. This prevents Enter from bypassing
+          // custom non-submit buttons (e.g., streaming "stop" state).
+          const submitButton = form.querySelector(
+            'button[type="submit"]'
+          ) as HTMLButtonElement | null
+          if (!submitButton || submitButton.disabled) {
+            return
+          }
+
+          form.requestSubmit(submitButton)
         }
       }
 

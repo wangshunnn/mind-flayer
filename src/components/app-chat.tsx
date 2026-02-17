@@ -141,7 +141,14 @@ const TOP_PIN_OFFSET = 0
 const EPSILON = 1
 const PENDING_TIMEOUT_MS = 500
 const MAX_PENDING_FRAMES = 30
-const SEND_SCROLL_ANIMATION = "smooth"
+// Keep send-scroll behavior aligned with use-stick-to-bottom's default spring profile.
+const SEND_SCROLL_ANIMATION = {
+  damping: 0.7,
+  stiffness: 0.05,
+  mass: 1.25
+} as const
+// Extra hold time for scrollToBottom to keep following during late layout updates.
+const RETAIN_ANIMATION_DURATION_MS = 350
 
 const AppChatInner = ({
   activeChatId,
@@ -172,12 +179,12 @@ const AppChatInner = ({
 
   const [isCondensed, setIsCondensed] = useState(false)
   const [input, setInput] = useState("")
-  const [topPinSpacerHeight, setTopPinSpacerHeight] = useState(0)
   const selectedModelRef = useLatest(selectedModel)
   const useWebSearchRef = useLatest(useWebSearch)
   const webSearchModeRef = useLatest(webSearchMode)
   const inputContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<PromptInputTextareaHandle>(null)
+  const spacerElementRef = useRef<HTMLDivElement>(null)
   const activeChatIdRef = useRef<ChatId | null>(activeChatId ?? null)
   const newChatTokenRef = useRef<string | null>(newChatToken)
   const conversationContextRef = useRef<StickToBottomContext | null>(null)
@@ -188,6 +195,9 @@ const AppChatInner = ({
   const hydrationRequestSeqRef = useRef<Map<ChatId, number>>(new Map())
   const draftChatRef = useRef(new AiChat<UIMessage>({ id: "draft-chat-view", messages: [] }))
   const messageNodeByIdRef = useRef<Map<MessageId, HTMLDivElement>>(new Map())
+  const messageNodeRefCallbacksRef = useRef<Map<MessageId, (node: HTMLDivElement | null) => void>>(
+    new Map()
+  )
   const pendingPinRef = useRef<PendingPin | null>(null)
   const pinSessionRef = useRef<PinSession | null>(null)
   const spacerHeightRef = useRef(0)
@@ -222,8 +232,13 @@ const AppChatInner = ({
 
   const setSpacerHeight = useCallback((nextHeight: number) => {
     const safeHeight = Math.max(0, nextHeight)
+    if (Math.abs(spacerHeightRef.current - safeHeight) <= EPSILON) {
+      return
+    }
     spacerHeightRef.current = safeHeight
-    setTopPinSpacerHeight(prev => (Math.abs(prev - safeHeight) <= EPSILON ? prev : safeHeight))
+    if (spacerElementRef.current) {
+      spacerElementRef.current.style.height = `${safeHeight}px`
+    }
   }, [])
 
   const clearPendingPin = useCallback(() => {
@@ -279,10 +294,6 @@ const AppChatInner = ({
     }
     context.targetScrollTop = null
     setSpacerHeight(0)
-    void context.scrollToBottom({
-      animation: SEND_SCROLL_ANIMATION,
-      ignoreEscapes: true
-    })
   }, [setSpacerHeight])
 
   const scheduleRecalculateTopPinSpacer = useCallback(() => {
@@ -384,6 +395,7 @@ const AppChatInner = ({
         if (latestPendingPin.scrollBehavior === "smooth") {
           void latestContext.scrollToBottom({
             animation: SEND_SCROLL_ANIMATION,
+            duration: RETAIN_ANIMATION_DURATION_MS,
             ignoreEscapes: true
           })
         } else {
@@ -423,9 +435,9 @@ const AppChatInner = ({
     [attemptPendingPin, clearPendingPin, clearPinSession]
   )
 
-  const setMessageNodeRef = useCallback(
-    (messageId: MessageId, role: UIMessage["role"], node: HTMLDivElement | null) => {
-      if (node && role === "user") {
+  const setUserMessageNodeRef = useCallback(
+    (messageId: MessageId, node: HTMLDivElement | null) => {
+      if (node) {
         messageNodeByIdRef.current.set(messageId, node)
       } else {
         messageNodeByIdRef.current.delete(messageId)
@@ -436,6 +448,26 @@ const AppChatInner = ({
       }
     },
     [attemptPendingPin]
+  )
+
+  const getMessageNodeRef = useCallback(
+    (messageId: MessageId, role: UIMessage["role"]) => {
+      if (role !== "user") {
+        return undefined
+      }
+
+      const existing = messageNodeRefCallbacksRef.current.get(messageId)
+      if (existing) {
+        return existing
+      }
+
+      const callback = (node: HTMLDivElement | null) => {
+        setUserMessageNodeRef(messageId, node)
+      }
+      messageNodeRefCallbacksRef.current.set(messageId, callback)
+      return callback
+    },
+    [setUserMessageNodeRef]
   )
 
   const saveAllMessagesAsync = useCallback(
@@ -700,6 +732,7 @@ const AppChatInner = ({
   useEffect(() => {
     const currentChatId = activeChatId ?? null
     messageNodeByIdRef.current.clear()
+    messageNodeRefCallbacksRef.current.clear()
 
     const pendingPin = pendingPinRef.current
     if (pendingPin && pendingPin.chatId !== currentChatId) {
@@ -716,6 +749,8 @@ const AppChatInner = ({
     () => () => {
       clearPendingPin()
       clearPinSession()
+      messageNodeByIdRef.current.clear()
+      messageNodeRefCallbacksRef.current.clear()
       if (recalcFrameRef.current !== null) {
         cancelAnimationFrame(recalcFrameRef.current)
         recalcFrameRef.current = null
@@ -739,6 +774,13 @@ const AppChatInner = ({
 
     return () => cancelAnimationFrame(frameId)
   }, [focusTargetKey])
+
+  useEffect(() => {
+    if (!spacerElementRef.current) {
+      return
+    }
+    spacerElementRef.current.style.height = `${spacerHeightRef.current}px`
+  }, [])
 
   useEffect(() => {
     const knownChatIds = new Set(chats.map(chat => chat.id))
@@ -1075,7 +1117,7 @@ const AppChatInner = ({
                     <Message
                       from={message.role}
                       key={message.id}
-                      ref={node => setMessageNodeRef(message.id, message.role, node)}
+                      ref={getMessageNodeRef(message.id, message.role)}
                     >
                       {isAssistantMessage && hasThinkingProcess && (
                         <ThinkingProcess
@@ -1193,13 +1235,12 @@ const AppChatInner = ({
               </MessageBranch>
             )}
 
-            {topPinSpacerHeight > 0 && (
-              <div
-                aria-hidden="true"
-                className="w-full pointer-events-none"
-                style={{ height: `${topPinSpacerHeight}px` }}
-              />
-            )}
+            <div
+              aria-hidden="true"
+              className="w-full pointer-events-none"
+              ref={spacerElementRef}
+              style={{ height: "0px" }}
+            />
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>

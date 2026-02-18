@@ -32,6 +32,7 @@
     "selectModel": "Select Model",
     "switchModel": "Switch Model",
     "configureModels": "Configure Models",
+    "moreModels": "More Models",
     "loadingModels": "Loading models...",
     "noModelsAvailable": "No models available",
     "noModelsConfigured": "No models available",

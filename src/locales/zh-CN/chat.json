@@ -31,6 +31,7 @@
     "selectModel": "选择模型",
     "switchModel": "切换模型",
     "configureModels": "配置模型",
+    "moreModels": "更多模型",
     "loadingModels": "加载模型中...",
     "noModelsAvailable": "暂无可用模型",
     "noModelsConfigured": "暂无可用模型",

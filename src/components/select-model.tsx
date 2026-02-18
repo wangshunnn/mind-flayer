@@ -107,7 +107,7 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
             ))
           )}
           <DropdownMenuItem onClick={() => openSettingsWindow(SettingsSection.PROVIDERS)}>
-            <span>{t("model.configureModels")}</span>
+            <span>{t("model.moreModels")}</span>
             <ArrowRightIcon className="size-4" />
           </DropdownMenuItem>
         </DropdownMenuGroup>

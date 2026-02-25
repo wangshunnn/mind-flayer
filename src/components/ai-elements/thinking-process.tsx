@@ -18,7 +18,7 @@ import {
   WrenchIcon
 } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
-import { createContext, memo, useContext, useEffect, useRef, useState } from "react"
+import { createContext, memo, useContext } from "react"
 import { useTranslation } from "react-i18next"
 import { Streamdown } from "streamdown"
 import { Shimmer } from "@/components/ai-elements/shimmer"
@@ -57,8 +57,6 @@ export type ThinkingProcessProps = ComponentProps<typeof Collapsible> & {
   totalDuration?: number
 }
 
-const AUTO_CLOSE_DELAY = 1000
-
 export const ThinkingProcess = memo(
   ({
     className,
@@ -71,7 +69,6 @@ export const ThinkingProcess = memo(
     ...props
   }: ThinkingProcessProps) => {
     // Store the initial defaultOpen value to determine if this component should auto-close
-    const initialDefaultOpen = useRef(defaultOpen)
 
     const [isOpen, setIsOpen] = useControllableState({
       prop: open,
@@ -81,21 +78,6 @@ export const ThinkingProcess = memo(
 
     // For totalDuration, just use the prop from runtime
     const totalDuration = totalDurationProp
-
-    const [hasAutoClosed, setHasAutoClosed] = useState(false)
-
-    // Auto-close when streaming ends (only if it was initially set to defaultOpen=true)
-    useEffect(() => {
-      if (initialDefaultOpen.current && !isStreaming && isOpen && !hasAutoClosed) {
-        // Add a small delay before closing to allow user to see the content
-        const timer = setTimeout(() => {
-          setIsOpen(false)
-          setHasAutoClosed(true)
-        }, AUTO_CLOSE_DELAY)
-
-        return () => clearTimeout(timer)
-      }
-    }, [isStreaming, isOpen, setIsOpen, hasAutoClosed])
 
     const handleOpenChange = (newOpen: boolean) => {
       setIsOpen(newOpen)

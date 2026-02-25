@@ -53,6 +53,7 @@ import {
   type PromptInputTextareaHandle,
   PromptInputTools
 } from "@/components/ai-elements/prompt-input"
+import { Shimmer } from "@/components/ai-elements/shimmer"
 import {
   ReasoningPart,
   ThinkingProcess,
@@ -1241,8 +1242,17 @@ const AppChatInner = ({
                                 ))
                             )}
 
-                            {isThinkingComplete && (
+                            {isThinkingComplete ? (
                               <ThinkingProcessCompletion stepCount={steps.length} />
+                            ) : (
+                              <div className="relative my-0">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground relative my-2">
+                                  <CircleIcon className="ml-1 size-1.5 text-muted-foreground/80 fill-current" />
+                                  <Shimmer duration={1}>
+                                    {t("chat:message.thinkingInProgress")}
+                                  </Shimmer>
+                                </div>
+                              </div>
                             )}
                           </ThinkingProcessContent>
                         </ThinkingProcess>

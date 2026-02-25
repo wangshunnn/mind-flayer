@@ -2,6 +2,7 @@
   "message": {
     "aborted": "生成已暂停。",
     "thinking": "思考中...",
+    "thinkingInProgress": "思考中",
     "thoughtForSeconds": "思考了 {{duration}} 秒",
     "thoughtForFewSeconds": "思考了几秒钟",
     "for": "用时",

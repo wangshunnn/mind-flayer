@@ -2,6 +2,7 @@
   "message": {
     "aborted": "Generation paused.",
     "thinking": "Thinking...",
+    "thinkingInProgress": "Thinking",
     "thoughtForSeconds": "Thought for {{duration}}s",
     "thoughtForFewSeconds": "Thought for a few seconds",
     "for": "for",

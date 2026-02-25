@@ -3,6 +3,7 @@ import {
   CheckIcon,
   ChevronRightIcon,
   CircleXIcon,
+  CopyIcon,
   GlobeIcon,
   Loader2Icon,
   TerminalIcon,
@@ -11,7 +12,7 @@ import {
   XIcon
 } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
-import { createContext, memo, useContext, useEffect, useRef, useState } from "react"
+import { createContext, memo, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Streamdown } from "streamdown"
 import { Shimmer } from "@/components/ai-elements/shimmer"
@@ -386,6 +387,15 @@ const formatBashExecCommand = (input?: BashExecInput) =>
 
 export const BashExecCommandLine = ({ input }: { input?: BashExecInput }) => {
   const command = formatBashExecCommand(input)
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = useCallback(() => {
+    if (!command) return
+    navigator.clipboard.writeText(command)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }, [command])
+
   if (!command) {
     return null
   }
@@ -394,7 +404,14 @@ export const BashExecCommandLine = ({ input }: { input?: BashExecInput }) => {
     <div className="rounded-md border border-border/50 bg-muted/50 px-3 py-2">
       <div className="flex items-start gap-2">
         <span className="text-xs text-muted-foreground shrink-0">$</span>
-        <code className="text-xs font-mono text-foreground flex-1">{command}</code>
+        <code className="text-xs font-mono text-foreground flex-1 break-all">{command}</code>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="shrink-0 text-muted-foreground/50 hover:text-foreground transition-colors"
+        >
+          {copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
+        </button>
       </div>
     </div>
   )

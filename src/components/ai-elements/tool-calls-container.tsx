@@ -156,19 +156,16 @@ export type ToolCallsListProps = {
   toolParts: (ToolUIPart | DynamicToolUIPart)[]
   onToolApprovalResponse: ChatAddToolApproveResponseFunction
   toolDurations?: Record<string, number>
-  onToolDurationChange?: (toolCallId: string, duration: number) => void
 }
 
 const ToolCallWebSearch = ({
   part,
   onToolApprovalResponse,
-  duration,
-  onDurationChange
+  duration
 }: {
   part: ToolUIPart
   onToolApprovalResponse: ToolCallsListProps["onToolApprovalResponse"]
   duration?: number
-  onDurationChange?: (duration: number) => void
 }) => {
   const toolCallId = part.toolCallId
   const input = part.input as {
@@ -197,7 +194,6 @@ const ToolCallWebSearch = ({
       toolName="webSearch"
       state={part.state}
       duration={duration}
-      onToolDurationChange={onDurationChange}
       resultCount={output?.totalResults}
       defaultOpen={part.state === "input-streaming"}
     >
@@ -228,13 +224,11 @@ const ToolCallWebSearch = ({
 const ToolCallBashExec = ({
   part,
   onToolApprovalResponse,
-  duration,
-  onDurationChange
+  duration
 }: {
   part: ToolUIPart
   onToolApprovalResponse: ToolCallsListProps["onToolApprovalResponse"]
   duration?: number
-  onDurationChange?: (duration: number) => void
 }) => {
   const toolCallId = part.toolCallId
   const input = part.input as BashExecInput
@@ -248,7 +242,6 @@ const ToolCallBashExec = ({
       toolName="bashExecution"
       state={part.state}
       duration={duration}
-      onToolDurationChange={onDurationChange}
       defaultOpen={part.state === "input-streaming"}
     >
       <ToolCallTrigger
@@ -294,18 +287,10 @@ const ToolCallBashExec = ({
 }
 
 export const ToolCallsList = memo(
-  ({
-    toolParts,
-    onToolApprovalResponse,
-    toolDurations,
-    onToolDurationChange
-  }: ToolCallsListProps) => (
+  ({ toolParts, onToolApprovalResponse, toolDurations }: ToolCallsListProps) => (
     <ToolCallsContainerContent>
       {toolParts.map(part => {
         const duration = toolDurations?.[part.toolCallId]
-        const handleDurationChange = (nextDuration: number) => {
-          onToolDurationChange?.(part.toolCallId, nextDuration)
-        }
 
         if (part.type === "tool-webSearch") {
           return (
@@ -313,7 +298,6 @@ export const ToolCallsList = memo(
               key={part.toolCallId}
               part={part}
               duration={duration}
-              onDurationChange={handleDurationChange}
               onToolApprovalResponse={onToolApprovalResponse}
             />
           )
@@ -325,7 +309,6 @@ export const ToolCallsList = memo(
               key={part.toolCallId}
               part={part}
               duration={duration}
-              onDurationChange={handleDurationChange}
               onToolApprovalResponse={onToolApprovalResponse}
             />
           )

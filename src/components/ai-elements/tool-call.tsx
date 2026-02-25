@@ -12,7 +12,7 @@ import {
   XIcon
 } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
-import { createContext, memo, useCallback, useContext, useEffect, useRef, useState } from "react"
+import { createContext, memo, useCallback, useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Streamdown } from "streamdown"
 import { Shimmer } from "@/components/ai-elements/shimmer"
@@ -54,7 +54,6 @@ export type ToolCallProps = ComponentProps<typeof Collapsible> & {
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
   duration?: number
-  onToolDurationChange?: (duration: number) => void
   toolName: string
   resultCount?: number
   state: ToolCallState
@@ -62,7 +61,6 @@ export type ToolCallProps = ComponentProps<typeof Collapsible> & {
 
 const MS_IN_S = 1000
 const FINAL_STATES: ToolCallState[] = ["output-available", "output-error", "output-denied"]
-const ACTIVE_STATES: ToolCallState[] = ["input-streaming", "input-available", "approval-responded"]
 const TOOL_CALL_STATUS_BADGE_BASE =
   "inline-flex items-center rounded-full ml-1.5 px-2 py-1 text-[10px] min-w-max"
 const TOOL_CALL_STATUS_BADGE_VARIANTS = {
@@ -89,7 +87,6 @@ export const ToolCall = memo(
     defaultOpen = false,
     onOpenChange,
     duration: durationProp,
-    onToolDurationChange,
     toolName,
     resultCount,
     state,
@@ -101,50 +98,6 @@ export const ToolCall = memo(
       defaultProp: defaultOpen,
       onChange: onOpenChange
     })
-    const [duration, setDuration] = useState<number | undefined>(durationProp)
-    const startTimeRef = useRef<number | null>(null)
-    const prevStateRef = useRef<ToolCallState>(state)
-
-    // Track duration from execution start until terminal output state.
-    useEffect(() => {
-      const prevState = prevStateRef.current
-      const isFinalState = FINAL_STATES.includes(state)
-      const isActiveState = ACTIVE_STATES.includes(state)
-      const approvedNow = prevState === "approval-requested" && state === "approval-responded"
-
-      if (!isFinalState && (approvedNow || (isActiveState && startTimeRef.current === null))) {
-        startTimeRef.current = Date.now()
-      }
-
-      if (
-        (state === "output-available" || state === "output-error") &&
-        startTimeRef.current !== null
-      ) {
-        const calculatedDuration =
-          Math.round(((Date.now() - startTimeRef.current) / MS_IN_S) * 10) / 10
-        setDuration(calculatedDuration)
-        startTimeRef.current = null
-      }
-
-      if (state === "output-denied") {
-        startTimeRef.current = null
-      }
-
-      prevStateRef.current = state
-    }, [state])
-
-    // Update duration if prop changes
-    useEffect(() => {
-      if (durationProp !== undefined) {
-        setDuration(durationProp)
-      }
-    }, [durationProp])
-
-    useEffect(() => {
-      if (duration !== undefined) {
-        onToolDurationChange?.(duration)
-      }
-    }, [duration, onToolDurationChange])
 
     const handleOpenChange = (newOpen: boolean) => {
       setIsOpen(newOpen)
@@ -152,7 +105,7 @@ export const ToolCall = memo(
 
     return (
       <ToolCallContext.Provider
-        value={{ isOpen, setIsOpen, duration, toolName, resultCount, state }}
+        value={{ isOpen, setIsOpen, duration: durationProp, toolName, resultCount, state }}
       >
         <div className={cn("rounded-lg border border-border/50 bg-muted/30 p-3", className)}>
           <Collapsible

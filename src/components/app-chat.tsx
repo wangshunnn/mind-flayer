@@ -133,6 +133,7 @@ interface SessionRuntime {
   isHydrating: boolean
   thinkingDurations: Map<MessageId, number>
   toolDurations: Map<MessageId, Record<string, number>>
+  cleanup?: () => void
 }
 
 const getDraftKey = (chatId: ChatId | null | undefined) => (chatId ? `chat:${chatId}` : "new")
@@ -592,6 +593,101 @@ const AppChatInner = ({
         })
       }
 
+      // Track thinking/tool durations at the runtime level so background chats
+      // (not rendered) still get accurate duration measurements.
+      const thinkingStartTimes = new Map<MessageId, number>()
+      const toolStartTimes = new Map<string, number>()
+      let prevIsThinking = false
+      let prevLastMsgId: string | null = null
+      const prevToolStates = new Map<string, string>()
+
+      const unsubscribeMessages = runtime.chat["~registerMessagesCallback"](() => {
+        const msgs = runtime.chat.messages
+        const chatStatus = runtime.chat.status
+        const lastMsg = msgs[msgs.length - 1]
+
+        if (!lastMsg || lastMsg.role !== "assistant") {
+          // Reset tracking when there's no assistant message
+          if (prevIsThinking) {
+            prevIsThinking = false
+          }
+          return
+        }
+
+        // Reset tracking when the assistant message changes
+        if (prevLastMsgId !== null && prevLastMsgId !== lastMsg.id) {
+          prevIsThinking = false
+          prevToolStates.clear()
+        }
+        prevLastMsgId = lastMsg.id
+
+        // --- Thinking duration tracking ---
+        const isStreaming = chatStatus === "streaming"
+        const lastPart = lastMsg.parts[lastMsg.parts.length - 1]
+        const isThinking =
+          isStreaming &&
+          lastPart != null &&
+          (lastPart.type === "step-start" || isReasoningUIPart(lastPart) || isToolUIPart(lastPart))
+
+        if (isThinking && !prevIsThinking) {
+          if (!thinkingStartTimes.has(lastMsg.id)) {
+            thinkingStartTimes.set(lastMsg.id, Date.now())
+          }
+        } else if (!isThinking && prevIsThinking && thinkingStartTimes.has(lastMsg.id)) {
+          const startTime = thinkingStartTimes.get(lastMsg.id)
+          if (startTime !== undefined) {
+            const durationS = Math.round(((Date.now() - startTime) / 1000) * 10) / 10
+            runtime.thinkingDurations.set(lastMsg.id, durationS)
+          }
+          thinkingStartTimes.delete(lastMsg.id)
+        }
+        prevIsThinking = !!isThinking
+
+        // --- Tool duration tracking ---
+        for (const part of lastMsg.parts) {
+          if (!isToolUIPart(part)) {
+            continue
+          }
+          const { toolCallId, state } = part
+          const prevState = prevToolStates.get(toolCallId)
+
+          const isActive =
+            state === "input-streaming" ||
+            state === "input-available" ||
+            state === "approval-responded"
+
+          if (isActive && !toolStartTimes.has(toolCallId)) {
+            toolStartTimes.set(toolCallId, Date.now())
+          }
+
+          if (
+            (state === "output-available" || state === "output-error") &&
+            toolStartTimes.has(toolCallId)
+          ) {
+            const startTime = toolStartTimes.get(toolCallId)
+            if (startTime !== undefined) {
+              const durationS = Math.round(((Date.now() - startTime) / 1000) * 10) / 10
+              const prev = runtime.toolDurations.get(lastMsg.id) ?? {}
+              runtime.toolDurations.set(lastMsg.id, { ...prev, [toolCallId]: durationS })
+            }
+            toolStartTimes.delete(toolCallId)
+          }
+
+          if (state === "output-denied") {
+            toolStartTimes.delete(toolCallId)
+          }
+
+          prevToolStates.set(toolCallId, prevState ?? state)
+        }
+      })
+
+      runtime.cleanup = () => {
+        unsubscribeMessages()
+        thinkingStartTimes.clear()
+        toolStartTimes.clear()
+        prevToolStates.clear()
+      }
+
       return runtime
     },
     [
@@ -755,6 +851,9 @@ const AppChatInner = ({
         cancelAnimationFrame(recalcFrameRef.current)
         recalcFrameRef.current = null
       }
+      for (const runtime of sessionRuntimesRef.current.values()) {
+        runtime.cleanup?.()
+      }
     },
     [clearPendingPin, clearPinSession]
   )
@@ -787,6 +886,7 @@ const AppChatInner = ({
 
     for (const chatId of sessionRuntimesRef.current.keys()) {
       if (!knownChatIds.has(chatId)) {
+        sessionRuntimesRef.current.get(chatId)?.cleanup?.()
         sessionRuntimesRef.current.delete(chatId)
         hydrationRequestSeqRef.current.delete(chatId)
       }
@@ -1126,12 +1226,6 @@ const AppChatInner = ({
                           totalDuration={
                             metadata?.thinkingDuration ?? thinkingDurations?.get(message.id)
                           }
-                          onTotalDurationChange={duration => {
-                            if (!thinkingDurations) {
-                              return
-                            }
-                            thinkingDurations.set(message.id, duration)
-                          }}
                         >
                           <ThinkingProcessTrigger />
                           <ThinkingProcessContent>
@@ -1162,16 +1256,6 @@ const AppChatInner = ({
                             toolDurations={
                               metadata?.toolDurations ?? toolDurations?.get(message.id)
                             }
-                            onToolDurationChange={(toolCallId, duration) => {
-                              if (!toolDurations) {
-                                return
-                              }
-                              const prev = toolDurations.get(message.id) ?? {}
-                              toolDurations.set(message.id, {
-                                ...prev,
-                                [toolCallId]: duration
-                              })
-                            }}
                             onToolApprovalResponse={addToolApprovalResponse}
                           />
                         </ToolCallsContainer>

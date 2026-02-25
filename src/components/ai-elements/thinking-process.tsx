@@ -55,7 +55,6 @@ export type ThinkingProcessProps = ComponentProps<typeof Collapsible> & {
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
   totalDuration?: number
-  onTotalDurationChange?: (duration: number) => void
 }
 
 const AUTO_CLOSE_DELAY = 1000
@@ -65,10 +64,9 @@ export const ThinkingProcess = memo(
     className,
     isStreaming = false,
     open,
-    defaultOpen = true,
+    defaultOpen = false,
     onOpenChange,
     totalDuration: totalDurationProp,
-    onTotalDurationChange,
     children,
     ...props
   }: ThinkingProcessProps) => {
@@ -81,29 +79,10 @@ export const ThinkingProcess = memo(
       onChange: onOpenChange
     })
 
-    // For totalDuration, use state directly since we need to track both prop and internal state
-    const [internalDuration, setInternalDuration] = useState<number | undefined>(totalDurationProp)
-
-    // Use prop if provided, otherwise use internal state
-    const totalDuration = totalDurationProp !== undefined ? totalDurationProp : internalDuration
+    // For totalDuration, just use the prop from runtime
+    const totalDuration = totalDurationProp
 
     const [hasAutoClosed, setHasAutoClosed] = useState(false)
-    const [startTime, setStartTime] = useState<number | null>(null)
-
-    // Track total duration when streaming starts and ends
-    useEffect(() => {
-      if (isStreaming) {
-        if (startTime === null) {
-          setStartTime(Date.now())
-        }
-      } else if (startTime !== null) {
-        const durationMs = Date.now() - startTime
-        const durationS = Math.round((durationMs / 1000) * 10) / 10
-        setInternalDuration(durationS)
-        onTotalDurationChange?.(durationS)
-        setStartTime(null)
-      }
-    }, [isStreaming, startTime, onTotalDurationChange])
 
     // Auto-close when streaming ends (only if it was initially set to defaultOpen=true)
     useEffect(() => {

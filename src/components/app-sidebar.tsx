@@ -14,6 +14,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   onDeleteChat: (chatId: ChatId) => Promise<void>
   activeChatId?: ChatId | null
   unreadChatIds?: ReadonlySet<ChatId>
+  replyingChatIds?: ReadonlySet<ChatId>
   onNewChat?: () => void
 }
 
@@ -21,6 +22,7 @@ export function AppSidebar({
   chats,
   activeChatId,
   unreadChatIds,
+  replyingChatIds,
   onChatClick,
   onNewChat,
   onDeleteChat,
@@ -49,6 +51,7 @@ export function AppSidebar({
           chats={chats}
           activeChatId={activeChatId}
           unreadChatIds={unreadChatIds}
+          replyingChatIds={replyingChatIds}
           onChatClick={onChatClick}
           onDeleteChat={handleDeleteChat}
         />

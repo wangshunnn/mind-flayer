@@ -29,6 +29,7 @@ export default function Page() {
   } = useChatStorage()
   const [newChatToken, setNewChatToken] = useState(createNewChatToken)
   const [unreadChatIds, setUnreadChatIds] = useState<Set<ChatId>>(new Set())
+  const [replyingChatIds, setReplyingChatIds] = useState<Set<ChatId>>(new Set())
   const activeChatIdRef = useRef(activeChatId)
   const newChatTokenRef = useRef(newChatToken)
 
@@ -71,6 +72,27 @@ export default function Page() {
     })
   }, [])
 
+  const handleChatReplyingChange = useCallback((chatId: ChatId, isReplying: boolean) => {
+    setReplyingChatIds(prev => {
+      const hasChat = prev.has(chatId)
+      if (isReplying) {
+        if (hasChat) {
+          return prev
+        }
+        const next = new Set(prev)
+        next.add(chatId)
+        return next
+      }
+
+      if (!hasChat) {
+        return prev
+      }
+      const next = new Set(prev)
+      next.delete(chatId)
+      return next
+    })
+  }, [])
+
   const handleRequestActivateChat = useCallback(
     (chatId: ChatId, tokenAtSend: string) => {
       if (activeChatIdRef.current === null && newChatTokenRef.current === tokenAtSend) {
@@ -108,6 +130,18 @@ export default function Page() {
       }
       return changed ? next : prev
     })
+    setReplyingChatIds(prev => {
+      let changed = false
+      const next = new Set<ChatId>()
+      for (const chatId of prev) {
+        if (chatIds.has(chatId)) {
+          next.add(chatId)
+        } else {
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
   }, [chats])
 
   // Handle search history shortcut (Cmd+F)
@@ -129,6 +163,7 @@ export default function Page() {
         chats={chats}
         activeChatId={activeChatId}
         unreadChatIds={unreadChatIds}
+        replyingChatIds={replyingChatIds}
         onChatClick={handleChatClick}
         onDeleteChat={deleteChat}
         onNewChat={handleNewChat}
@@ -157,6 +192,7 @@ export default function Page() {
           saveChatAllMessages={saveChatAllMessages}
           onRequestActivateChat={handleRequestActivateChat}
           onChatUnread={handleChatUnread}
+          onChatReplyingChange={handleChatReplyingChange}
         />
       </SidebarInset>
     </SidebarProvider>

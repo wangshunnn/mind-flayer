@@ -93,6 +93,7 @@ interface AppChatProps {
   saveChatAllMessages: (chatId: ChatId, messages: UIMessage[], isNewChat?: boolean) => Promise<void>
   onRequestActivateChat?: (chatId: ChatId, tokenAtSend: string) => void
   onChatUnread?: (chatId: ChatId) => void
+  onChatReplyingChange?: (chatId: ChatId, isReplying: boolean) => void
 }
 
 interface AppChatInnerProps extends AppChatProps {
@@ -161,6 +162,7 @@ const AppChatInner = ({
   saveChatAllMessages,
   onRequestActivateChat,
   onChatUnread,
+  onChatReplyingChange,
   sidecarApi
 }: AppChatInnerProps) => {
   const { t } = useTranslation(["common", "chat"])
@@ -601,6 +603,18 @@ const AppChatInner = ({
       let prevIsThinking = false
       let prevLastMsgId: string | null = null
       const prevToolStates = new Map<string, string>()
+      let prevIsReplying =
+        runtime.chat.status === "submitted" || runtime.chat.status === "streaming"
+
+      const unsubscribeStatus = runtime.chat["~registerStatusCallback"](() => {
+        const nextIsReplying =
+          runtime.chat.status === "submitted" || runtime.chat.status === "streaming"
+        if (nextIsReplying === prevIsReplying) {
+          return
+        }
+        prevIsReplying = nextIsReplying
+        onChatReplyingChange?.(chatId, nextIsReplying)
+      })
 
       const unsubscribeMessages = runtime.chat["~registerMessagesCallback"](() => {
         const msgs = runtime.chat.messages
@@ -684,6 +698,11 @@ const AppChatInner = ({
 
       runtime.cleanup = () => {
         unsubscribeMessages()
+        unsubscribeStatus()
+        if (prevIsReplying) {
+          prevIsReplying = false
+          onChatReplyingChange?.(chatId, false)
+        }
         thinkingStartTimes.clear()
         toolStartTimes.clear()
         prevToolStates.clear()
@@ -696,6 +715,7 @@ const AppChatInner = ({
       selectedModelRef,
       showChatErrorToast,
       onChatUnread,
+      onChatReplyingChange,
       sidecarApi,
       useWebSearchRef,
       webSearchModeRef
@@ -1462,7 +1482,8 @@ const AppChat = ({
   loadMessages,
   saveChatAllMessages,
   onRequestActivateChat,
-  onChatUnread
+  onChatUnread,
+  onChatReplyingChange
 }: AppChatProps) => {
   const [sidecarApi, setSidecarApi] = useState<string | null>(null)
   const [sidecarApiError, setSidecarApiError] = useState<string | null>(null)
@@ -1520,6 +1541,7 @@ const AppChat = ({
       saveChatAllMessages={saveChatAllMessages}
       onRequestActivateChat={onRequestActivateChat}
       onChatUnread={onChatUnread}
+      onChatReplyingChange={onChatReplyingChange}
       sidecarApi={sidecarApi}
     />
   )

@@ -1,4 +1,4 @@
-import { CircleIcon, Folder, MoreVertical, Share, Trash2 } from "lucide-react"
+import { CircleIcon, Folder, Loader2Icon, MoreVertical, Share, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
@@ -57,12 +57,14 @@ export function NavChats({
   chats,
   activeChatId,
   unreadChatIds,
+  replyingChatIds,
   onChatClick,
   onDeleteChat
 }: {
   chats: Chat[]
   activeChatId?: ChatId | null
   unreadChatIds?: ReadonlySet<ChatId>
+  replyingChatIds?: ReadonlySet<ChatId>
   onChatClick: (chatId: ChatId) => void
   onDeleteChat: (chatId: ChatId) => void
 }) {
@@ -84,6 +86,7 @@ export function NavChats({
         )}
         {visibleChats.map(chat => {
           const isUnread = unreadChatIds?.has(chat.id) ?? false
+          const isReplying = replyingChatIds?.has(chat.id) ?? false
 
           return (
             <SidebarMenuItem key={chat.id}>
@@ -97,7 +100,12 @@ export function NavChats({
                 className="text-muted-foreground/60 group-hover/menu-item:opacity-0 data-[hidden=true]:opacity-0"
                 data-hidden={openMenuId === chat.id}
               >
-                {isUnread ? (
+                {isReplying ? (
+                  <>
+                    <Loader2Icon aria-hidden className="size-3 animate-spin text-brand-green" />
+                    <span className="sr-only">{t("nav.replying")}</span>
+                  </>
+                ) : isUnread ? (
                   <>
                     <CircleIcon aria-hidden className="size-1.5 fill-current text-brand-green" />
                     <span className="sr-only">{t("nav.unread")}</span>

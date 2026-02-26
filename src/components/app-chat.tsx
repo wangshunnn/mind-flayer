@@ -73,13 +73,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useAvailableModels } from "@/hooks/use-available-models"
 import { useLatest } from "@/hooks/use-latest"
 import { useSetting } from "@/hooks/use-settings-store"
+import { generateChatTitle } from "@/lib/chat-utils"
 import {
   useMessageConstants,
   useToastConstants,
   useToolButtonConstants,
   useTooltipConstants
 } from "@/lib/constants"
-import { getSidecarUrl } from "@/lib/sidecar-client"
+import { generateTitle, getSidecarUrl } from "@/lib/sidecar-client"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import type { ChatId, MessageId, Chat as StoredChat } from "@/types/chat"
@@ -91,6 +92,7 @@ interface AppChatProps {
   createChat: (title?: string, options?: { activate?: boolean }) => Promise<ChatId>
   loadMessages: (chatId: ChatId) => Promise<UIMessage[]>
   saveChatAllMessages: (chatId: ChatId, messages: UIMessage[], isNewChat?: boolean) => Promise<void>
+  updateChatTitle: (chatId: ChatId, title: string) => Promise<void>
   onRequestActivateChat?: (chatId: ChatId, tokenAtSend: string) => void
   onChatUnread?: (chatId: ChatId) => void
   onChatReplyingChange?: (chatId: ChatId, isReplying: boolean) => void
@@ -160,6 +162,7 @@ const AppChatInner = ({
   createChat,
   loadMessages,
   saveChatAllMessages,
+  updateChatTitle,
   onRequestActivateChat,
   onChatUnread,
   onChatReplyingChange,
@@ -793,7 +796,8 @@ const AppChatInner = ({
       }
 
       const createPromise = (async () => {
-        const newChatId = await createChat(firstMessageText, { activate: false })
+        const truncatedTitle = firstMessageText ? generateChatTitle(firstMessageText) : undefined
+        const newChatId = await createChat(truncatedTitle, { activate: false })
         ensureSessionRuntime(newChatId, { hydrated: true, initialMessages: [] })
         return newChatId
       })()
@@ -830,12 +834,25 @@ const AppChatInner = ({
       ])
 
       await saveAllMessagesAsync(runtime.chatId, runtime.chat.messages, { isNewChat })
+
+      // Fire-and-forget: LLM title generation for new chats
+      if (isNewChat && messageText) {
+        const model = selectedModelRef.current
+        if (model) {
+          void generateTitle(messageText, model.provider, model.api_id).then(title => {
+            if (title) {
+              void updateChatTitle(runtime.chatId, title)
+            }
+          })
+        }
+      }
+
       void runtime.chat.sendMessage().catch(sendError => {
         console.error("[AppChat] Failed to send message:", sendError)
       })
       return userMessageId
     },
-    [saveAllMessagesAsync]
+    [saveAllMessagesAsync, selectedModelRef, updateChatTitle]
   )
 
   useLayoutEffect(() => {
@@ -1481,6 +1498,7 @@ const AppChat = ({
   createChat,
   loadMessages,
   saveChatAllMessages,
+  updateChatTitle,
   onRequestActivateChat,
   onChatUnread,
   onChatReplyingChange
@@ -1539,6 +1557,7 @@ const AppChat = ({
       createChat={createChat}
       loadMessages={loadMessages}
       saveChatAllMessages={saveChatAllMessages}
+      updateChatTitle={updateChatTitle}
       onRequestActivateChat={onRequestActivateChat}
       onChatUnread={onChatUnread}
       onChatReplyingChange={onChatReplyingChange}

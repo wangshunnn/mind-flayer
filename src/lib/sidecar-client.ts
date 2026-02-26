@@ -32,3 +32,31 @@ export async function getSidecarUrl(
   const normalizedPath = path.startsWith("/") ? path : `/${path}`
   return `http://localhost:${port}${normalizedPath}`
 }
+
+/**
+ * Fire-and-forget LLM title generation via sidecar.
+ * Returns the generated title on success, null on any error.
+ */
+export async function generateTitle(
+  messageText: string,
+  provider: string,
+  modelId: string
+): Promise<string | null> {
+  try {
+    const url = await getSidecarUrl("/api/title")
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Model-Provider": provider,
+        "X-Model-Id": modelId
+      },
+      body: JSON.stringify({ messageText })
+    })
+    if (!res.ok) return null
+    const data = (await res.json()) as { title?: string }
+    return data.title?.trim() || null
+  } catch {
+    return null
+  }
+}

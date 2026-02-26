@@ -25,7 +25,8 @@ export default function Page() {
     deleteChat,
     createChat,
     loadMessages,
-    saveChatAllMessages
+    saveChatAllMessages,
+    updateChatTitle
   } = useChatStorage()
   const [newChatToken, setNewChatToken] = useState(createNewChatToken)
   const [unreadChatIds, setUnreadChatIds] = useState<Set<ChatId>>(new Set())
@@ -190,6 +191,7 @@ export default function Page() {
           createChat={createChat}
           loadMessages={loadMessages}
           saveChatAllMessages={saveChatAllMessages}
+          updateChatTitle={updateChatTitle}
           onRequestActivateChat={handleRequestActivateChat}
           onChatUnread={handleChatUnread}
           onChatReplyingChange={handleChatReplyingChange}

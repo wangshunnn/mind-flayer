@@ -1,10 +1,10 @@
 import type { UIMessage } from "ai"
 import { nanoid } from "nanoid"
 import { useCallback, useEffect, useState } from "react"
+import { storedMessageToUI, uiMessageToStored } from "@/lib/chat-utils"
 import { getDatabase } from "@/lib/database"
 import { getSidecarUrl } from "@/lib/sidecar-client"
 import type { Chat, ChatId, ChatRow, MessageRow } from "@/types/chat"
-import { generateChatTitle, storedMessageToUI, uiMessageToStored } from "@/types/chat"
 
 /**
  * Hook for managing chat storage with Tauri SQLite backend
@@ -145,7 +145,7 @@ export function useChatStorage() {
    * Save messages for a chat
    */
   const saveChatAllMessages = useCallback(
-    async (chatId: string, messages: UIMessage[], isNewChat = false): Promise<void> => {
+    async (chatId: string, messages: UIMessage[], _isNewChat = false): Promise<void> => {
       try {
         console.log("[ChatStorage] Saving messages:", messages.length)
         messages.forEach((msg, idx) => {
@@ -173,18 +173,6 @@ export function useChatStorage() {
 
         await db.execute("UPDATE chats SET updated_at = ? WHERE id = ?", [Date.now(), chatId])
 
-        if (isNewChat && messages[0].role === "user") {
-          const firstMessageText = messages[0].parts
-            .filter(part => part.type === "text")
-            .map(part => ("text" in part ? part.text : ""))
-            .join(" ")
-
-          if (firstMessageText) {
-            const title = generateChatTitle(firstMessageText)
-            await updateChatTitle(chatId, title)
-          }
-        }
-
         await loadChats()
         setError(null)
       } catch (err) {
@@ -194,7 +182,7 @@ export function useChatStorage() {
         throw error
       }
     },
-    [loadChats, updateChatTitle]
+    [loadChats]
   )
 
   /**
@@ -202,7 +190,7 @@ export function useChatStorage() {
    * This is more efficient than saveMessages as it only inserts new messages
    */
   const insertChatNewMessages = useCallback(
-    async (chatId: string, newMessages: UIMessage[], totalMessageCount: number): Promise<void> => {
+    async (chatId: string, newMessages: UIMessage[], _totalMessageCount: number): Promise<void> => {
       try {
         if (newMessages.length === 0) {
           return
@@ -227,21 +215,6 @@ export function useChatStorage() {
 
         await db.execute("UPDATE chats SET updated_at = ? WHERE id = ?", [Date.now(), chatId])
 
-        if (totalMessageCount <= 2) {
-          const firstUserMessage = newMessages.find(msg => msg.role === "user")
-          if (firstUserMessage) {
-            const firstMessageText = firstUserMessage.parts
-              .filter(part => part.type === "text")
-              .map(part => ("text" in part ? part.text : ""))
-              .join(" ")
-
-            if (firstMessageText) {
-              const title = generateChatTitle(firstMessageText)
-              await updateChatTitle(chatId, title)
-            }
-          }
-        }
-
         await loadChats()
         setError(null)
       } catch (err) {
@@ -251,7 +224,7 @@ export function useChatStorage() {
         throw error
       }
     },
-    [loadChats, updateChatTitle]
+    [loadChats]
   )
 
   /**

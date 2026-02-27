@@ -47,7 +47,8 @@ IMPORTANT: Commands are executed using direct process spawn (not shell).
 - Do NOT use shell syntax like pipes (|), redirects (>, <), or command chains (;, &&, ||)
 - Working directory is a per-session workspace, HOME is the real user home, and args can reference real file paths
 - Safe commands (ls, cat, grep, etc.) execute immediately
-- Dangerous commands (rm, chmod, etc.) may require user approval
+- Blocked commands are always denied by policy
+- All other commands require user approval
 
 Examples:
   ✅ { command: "ls", args: ["-la", "~/Desktop"] } - List Desktop files
@@ -93,21 +94,25 @@ Examples:
     ],
 
     needsApproval: input => {
-      const { command } = input
-      const { requiresApproval } = validateCommand(command)
-      if (requiresApproval) {
-        console.info(
-          `[BashExec] Command '${command}' is marked as dangerous - approval should be required`
-        )
+      const { command, args } = input
+      const validation = validateCommand(command, args)
+
+      if (!validation.isAllowed) {
+        console.info(`[BashExec] Command '${command}' is blocked by policy`)
       }
-      return requiresApproval
+
+      if (validation.requiresApproval) {
+        console.info(`[BashExec] Command '${command}' requires user approval before execution`)
+      }
+
+      return validation.requiresApproval
     },
 
     execute: async ({ command, args }, { abortSignal }) => {
       console.log(`[BashExec] Executing command: ${command} ${args.join(" ")}`)
 
       // Validate command
-      const validation = validateCommand(command)
+      const validation = validateCommand(command, args)
       if (!validation.isAllowed) {
         throw new Error(validation.reason || `Command '${command}' is not allowed for execution`)
       }

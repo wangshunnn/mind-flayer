@@ -1,6 +1,6 @@
 /**
  * Command validator for bash execution tool
- * Provides whitelist-based command validation and danger detection
+ * Provides allowlist/blocklist validation with parameter-level safety checks
  */
 
 /**
@@ -8,91 +8,150 @@
  * These are read-only or informational commands
  */
 export const SAFE_COMMANDS = [
-  "ls",
-  "cat",
-  "pwd",
-  "echo",
-  "grep",
-  "find",
-  "head",
-  "tail",
-  "wc",
-  "tree",
-  "file",
-  "stat",
-  "df",
-  "du",
-  "which",
-  "whoami",
-  "date",
-  "dirname",
+  "arch",
   "basename",
-  "realpath",
-  "readlink",
-  "env",
-  "printenv",
-  "ps",
-  "id",
-  "groups",
-  "sort",
-  "uniq",
+  "cal",
+  "cat",
+  "cmp",
+  "comm",
   "cut",
-  "tr",
+  "date",
+  "df",
   "diff",
+  "dirname",
+  "du",
+  "echo",
+  "env",
+  "file",
+  "find",
+  "grep",
+  "groups",
+  "head",
+  "hexdump",
+  "hostname",
+  "id",
+  "jq",
+  "ls",
+  "md5",
+  "md5sum",
   "nl",
   "od",
-  "hexdump",
+  "open", // macOS-specific safe command for opening files/URLs
+  "printenv",
+  "ps",
+  "pwd",
+  "readlink",
+  "realpath",
+  "screencapture", // macOS-specific safe command for taking screenshots
+  "sha1sum",
+  "sha256sum",
+  "shasum",
+  "sort",
+  "stat",
   "strings",
+  "tail",
+  "tr",
+  "tree",
+  "uname",
+  "uniq",
   "uptime",
   "vm_stat",
-  "jq",
-  "uname",
-  "hostname",
-  "screencapture" // macOS-specific safe command for taking screenshots
+  "wc",
+  "which",
+  "who",
+  "whoami"
 ] as const
 
 /**
- * Dangerous commands that require user approval
- * These commands can modify files or system state
+ * Commands that are always denied regardless of user approval
  */
-export const DANGEROUS_COMMANDS = [
-  "rm",
-  "chmod",
-  "chown",
-  "mv",
-  "cp",
-  "mkdir",
-  "rmdir",
-  "touch",
-  "ln",
-  "write",
-  "tee",
-  "curl",
-  "wget",
-  "sed",
-  "awk",
-  "tar",
-  "gzip",
-  "gunzip",
-  "zip",
-  "unzip",
-  "rsync",
-  "git",
-  "make",
-  "openssl",
-  "ssh",
-  "scp",
-  "dig",
-  "nslookup",
-  "host",
-  "ping",
-  "python3",
-  "python",
-  "dd",
-  "kill",
-  "killall",
-  "pkill"
+export const BLOCKED_COMMANDS = [
+  "chroot",
+  "diskutil",
+  "doas",
+  "fdisk",
+  "halt",
+  "init",
+  "insmod",
+  "kextload",
+  "kextunload",
+  "launchctl",
+  "mkfs",
+  "modprobe",
+  "mount",
+  "parted",
+  "passwd",
+  "poweroff",
+  "reboot",
+  "rmmod",
+  "service",
+  "shutdown",
+  "su",
+  "sudo",
+  "systemctl",
+  "telinit",
+  "umount",
+  "visudo"
 ] as const
+
+const CRITICAL_PATH_PREFIXES = [
+  "/System",
+  "/usr",
+  "/bin",
+  "/sbin",
+  "/etc",
+  "/var",
+  "/private",
+  "/Library"
+] as const
+
+const CRITICAL_PATH_EXACT = new Set(["/", "~", "~/", "$HOME", "$HOME/"])
+
+function isCriticalPath(arg: string): boolean {
+  if (CRITICAL_PATH_EXACT.has(arg)) {
+    return true
+  }
+
+  return CRITICAL_PATH_PREFIXES.some(prefix => arg === prefix || arg.startsWith(`${prefix}/`))
+}
+
+function hasRecursiveFlag(args: string[]): boolean {
+  return args.some(arg => {
+    if (arg === "--recursive") {
+      return true
+    }
+
+    if (!arg.startsWith("-") || arg.startsWith("--")) {
+      return false
+    }
+
+    return arg.slice(1).includes("R")
+  })
+}
+
+function getDangerousArgsReason(command: string, args: string[]): string | null {
+  if (command === "rm") {
+    if (args.some(isCriticalPath)) {
+      return "Blocking dangerous rm target on critical system path."
+    }
+    return null
+  }
+
+  if (command === "dd") {
+    if (args.some(arg => arg.startsWith("of=/dev/"))) {
+      return "Blocking dd writes directly to device paths."
+    }
+    return null
+  }
+
+  if (command === "chmod" || command === "chown") {
+    if (hasRecursiveFlag(args) && args.some(isCriticalPath)) {
+      return `Blocking recursive ${command} on critical system path.`
+    }
+  }
+
+  return null
+}
 
 export interface ValidationResult {
   isAllowed: boolean
@@ -101,11 +160,12 @@ export interface ValidationResult {
 }
 
 /**
- * Validates a command against whitelist and danger list
+ * Validates a command against safe and blocked lists with additional argument checks
  * @param command - The command to validate (should be bare name like 'ls', not path)
+ * @param args - Command arguments used for parameter-level blocking checks
  * @returns Validation result with approval requirement
  */
-export function validateCommand(command: string): ValidationResult {
+export function validateCommand(command: string, args: string[] = []): ValidationResult {
   // Remove any path component to get bare command name
   const bareCommand = command.split("/").pop() || command
 
@@ -117,18 +177,28 @@ export function validateCommand(command: string): ValidationResult {
     }
   }
 
-  // Check if command is in dangerous list
-  if ((DANGEROUS_COMMANDS as readonly string[]).includes(bareCommand)) {
+  // Check if command is blocked regardless of approval
+  if ((BLOCKED_COMMANDS as readonly string[]).includes(bareCommand)) {
     return {
-      isAllowed: true,
-      requiresApproval: true
+      isAllowed: false,
+      requiresApproval: false,
+      reason: `Command '${bareCommand}' is blocked by policy and cannot be executed.`
     }
   }
 
-  // Command not in either list - reject
+  // Block dangerous parameter combinations for specific commands
+  const dangerousArgsReason = getDangerousArgsReason(bareCommand, args)
+  if (dangerousArgsReason) {
+    return {
+      isAllowed: false,
+      requiresApproval: false,
+      reason: dangerousArgsReason
+    }
+  }
+
+  // All non-safe and non-blocked commands require user approval
   return {
-    isAllowed: false,
-    requiresApproval: false,
-    reason: `Command '${bareCommand}' is not in the allowed command list.`
+    isAllowed: true,
+    requiresApproval: true
   }
 }

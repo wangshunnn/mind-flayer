@@ -2,8 +2,9 @@ import type { FileUIPart, UIMessage } from "ai"
 import { ChevronLeftIcon, ChevronRightIcon, PaperclipIcon, XIcon } from "lucide-react"
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react"
 import { createContext, forwardRef, memo, useContext, useEffect, useState } from "react"
+import remarkBreaks from "remark-breaks"
 import remarkMath from "remark-math"
-import { Streamdown } from "streamdown"
+import { defaultRemarkPlugins, Streamdown } from "streamdown"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -279,7 +280,14 @@ export type MessageResponseProps = ComponentProps<typeof Streamdown>
 export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => (
     <Streamdown
-      remarkPlugins={[[remarkMath, { singleDollarTextMath: true }]]}
+      remarkPlugins={[
+        [
+          remarkMath,
+          { singleDollarTextMath: true },
+          ...Object.values(defaultRemarkPlugins),
+          remarkBreaks
+        ]
+      ]}
       className={cn(
         "app-chat",
         "size-full space-y-2.5",
@@ -292,7 +300,7 @@ export const MessageResponse = memo(
         mermaid: {
           download: true,
           copy: true,
-          fullscreen: true,
+          fullscreen: false,
           panZoom: true
         }
       }}

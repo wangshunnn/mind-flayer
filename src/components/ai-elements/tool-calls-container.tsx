@@ -158,6 +158,12 @@ export type ToolCallsListProps = {
   toolDurations?: Record<string, number>
 }
 
+export type ToolCallTimelineItemProps = {
+  part: ToolUIPart | DynamicToolUIPart
+  onToolApprovalResponse: ChatAddToolApproveResponseFunction
+  duration?: number
+}
+
 const ToolCallWebSearch = ({
   part,
   onToolApprovalResponse,
@@ -284,36 +290,63 @@ const ToolCallBashExec = ({
   )
 }
 
+export const ToolCallTimelineItem = memo(
+  ({ part, onToolApprovalResponse, duration }: ToolCallTimelineItemProps) => {
+    if (part.type === "tool-webSearch") {
+      return (
+        <ToolCallWebSearch
+          part={part}
+          duration={duration}
+          onToolApprovalResponse={onToolApprovalResponse}
+        />
+      )
+    }
+
+    if (part.type === "tool-bashExecution") {
+      return (
+        <ToolCallBashExec
+          part={part}
+          duration={duration}
+          onToolApprovalResponse={onToolApprovalResponse}
+        />
+      )
+    }
+
+    return null
+  }
+)
+
+export type ToolCallsSummaryProps = ComponentProps<"div"> & {
+  toolCount: number
+}
+
+export const ToolCallsSummary = memo(
+  ({ className, toolCount, ...props }: ToolCallsSummaryProps) => {
+    const { t } = useTranslation("tools")
+
+    return (
+      <div
+        className={cn("flex w-full items-center gap-1 text-muted-foreground text-sm", className)}
+        {...props}
+      >
+        <WrenchIcon className="size-4" />
+        <span>{t("usedTools", { count: toolCount })}</span>
+      </div>
+    )
+  }
+)
+
 export const ToolCallsList = memo(
   ({ toolParts, onToolApprovalResponse, toolDurations }: ToolCallsListProps) => (
     <ToolCallsContainerContent>
-      {toolParts.map(part => {
-        const duration = toolDurations?.[part.toolCallId]
-
-        if (part.type === "tool-webSearch") {
-          return (
-            <ToolCallWebSearch
-              key={part.toolCallId}
-              part={part}
-              duration={duration}
-              onToolApprovalResponse={onToolApprovalResponse}
-            />
-          )
-        }
-
-        if (part.type === "tool-bashExecution") {
-          return (
-            <ToolCallBashExec
-              key={part.toolCallId}
-              part={part}
-              duration={duration}
-              onToolApprovalResponse={onToolApprovalResponse}
-            />
-          )
-        }
-
-        return null
-      })}
+      {toolParts.map(part => (
+        <ToolCallTimelineItem
+          key={part.toolCallId}
+          part={part}
+          duration={toolDurations?.[part.toolCallId]}
+          onToolApprovalResponse={onToolApprovalResponse}
+        />
+      ))}
     </ToolCallsContainerContent>
   )
 )
@@ -321,4 +354,6 @@ export const ToolCallsList = memo(
 ToolCallsContainer.displayName = "ToolCallsContainer"
 ToolCallsContainerTrigger.displayName = "ToolCallsContainerTrigger"
 ToolCallsContainerContent.displayName = "ToolCallsContainerContent"
+ToolCallTimelineItem.displayName = "ToolCallTimelineItem"
+ToolCallsSummary.displayName = "ToolCallsSummary"
 ToolCallsList.displayName = "ToolCallsList"

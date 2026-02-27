@@ -14,7 +14,6 @@ import {
   CircleIcon,
   CircleXIcon,
   GlobeIcon,
-  Loader2Icon,
   WrenchIcon
 } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
@@ -236,7 +235,6 @@ const ReasoningPartToolContent = memo(
         <div className="mb-2.5 text-sm">{toolInputMeta?.content || ""}</div>
         {isToolInProgress ? (
           <div className="flex items-center gap-1.5">
-            <Loader2Icon className="size-3 animate-spin" />
             <span>{toolResult || toolRunning}</span>
           </div>
         ) : (

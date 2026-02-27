@@ -3,7 +3,6 @@ import {
   DefaultChatTransport,
   type DynamicToolUIPart,
   type FileUIPart,
-  getToolName,
   isReasoningUIPart,
   isTextUIPart,
   isToolUIPart,
@@ -64,9 +63,8 @@ import {
   ThinkingProcessTrigger
 } from "@/components/ai-elements/thinking-process"
 import {
-  ToolCallsContainer,
-  ToolCallsContainerTrigger,
-  ToolCallsList
+  ToolCallsSummary,
+  ToolCallTimelineItem
 } from "@/components/ai-elements/tool-calls-container"
 import { SelectModel } from "@/components/select-model"
 import { ToolButton } from "@/components/tool-button"
@@ -1261,7 +1259,10 @@ const AppChatInner = ({
               const isThinkingComplete =
                 lastStep && isReasoningUIPart(lastStep) && lastStep.state !== "streaming"
               const toolParts = message.parts.filter(isToolUIPart)
-              const toolNames = toolParts.map(getToolName)
+              const messageToolDurations = metadata?.toolDurations ?? toolDurations?.get(message.id)
+              const timelineParts = steps.flatMap(step =>
+                step.filter(part => isReasoningUIPart(part) || isToolUIPart(part))
+              )
 
               const hasTools = toolParts.length > 0
               const isUserMessage = message.role === "user"
@@ -1285,16 +1286,28 @@ const AppChatInner = ({
                         >
                           <ThinkingProcessTrigger />
                           <ThinkingProcessContent>
-                            {steps.flatMap(step =>
-                              step
-                                .filter(part => isReasoningUIPart(part) || isToolUIPart(part))
-                                .map(part => (
+                            {timelineParts.map(part =>
+                              isToolUIPart(part) ? (
+                                <div key={`${message.id}-${part.partIndex}`}>
                                   <ReasoningPart
-                                    key={`${message.id}-${part.partIndex}`}
                                     partSource={part}
                                     isChatStreaming={isCurrentlyStreaming}
                                   />
-                                ))
+                                  <div className="mt-2.5">
+                                    <ToolCallTimelineItem
+                                      part={part}
+                                      duration={messageToolDurations?.[part.toolCallId]}
+                                      onToolApprovalResponse={addToolApprovalResponse}
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <ReasoningPart
+                                  key={`${message.id}-${part.partIndex}`}
+                                  partSource={part}
+                                  isChatStreaming={isCurrentlyStreaming}
+                                />
+                              )
                             )}
 
                             {isThinkingComplete ? (
@@ -1313,17 +1326,8 @@ const AppChatInner = ({
                         </ThinkingProcess>
                       )}
 
-                      {isAssistantMessage && hasTools && (
-                        <ToolCallsContainer toolCount={toolParts.length}>
-                          <ToolCallsContainerTrigger toolNames={toolNames} />
-                          <ToolCallsList
-                            toolParts={toolParts}
-                            toolDurations={
-                              metadata?.toolDurations ?? toolDurations?.get(message.id)
-                            }
-                            onToolApprovalResponse={addToolApprovalResponse}
-                          />
-                        </ToolCallsContainer>
+                      {isAssistantMessage && hasTools && isThinkingComplete && (
+                        <ToolCallsSummary toolCount={toolParts.length} />
                       )}
 
                       <MessageContent>

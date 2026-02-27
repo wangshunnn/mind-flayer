@@ -11,7 +11,7 @@
     "doneInSteps_one": "Done in {{count}} step",
     "doneInSteps_other": "Done in {{count}} steps",
     "reasoning": "Reasoning",
-    "usingTool": "Using Tool"
+    "usingTool": "Tool"
   },
   "input": {
     "placeholder": "Type your message...",

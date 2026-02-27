@@ -1,7 +1,6 @@
 import { useControllableState } from "@radix-ui/react-use-controllable-state"
 import {
   type DynamicToolUIPart,
-  getToolName,
   isReasoningUIPart,
   isToolUIPart,
   type ReasoningUIPart,
@@ -126,7 +125,7 @@ export const ThinkingProcessTrigger = memo(
     return (
       <CollapsibleTrigger
         className={cn(
-          "flex w-full items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground",
+          "flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground",
           className
         )}
         {...props}
@@ -273,7 +272,7 @@ export const ReasoningPartHeader = memo(
         return names.webSearch
       }
       if (isToolUIPart(part)) {
-        return getToolName(part) || t("message.usingTool")
+        return t("message.usingTool")
       }
       return t("message.usingTool")
     }

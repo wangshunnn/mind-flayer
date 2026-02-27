@@ -108,7 +108,7 @@ export const ToolCallsContainerTrigger = memo(
     return (
       <CollapsibleTrigger
         className={cn(
-          "flex w-full items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground",
+          "flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground",
           className
         )}
         {...props}
@@ -326,7 +326,10 @@ export const ToolCallsSummary = memo(
 
     return (
       <div
-        className={cn("flex w-full items-center gap-1 text-muted-foreground text-sm", className)}
+        className={cn(
+          "flex w-full items-center gap-2 text-muted-foreground text-sm pb-1",
+          className
+        )}
         {...props}
       >
         <WrenchIcon className="size-4" />

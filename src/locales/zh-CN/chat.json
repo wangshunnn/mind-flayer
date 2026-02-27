@@ -10,7 +10,7 @@
     "done": "完成",
     "doneInSteps": "{{count}} 步完成",
     "reasoning": "思考",
-    "usingTool": "使用工具"
+    "usingTool": "工具"
   },
   "input": {
     "placeholder": "输入消息...",

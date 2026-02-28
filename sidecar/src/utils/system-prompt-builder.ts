@@ -58,11 +58,19 @@ function buildEnvironmentContext(): string {
  * @returns Complete system prompt
  */
 export function buildSystemPrompt(): string {
+  const responseFormatRules = [
+    "Response format rules:",
+    "- When sharing a local image file (such as a screenshot), always embed it using Markdown image syntax.",
+    "- Use an absolute file URI in the image URL: ![screenshot](file:///absolute/path/to/image.png).",
+    "- Do not reply with only a plain file path for images."
+  ].join("\n")
+
   const sections = [
     "You are Mind Flayer, a local desktop AI agent.",
     "System context:",
     buildEnvironmentContext(),
-    buildTimeContext()
+    buildTimeContext(),
+    responseFormatRules
   ].filter(Boolean)
 
   return sections.join("\n")

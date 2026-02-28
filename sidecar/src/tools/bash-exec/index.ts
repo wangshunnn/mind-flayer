@@ -54,10 +54,15 @@ Examples:
   ✅ { command: "ls", args: ["-la", "~/Desktop"] } - List Desktop files
   ✅ { command: "cat", args: ["~/Documents/file.txt"] } - Read real file
   ✅ { command: "find", args: [".", "-name", "*.ts"] } - Find in current session workspace
+  ✅ { command: "screencapture", args: ["-x", "~/Desktop/screenshot.png"] } - Take a desktop screenshot
   ❌ { command: "ls | grep test" } - NO: shell syntax not supported
   ❌ { command: "cat file.txt > output.txt" } - NO: use 'cp' command instead
   ❌ { command: "ls - la" } - NO: flags/args must be separate elements
-  ❌ { command: "rm -rf /" } - NO: extremely dangerous command`,
+  ❌ { command: "rm -rf /" } - NO: extremely dangerous command
+
+After creating an image file (for example via screencapture), your final reply MUST include a Markdown image using a file URI, e.g.:
+  ![screenshot](file:///Users/you/Desktop/screenshot.png)
+Do not return only the plain path.`,
 
     inputSchema: z.object({
       command: z

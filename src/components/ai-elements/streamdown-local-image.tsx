@@ -20,12 +20,18 @@ type MarkdownAstNode = {
   children?: MarkdownAstNode[]
 }
 
-function rewriteImgSrcInHtmlTag(htmlTag: string, localImageProxyOrigin: string): string {
+function rewriteImgSrcInHtmlTag(
+  htmlTag: string,
+  localImageProxyOrigin: string,
+  localImageCacheBustKey?: string
+): string {
   return htmlTag.replace(
     /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i,
     (fullMatch, doubleQuotedSrc, singleQuotedSrc, unquotedSrc) => {
       const originalSrc = (doubleQuotedSrc ?? singleQuotedSrc ?? unquotedSrc ?? "") as string
-      const rewrittenSrc = resolveLocalImageUrl(originalSrc, localImageProxyOrigin)
+      const rewrittenSrc = resolveLocalImageUrl(originalSrc, localImageProxyOrigin, {
+        cacheBustKey: localImageCacheBustKey
+      })
 
       if (doubleQuotedSrc !== undefined) {
         return `src="${rewrittenSrc}"`
@@ -41,9 +47,13 @@ function rewriteImgSrcInHtmlTag(htmlTag: string, localImageProxyOrigin: string):
   )
 }
 
-function rewriteLocalImageSrcInHtml(html: string, localImageProxyOrigin: string): string {
+function rewriteLocalImageSrcInHtml(
+  html: string,
+  localImageProxyOrigin: string,
+  localImageCacheBustKey?: string
+): string {
   return html.replace(/<img\b[^>]*>/gi, fullTag =>
-    rewriteImgSrcInHtmlTag(fullTag, localImageProxyOrigin)
+    rewriteImgSrcInHtmlTag(fullTag, localImageProxyOrigin, localImageCacheBustKey)
   )
 }
 
@@ -59,7 +69,10 @@ function visitMarkdownAst(node: MarkdownAstNode, visitor: (node: MarkdownAstNode
   }
 }
 
-export function createRewriteLocalImageRemarkPlugin(localImageProxyOrigin?: string) {
+export function createRewriteLocalImageRemarkPlugin(
+  localImageProxyOrigin?: string,
+  localImageCacheBustKey?: string
+) {
   return () => (tree: MarkdownAstNode) => {
     if (!localImageProxyOrigin) {
       return
@@ -67,12 +80,18 @@ export function createRewriteLocalImageRemarkPlugin(localImageProxyOrigin?: stri
 
     visitMarkdownAst(tree, node => {
       if (node.type === "image" && typeof node.url === "string") {
-        node.url = resolveLocalImageUrl(node.url, localImageProxyOrigin)
+        node.url = resolveLocalImageUrl(node.url, localImageProxyOrigin, {
+          cacheBustKey: localImageCacheBustKey
+        })
         return
       }
 
       if (node.type === "html" && typeof node.value === "string") {
-        node.value = rewriteLocalImageSrcInHtml(node.value, localImageProxyOrigin)
+        node.value = rewriteLocalImageSrcInHtml(
+          node.value,
+          localImageProxyOrigin,
+          localImageCacheBustKey
+        )
       }
     })
   }
@@ -112,6 +131,7 @@ export const streamdownRehypePluginsWithLocalImageSrc = createRehypePluginsWithF
 
 type StreamdownLocalImageProps = ComponentProps<"img"> & {
   localImageProxyOrigin?: string
+  localImageCacheBustKey?: string
 }
 
 const StreamdownLocalImage = memo(
@@ -121,12 +141,16 @@ const StreamdownLocalImage = memo(
     onError,
     onLoad,
     localImageProxyOrigin,
+    localImageCacheBustKey,
     ...props
   }: StreamdownLocalImageProps) => {
     const source = typeof src === "string" ? src : ""
     const resolvedSource = useMemo(
-      () => resolveLocalImageUrl(source, localImageProxyOrigin),
-      [source, localImageProxyOrigin]
+      () =>
+        resolveLocalImageUrl(source, localImageProxyOrigin, {
+          cacheBustKey: localImageCacheBustKey
+        }),
+      [source, localImageProxyOrigin, localImageCacheBustKey]
     )
     const fallbackText = useMemo(
       () => getOriginalLocalImagePathFromProxyUrl(source) ?? (source || resolvedSource),
@@ -142,7 +166,10 @@ const StreamdownLocalImage = memo(
     if (hasLoadError) {
       return (
         <a
-          className={cn("break-all text-muted-foreground underline underline-offset-2", className)}
+          className={cn(
+            "break-all text-muted-foreground decoration-dotted underline underline-offset-4",
+            className
+          )}
           href={resolvedSource}
           rel="noopener noreferrer"
           target="_blank"
@@ -179,12 +206,17 @@ type StreamdownImageComponentProps = ComponentProps<"img"> & {
 
 export function createStreamdownComponentsWithLocalImage(
   components: StreamdownProps["components"] | undefined,
-  localImageProxyOrigin?: string
+  localImageProxyOrigin?: string,
+  localImageCacheBustKey?: string
 ): NonNullable<StreamdownProps["components"]> {
   return {
     ...(components ?? {}),
     img: ({ node: _node, ...imageProps }: StreamdownImageComponentProps) => (
-      <StreamdownLocalImage {...imageProps} localImageProxyOrigin={localImageProxyOrigin} />
+      <StreamdownLocalImage
+        {...imageProps}
+        localImageProxyOrigin={localImageProxyOrigin}
+        localImageCacheBustKey={localImageCacheBustKey}
+      />
     )
   }
 }

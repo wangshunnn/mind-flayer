@@ -45,9 +45,14 @@ describe("MessageResponse local image rendering", () => {
 
     const image = container.querySelector("img")
     expect(image).not.toBeNull()
-    expect(image?.getAttribute("src")).toBe(
-      `http://localhost:21420/api/local-image?path=${encodeURIComponent(localPath)}`
-    )
+    const source = image?.getAttribute("src")
+    expect(source).toBeTruthy()
+
+    const parsedUrl = new URL(source as string)
+    expect(parsedUrl.origin).toBe("http://localhost:21420")
+    expect(parsedUrl.pathname).toBe("/api/local-image")
+    expect(parsedUrl.searchParams.get("path")).toBe(localPath)
+    expect(parsedUrl.searchParams.get("_ts")).toBeTruthy()
   })
 
   it("renders file URL image with sidecar proxy URL", async () => {
@@ -63,9 +68,14 @@ describe("MessageResponse local image rendering", () => {
 
     const image = container.querySelector("img")
     expect(image).not.toBeNull()
-    expect(image?.getAttribute("src")).toBe(
-      `http://localhost:21420/api/local-image?path=${encodeURIComponent(fileUrlPath)}`
-    )
+    const source = image?.getAttribute("src")
+    expect(source).toBeTruthy()
+
+    const parsedUrl = new URL(source as string)
+    expect(parsedUrl.origin).toBe("http://localhost:21420")
+    expect(parsedUrl.pathname).toBe("/api/local-image")
+    expect(parsedUrl.searchParams.get("path")).toBe(fileUrlPath)
+    expect(parsedUrl.searchParams.get("_ts")).toBeTruthy()
   })
 
   it("falls back to text link when image loading fails", async () => {
@@ -81,6 +91,8 @@ describe("MessageResponse local image rendering", () => {
 
     const image = container.querySelector("img")
     expect(image).not.toBeNull()
+    const imageSource = image?.getAttribute("src")
+    expect(imageSource).toBeTruthy()
 
     await act(async () => {
       image?.dispatchEvent(new Event("error"))
@@ -91,8 +103,6 @@ describe("MessageResponse local image rendering", () => {
     const fallbackLink = container.querySelector("a")
     expect(fallbackLink).not.toBeNull()
     expect(fallbackLink?.textContent).toBe(localPath)
-    expect(fallbackLink?.getAttribute("href")).toBe(
-      `http://localhost:21420/api/local-image?path=${encodeURIComponent(localPath)}`
-    )
+    expect(fallbackLink?.getAttribute("href")).toBe(imageSource)
   })
 })

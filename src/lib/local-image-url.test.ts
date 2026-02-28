@@ -31,4 +31,18 @@ describe("resolveLocalImageUrl", () => {
     const source = "/Users/didi/Desktop/a.txt"
     expect(resolveLocalImageUrl(source, SIDECAR_ORIGIN)).toBe(source)
   })
+
+  it("appends cache bust key for rewritten local image URLs", () => {
+    const source = "/Users/didi/Desktop/a.png"
+    expect(resolveLocalImageUrl(source, SIDECAR_ORIGIN, { cacheBustKey: "render-1" })).toBe(
+      `${SIDECAR_ORIGIN}/api/local-image?path=${encodeURIComponent(source)}&_ts=render-1`
+    )
+  })
+
+  it("appends cache bust key for existing local image proxy URLs", () => {
+    const source = `${SIDECAR_ORIGIN}/api/local-image?path=${encodeURIComponent("/Users/didi/Desktop/a.png")}`
+    expect(resolveLocalImageUrl(source, SIDECAR_ORIGIN, { cacheBustKey: "render-2" })).toBe(
+      `${source}&_ts=render-2`
+    )
+  })
 })

@@ -1,7 +1,13 @@
 const LOCAL_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "gif", "bmp", "svg"])
+const LOCAL_IMAGE_PROXY_PATH_SUFFIX = "/api/local-image"
+const LOCAL_IMAGE_CACHE_BUST_PARAM = "_ts"
 
 const NETWORK_OR_DATA_PROTOCOL_REGEX = /^(https?:|data:|blob:)/i
 const WINDOWS_ABSOLUTE_PATH_REGEX = /^[a-zA-Z]:[\\/]/
+
+type ResolveLocalImageUrlOptions = {
+  cacheBustKey?: string | number | null
+}
 
 function stripSearchAndHash(value: string): string {
   return value.split("#", 1)[0]?.split("?", 1)[0] ?? value
@@ -66,9 +72,55 @@ function trimTrailingSlashes(origin: string): string {
   return origin.replace(/\/+$/, "")
 }
 
-export function resolveLocalImageUrl(source: string, localImageProxyOrigin?: string): string {
+function normalizeCacheBustKey(
+  cacheBustKey: ResolveLocalImageUrlOptions["cacheBustKey"]
+): string | null {
+  if (cacheBustKey === undefined || cacheBustKey === null) {
+    return null
+  }
+
+  const normalized = String(cacheBustKey).trim()
+  return normalized ? normalized : null
+}
+
+function isLocalImageProxyUrl(source: string): boolean {
+  try {
+    const parsedUrl = new URL(source)
+    return (
+      parsedUrl.pathname.endsWith(LOCAL_IMAGE_PROXY_PATH_SUFFIX) &&
+      parsedUrl.searchParams.has("path")
+    )
+  } catch {
+    return false
+  }
+}
+
+function appendCacheBustParam(source: string, cacheBustKey: string): string {
+  try {
+    const parsedUrl = new URL(source)
+    parsedUrl.searchParams.set(LOCAL_IMAGE_CACHE_BUST_PARAM, cacheBustKey)
+    return parsedUrl.toString()
+  } catch {
+    const hashIndex = source.indexOf("#")
+    const hash = hashIndex >= 0 ? source.slice(hashIndex) : ""
+    const baseSource = hashIndex >= 0 ? source.slice(0, hashIndex) : source
+    const separator = baseSource.includes("?") ? "&" : "?"
+    return `${baseSource}${separator}${LOCAL_IMAGE_CACHE_BUST_PARAM}=${encodeURIComponent(cacheBustKey)}${hash}`
+  }
+}
+
+export function resolveLocalImageUrl(
+  source: string,
+  localImageProxyOrigin?: string,
+  options?: ResolveLocalImageUrlOptions
+): string {
   const trimmedSource = source.trim()
+  const cacheBustKey = normalizeCacheBustKey(options?.cacheBustKey)
+
   if (!trimmedSource || NETWORK_OR_DATA_PROTOCOL_REGEX.test(trimmedSource)) {
+    if (cacheBustKey && isLocalImageProxyUrl(trimmedSource)) {
+      return appendCacheBustParam(trimmedSource, cacheBustKey)
+    }
     return trimmedSource
   }
 
@@ -81,7 +133,13 @@ export function resolveLocalImageUrl(source: string, localImageProxyOrigin?: str
   }
 
   const proxyOrigin = trimTrailingSlashes(localImageProxyOrigin)
-  return `${proxyOrigin}/api/local-image?path=${encodeURIComponent(trimmedSource)}`
+  const resolvedProxyUrl = `${proxyOrigin}/api/local-image?path=${encodeURIComponent(trimmedSource)}`
+
+  if (!cacheBustKey) {
+    return resolvedProxyUrl
+  }
+
+  return appendCacheBustParam(resolvedProxyUrl, cacheBustKey)
 }
 
 export function getOriginalLocalImagePathFromProxyUrl(source: string): string | null {

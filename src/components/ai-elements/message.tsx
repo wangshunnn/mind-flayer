@@ -293,20 +293,29 @@ export const MessageResponse = memo(
     localImageProxyOrigin,
     ...props
   }: MessageResponseProps) => {
+    const localImageCacheBustKey = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+
     const components = useMemo(
-      () => createStreamdownComponentsWithLocalImage(componentsProp, localImageProxyOrigin),
-      [componentsProp, localImageProxyOrigin]
+      () =>
+        createStreamdownComponentsWithLocalImage(
+          componentsProp,
+          localImageProxyOrigin,
+          localImageCacheBustKey
+        ),
+      [componentsProp, localImageProxyOrigin, localImageCacheBustKey]
     )
     const remarkPlugins = useMemo(() => {
-      const rewriteLocalImageRemarkPlugin =
-        createRewriteLocalImageRemarkPlugin(localImageProxyOrigin)
+      const rewriteLocalImageRemarkPlugin = createRewriteLocalImageRemarkPlugin(
+        localImageProxyOrigin,
+        localImageCacheBustKey
+      )
 
       if (!remarkPluginsProp) {
         return [rewriteLocalImageRemarkPlugin]
       }
 
       return [...remarkPluginsProp, rewriteLocalImageRemarkPlugin]
-    }, [remarkPluginsProp, localImageProxyOrigin])
+    }, [remarkPluginsProp, localImageProxyOrigin, localImageCacheBustKey])
 
     return (
       <Streamdown

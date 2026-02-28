@@ -1,4 +1,9 @@
 import type { Hono } from "hono"
+import type { ChannelRuntimeConfigService } from "../services/channel-runtime-config-service"
+import type { ProviderService } from "../services/provider-service"
+import type { TelegramBotService } from "../services/telegram-bot-service"
+import { handleChannelRuntimeConfig } from "./channel-runtime-config"
+import { handleTelegramChannelTest } from "./channel-telegram-test"
 import { handleChat } from "./chat"
 import { handleCleanupWorkspace } from "./cleanup"
 import { handleHealth } from "./health"
@@ -11,7 +16,13 @@ import { handleTitleGenerator } from "./title"
  * @param app - Hono application instance
  * @param globalAbortController - Global abort controller for shutdown
  */
-export function registerRoutes(app: Hono, globalAbortController: AbortController) {
+export function registerRoutes(
+  app: Hono,
+  globalAbortController: AbortController,
+  channelRuntimeConfigService: ChannelRuntimeConfigService,
+  telegramBotService: TelegramBotService,
+  providerService: ProviderService
+) {
   // Health check endpoint
   app.get("/health", handleHealth)
 
@@ -26,4 +37,12 @@ export function registerRoutes(app: Hono, globalAbortController: AbortController
 
   // Workspace cleanup endpoint
   app.post("/api/cleanup-workspace", handleCleanupWorkspace)
+
+  // Runtime config endpoint for channel services
+  app.post("/api/channel-runtime-config", c =>
+    handleChannelRuntimeConfig(c, channelRuntimeConfigService, telegramBotService)
+  )
+
+  // Telegram test endpoint (connectivity + token check)
+  app.post("/api/channels/telegram/test", c => handleTelegramChannelTest(c, providerService))
 }

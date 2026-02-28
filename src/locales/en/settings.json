@@ -1,6 +1,7 @@
 {
   "sections": {
     "providers": "Providers",
+    "channels": "Channels",
     "web-search": "Web Search",
     "general": "General",
     "keyboard": "Keyboard",
@@ -30,6 +31,23 @@
     "configureDescription": "Configure {{provider}} API credentials and endpoint settings"
   },
   "webSearch": {},
+  "channels": {
+    "enable": "Enable",
+    "botToken": "Bot Token",
+    "botTokenPlaceholder": "Paste your Telegram bot token from BotFather",
+    "apiBaseUrl": "API Base URL",
+    "apiBaseUrlOptional": "Optional (default: https://api.telegram.org)",
+    "testConnection": "Test Connection",
+    "testingConnection": "Testing",
+    "testConnectionSuccess": "Telegram connection succeeded",
+    "testConnectionFailed": "Telegram connection failed",
+    "guideTitle": "Create a Telegram bot",
+    "guideDescription": "Use @BotFather to create your bot and copy the token.",
+    "guideStep1": "Open @BotFather and run /newbot",
+    "guideStep2": "Set bot name and username",
+    "guideStep3": "Paste the generated token here",
+    "openBotFather": "Open @BotFather"
+  },
   "general": {
     "language": "Language",
     "languageEnglish": "English",

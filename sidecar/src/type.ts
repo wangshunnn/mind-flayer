@@ -3,6 +3,20 @@ export interface ProviderConfig {
   baseUrl?: string
 }
 
+export interface SelectedModelRuntime {
+  provider: string
+  modelId: string
+}
+
+export interface ChannelRuntimeConfig {
+  selectedModel: SelectedModelRuntime | null
+  channels: {
+    telegram: {
+      enabled: boolean
+    }
+  }
+}
+
 export type WebSearchMode = "auto" | "always"
 
 export type ProviderType = "minimax" | "anthropic" | "openai"

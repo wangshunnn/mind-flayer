@@ -126,6 +126,16 @@ export const WEB_SEARCH_PROVIDERS: Provider[] = [
   }
 ]
 
+export const CHANNEL_PROVIDERS: Provider[] = [
+  {
+    id: "telegram",
+    name: "Telegram",
+    defaultBaseUrl: "https://api.telegram.org",
+    apiKeyUrl: "https://t.me/BotFather",
+    icon: Bot
+  }
+]
+
 export const UPCOMING_PROVIDERS: Provider[] = [
   {
     id: "openai",
@@ -186,7 +196,12 @@ export const UPCOMING_PROVIDERS: Provider[] = [
   }
 ]
 
-export const ALL_PROVIDERS = [...MODEL_PROVIDERS, ...WEB_SEARCH_PROVIDERS, ...UPCOMING_PROVIDERS]
+export const ALL_PROVIDERS = [
+  ...MODEL_PROVIDERS,
+  ...WEB_SEARCH_PROVIDERS,
+  ...CHANNEL_PROVIDERS,
+  ...UPCOMING_PROVIDERS
+]
 
 export function findModelPricing(
   providerId: string | null | undefined,

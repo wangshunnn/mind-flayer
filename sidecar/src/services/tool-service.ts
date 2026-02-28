@@ -31,10 +31,15 @@ export class ToolService {
    * @param options - Tool configuration options
    * @param options.useWebSearch - Whether to enable web search
    * @param options.chatId - Chat session ID for bash execution workspace isolation
+   * @param options.includeBashExecution - Whether to include bash tool (default true)
    * @returns Tools object for AI SDK
    */
-  getRequestTools(options: { useWebSearch: boolean; chatId?: string }): AllTools {
-    const { useWebSearch, chatId } = options
+  getRequestTools(options: {
+    useWebSearch: boolean
+    chatId?: string
+    includeBashExecution?: boolean
+  }): AllTools {
+    const { useWebSearch, chatId, includeBashExecution = true } = options
     const tools: AllTools = {}
 
     // Add web search tool if enabled
@@ -53,7 +58,7 @@ export class ToolService {
     }
 
     // Add bash execution tool only on supported platforms
-    if (isBashExecSupportedPlatform()) {
+    if (includeBashExecution && isBashExecSupportedPlatform()) {
       const toolPlugin = toolRegistry.get("bashExecution")
       const effectiveChatId = chatId || ""
       const bashInstance = toolPlugin.createInstance(effectiveChatId) as AllTools["bashExecution"]

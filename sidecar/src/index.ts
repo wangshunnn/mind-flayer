@@ -1,24 +1,52 @@
 import { serve } from "@hono/node-server"
 import { Hono } from "hono"
+import { ProxyAgent, setGlobalDispatcher } from "undici"
 import { createCorsMiddleware } from "./middleware/cors"
 import { errorHandler } from "./middleware/error-handler"
 import { registerRoutes } from "./routes"
+import { ChannelRuntimeConfigService } from "./services/channel-runtime-config-service"
 import { providerService } from "./services/provider-service"
+import { TelegramBotService } from "./services/telegram-bot-service"
 import { toolService } from "./services/tool-service"
 import { cleanupTransientWorkspaces } from "./tools/bash-exec/workspace"
 import type { ConfigUpdateMessage } from "./type"
 import { createShutdownHandler, setupStdinListener } from "./utils/lifecycle"
 
-// if you need to use a proxy, uncomment the following lines
-// import { ProxyAgent, setGlobalDispatcher } from "undici"
-// const proxy = "http://127.0.0.1:7890" // Set to your actual proxy port
-// const dispatcher = new ProxyAgent(proxy)
-// setGlobalDispatcher(dispatcher)
+function setupGlobalProxyIfConfigured() {
+  const proxyUrl =
+    process.env.MINDFLAYER_PROXY_URL ||
+    process.env.HTTPS_PROXY ||
+    process.env.HTTP_PROXY ||
+    process.env.ALL_PROXY ||
+    process.env.https_proxy ||
+    process.env.http_proxy ||
+    process.env.all_proxy
+
+  if (!proxyUrl) {
+    return
+  }
+
+  try {
+    const dispatcher = new ProxyAgent(proxyUrl)
+    setGlobalDispatcher(dispatcher)
+    console.log(`[sidecar] Global HTTP proxy enabled: ${proxyUrl}`)
+  } catch (error) {
+    console.error("[sidecar] Failed to initialize proxy agent:", error)
+  }
+}
+
+setupGlobalProxyIfConfigured()
 
 const app = new Hono()
 // Use the SIDECAR_PORT environment variable set by the Rust sidecar setup
 const PORT = process.env.SIDECAR_PORT
 const globalAbortController = new AbortController()
+const channelRuntimeConfigService = new ChannelRuntimeConfigService()
+const telegramBotService = new TelegramBotService(
+  providerService,
+  toolService,
+  channelRuntimeConfigService
+)
 const normalizeErrorMessage = (message: string): string => message.replace(/\s+/g, " ").trim()
 
 // Register middleware
@@ -26,7 +54,13 @@ app.use(createCorsMiddleware())
 app.use(errorHandler)
 
 // Register routes
-registerRoutes(app, globalAbortController)
+registerRoutes(
+  app,
+  globalAbortController,
+  channelRuntimeConfigService,
+  telegramBotService,
+  providerService
+)
 
 // Start server
 const server = serve(
@@ -59,10 +93,12 @@ setupStdinListener((message: unknown) => {
   }
 
   providerService.updateConfigs(configMessage)
+  void telegramBotService.refresh()
 })
 
 // Register shutdown handlers
 const shutdown = createShutdownHandler(globalAbortController, server, async () => {
+  await telegramBotService.stop()
   await cleanupTransientWorkspaces()
 })
 process.on("SIGTERM", shutdown)

@@ -1,6 +1,7 @@
 {
   "sections": {
     "providers": "模型配置",
+    "channels": "渠道",
     "web-search": "联网搜索",
     "general": "通用",
     "keyboard": "快捷键",
@@ -30,6 +31,23 @@
     "configureDescription": "配置 {{provider}} 的 API 凭证和端点设置"
   },
   "webSearch": {},
+  "channels": {
+    "enable": "启用",
+    "botToken": "Bot Token",
+    "botTokenPlaceholder": "粘贴从 BotFather 获取的 Telegram 机器人 Token",
+    "apiBaseUrl": "API Base URL",
+    "apiBaseUrlOptional": "可选（默认：https://api.telegram.org）",
+    "testConnection": "测试连接",
+    "testingConnection": "测试中",
+    "testConnectionSuccess": "Telegram 连接成功",
+    "testConnectionFailed": "Telegram 连接失败",
+    "guideTitle": "创建 Telegram 机器人",
+    "guideDescription": "通过 @BotFather 创建机器人并复制 Token。",
+    "guideStep1": "打开 @BotFather 并执行 /newbot",
+    "guideStep2": "设置机器人名称与用户名",
+    "guideStep3": "把生成的 Token 粘贴到这里",
+    "openBotFather": "打开 @BotFather"
+  },
 
   "general": {
     "language": "语言",

@@ -1,6 +1,6 @@
 import { useSearch } from "@tanstack/react-router"
 import { emit, listen } from "@tauri-apps/api/event"
-import { BadgeInfo, Bolt, Keyboard, Layers, Search, SparklesIcon } from "lucide-react"
+import { BadgeInfo, Bolt, Cable, Keyboard, Layers, Search, SparklesIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -9,19 +9,24 @@ import { useProviderConfig } from "@/hooks/use-provider-config"
 import { useSetting } from "@/hooks/use-settings-store"
 import {
   ALL_PROVIDERS,
+  CHANNEL_PROVIDERS,
   DEFAULT_FORM_DATA,
   MODEL_PROVIDERS,
   WEB_SEARCH_PROVIDERS
 } from "@/lib/provider-constants"
+import { testTelegramConnection } from "@/lib/sidecar-client"
 import { cn } from "@/lib/utils"
 import { SettingsSection } from "@/lib/window-manager"
 import type { ProviderFormData } from "@/types/settings"
 import { AboutSection } from "./components/AboutSection"
 import { AdvancedSection } from "./components/AdvancedSection"
+import { ChannelSection } from "./components/ChannelSection"
 import { GeneralSection } from "./components/GeneralSection"
 import { KeyboardSection } from "./components/KeyboardSection"
 import { ProviderSection } from "./components/ProviderSection"
 import { WebSearchSection } from "./components/WebSearchSection"
+
+const CHANNEL_PROVIDER_IDS = new Set(CHANNEL_PROVIDERS.map(provider => provider.id))
 
 export default function Settings() {
   const { t } = useTranslation("settings")
@@ -29,7 +34,11 @@ export default function Settings() {
   const [activeSection, setActiveSection] = useState<SettingsSection>(SettingsSection.GENERAL)
   const [activeProvider, setActiveProvider] = useState(MODEL_PROVIDERS[0].id)
   const [activeWebSearchProvider, setActiveWebSearchProvider] = useState(WEB_SEARCH_PROVIDERS[0].id)
+  const activeChannelProvider = CHANNEL_PROVIDERS[0].id
   const [saveStatus, setSaveStatus] = useState<"idle" | "submitting" | "success" | "error">("idle")
+  const [channelTestStatus, setChannelTestStatus] = useState<
+    "idle" | "testing" | "success" | "error"
+  >("idle")
   const [saveError, setSaveError] = useState<string | null>(null)
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [formData, setFormData] = useState<Record<string, ProviderFormData>>(DEFAULT_FORM_DATA)
@@ -38,9 +47,11 @@ export default function Settings() {
   const { saveConfig, getConfig, deleteConfig, isLoading, error } = useProviderConfig()
   const getConfigRef = useLatest(getConfig)
   const [enabledProviders, setEnabledProviders] = useSetting("enabledProviders")
+  const [enabledChannels, setEnabledChannels] = useSetting("enabledChannels")
 
   const resetSaveFeedback = useCallback(() => {
     setSaveStatus("idle")
+    setChannelTestStatus("idle")
     setSaveError(null)
     if (successTimeoutRef.current) {
       clearTimeout(successTimeoutRef.current)
@@ -130,6 +141,32 @@ export default function Settings() {
     resetSaveFeedback()
   }, [activeWebSearchProvider, resetSaveFeedback])
 
+  // Load channel provider config
+  // biome-ignore lint/correctness/useExhaustiveDependencies: getConfigRef is stable via useLatest
+  useEffect(() => {
+    const loadConfig = async () => {
+      const config = await getConfigRef.current(activeChannelProvider)
+      if (config) {
+        setFormData(prev => ({
+          ...prev,
+          [activeChannelProvider]: {
+            ...prev[activeChannelProvider],
+            apiKey: config.apiKey,
+            baseUrl:
+              config.baseUrl ||
+              ALL_PROVIDERS.find(p => p.id === activeChannelProvider)?.defaultBaseUrl ||
+              ""
+          }
+        }))
+        setStoredProviders(prev => ({ ...prev, [activeChannelProvider]: true }))
+      } else {
+        setStoredProviders(prev => ({ ...prev, [activeChannelProvider]: false }))
+      }
+    }
+    loadConfig()
+    resetSaveFeedback()
+  }, [activeChannelProvider, resetSaveFeedback])
+
   const handleSave = async (providerId: string) => {
     resetSaveFeedback()
     const data = formData[providerId]
@@ -191,11 +228,18 @@ export default function Settings() {
           baseUrl: ""
         }
       }))
-      // Clear also disables the provider
-      await setEnabledProviders({
-        ...enabledProviders,
-        [providerId]: false
-      })
+      if (CHANNEL_PROVIDER_IDS.has(providerId)) {
+        await setEnabledChannels({
+          ...enabledChannels,
+          [providerId]: false
+        })
+      } else {
+        // Clear also disables the provider
+        await setEnabledProviders({
+          ...enabledProviders,
+          [providerId]: false
+        })
+      }
       setStoredProviders(prev => ({ ...prev, [providerId]: false }))
       setSaveStatus("success")
       toast.success(t("providers.toast.deleted"))
@@ -217,6 +261,41 @@ export default function Settings() {
     }
   }
 
+  const handleChannelTest = async () => {
+    const providerId = activeChannelProvider
+    const data = formData[providerId]
+
+    if (!data?.apiKey.trim()) {
+      toast.error(t("providers.toast.apiKeyRequired"))
+      setChannelTestStatus("error")
+      return
+    }
+
+    try {
+      setChannelTestStatus("testing")
+
+      // Persist latest token/baseURL before test so sidecar receives updated config.
+      await saveConfig(providerId, data.apiKey.trim(), data.baseUrl.trim() || undefined)
+      setStoredProviders(prev => ({ ...prev, [providerId]: true }))
+
+      await emit("provider-config-changed", {
+        provider: providerId,
+        action: "saved"
+      })
+
+      const result = await testTelegramConnection()
+      setChannelTestStatus("success")
+      toast.success(t("channels.testConnectionSuccess"), {
+        description: `${result.bot.firstName}${result.bot.username ? ` (@${result.bot.username})` : ""} · ${result.baseUrl}`
+      })
+    } catch (err) {
+      setChannelTestStatus("error")
+      toast.error(t("channels.testConnectionFailed"), {
+        description: err instanceof Error ? err.message : "Unknown error"
+      })
+    }
+  }
+
   const activeError = saveError || error
   const isSaveBusy = saveStatus === "submitting" || saveStatus === "success"
   const currentData = formData[activeProvider]
@@ -225,6 +304,9 @@ export default function Settings() {
   const currentWebSearchData = formData[activeWebSearchProvider]
   const isWebSearchSaveDisabled = isSaveBusy || isLoading || !currentWebSearchData?.apiKey.trim()
   const isWebSearchClearDisabled = isSaveBusy || isLoading || !currentWebSearchData?.apiKey.trim()
+  const currentChannelData = formData[activeChannelProvider]
+  const isChannelSaveDisabled = isSaveBusy || isLoading || !currentChannelData?.apiKey.trim()
+  const isChannelClearDisabled = isSaveBusy || isLoading || !currentChannelData?.apiKey.trim()
 
   return (
     <div className="h-screen overflow-hidden flex">
@@ -236,6 +318,7 @@ export default function Settings() {
           <nav className="flex-1 space-y-1">
             {[
               { id: SettingsSection.PROVIDERS, icon: Layers },
+              { id: SettingsSection.CHANNELS, icon: Cable },
               { id: SettingsSection.WEB_SEARCH, icon: Search },
               { id: SettingsSection.GENERAL, icon: Bolt },
               { id: SettingsSection.KEYBOARD, icon: Keyboard },
@@ -259,8 +342,10 @@ export default function Settings() {
                     {t(
                       `sections.${section.id}` as
                         | "sections.providers"
+                        | "sections.channels"
                         | "sections.web-search"
                         | "sections.general"
+                        | "sections.keyboard"
                         | "sections.advanced"
                         | "sections.about"
                     )}
@@ -274,7 +359,7 @@ export default function Settings() {
         {/* Main Content */}
         <main className="flex-1 flex flex-col">
           <div className="bg-transparent flex-1 overflow-auto flex flex-col">
-            <div data-tauri-drag-region className="w-full p-5 flex-1 flex flex-col min-h-0">
+            <div data-tauri-drag-region className="w-full p-5 flex-1 flex flex-col min-h-max">
               {activeSection === SettingsSection.PROVIDERS && (
                 <ProviderSection
                   activeProvider={activeProvider}
@@ -311,6 +396,25 @@ export default function Settings() {
                   resetSaveFeedback={resetSaveFeedback}
                   isSaveDisabled={isWebSearchSaveDisabled}
                   isClearDisabled={isWebSearchClearDisabled}
+                />
+              )}
+
+              {activeSection === SettingsSection.CHANNELS && (
+                <ChannelSection
+                  formData={formData}
+                  setFormData={setFormData}
+                  onSave={handleSave}
+                  onClear={handleClear}
+                  onTest={handleChannelTest}
+                  saveStatus={saveStatus}
+                  testStatus={channelTestStatus}
+                  activeError={activeError}
+                  enabledChannels={enabledChannels}
+                  setEnabledChannels={setEnabledChannels}
+                  storedProviders={storedProviders}
+                  resetSaveFeedback={resetSaveFeedback}
+                  isSaveDisabled={isChannelSaveDisabled}
+                  isClearDisabled={isChannelClearDisabled}
                 />
               )}
 

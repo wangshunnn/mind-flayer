@@ -7,6 +7,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow"
  */
 export enum SettingsSection {
   PROVIDERS = "providers",
+  CHANNELS = "channels",
   WEB_SEARCH = "web-search",
   GENERAL = "general",
   KEYBOARD = "keyboard",
@@ -43,7 +44,7 @@ export async function openSettingsWindow(initialTab: SettingsSection = SettingsS
   new WebviewWindow("settings", {
     url: `/settings?tab=${initialTab}`,
     width: 720,
-    height: 540,
+    height: 580,
     resizable: false,
     fullscreen: false,
     maximizable: false,

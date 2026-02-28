@@ -47,6 +47,9 @@ export interface AppSettings {
   // Provider settings
   enabledProviders: Record<string, boolean>
 
+  // Channel settings
+  enabledChannels: Record<string, boolean>
+
   // Tool settings
   webSearchEnabled: boolean
   webSearchMode: WebSearchMode
@@ -65,6 +68,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   enabledProviders: {
     minimax: false,
     parallel: false
+  },
+  enabledChannels: {
+    telegram: false
   },
   webSearchEnabled: true,
   webSearchMode: "auto",

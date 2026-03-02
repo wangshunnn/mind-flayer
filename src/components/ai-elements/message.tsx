@@ -3,7 +3,7 @@ import type { FileUIPart, UIMessage } from "ai"
 import { ChevronLeftIcon, ChevronRightIcon, PaperclipIcon, XIcon } from "lucide-react"
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react"
 import { createContext, forwardRef, memo, useContext, useEffect, useMemo, useState } from "react"
-import { Streamdown } from "streamdown"
+import { defaultRemarkPlugins, Streamdown } from "streamdown"
 import {
   createRewriteLocalImageRemarkPlugin,
   createStreamdownComponentsWithLocalImage,
@@ -288,8 +288,6 @@ export const MessageResponse = memo(
   ({
     className,
     components: componentsProp,
-    rehypePlugins,
-    remarkPlugins: remarkPluginsProp,
     localImageProxyOrigin,
     ...props
   }: MessageResponseProps) => {
@@ -304,18 +302,10 @@ export const MessageResponse = memo(
         ),
       [componentsProp, localImageProxyOrigin, localImageCacheBustKey]
     )
-    const remarkPlugins = useMemo(() => {
-      const rewriteLocalImageRemarkPlugin = createRewriteLocalImageRemarkPlugin(
-        localImageProxyOrigin,
-        localImageCacheBustKey
-      )
-
-      if (!remarkPluginsProp) {
-        return [rewriteLocalImageRemarkPlugin]
-      }
-
-      return [...remarkPluginsProp, rewriteLocalImageRemarkPlugin]
-    }, [remarkPluginsProp, localImageProxyOrigin, localImageCacheBustKey])
+    const remarkPlugins = useMemo(
+      () => createRewriteLocalImageRemarkPlugin(localImageProxyOrigin, localImageCacheBustKey),
+      [localImageProxyOrigin, localImageCacheBustKey]
+    )
 
     return (
       <Streamdown
@@ -337,8 +327,8 @@ export const MessageResponse = memo(
           }
         }}
         components={components}
-        rehypePlugins={rehypePlugins ?? streamdownRehypePluginsWithLocalImageSrc}
-        remarkPlugins={remarkPlugins}
+        remarkPlugins={[...Object.values(defaultRemarkPlugins), remarkPlugins]}
+        rehypePlugins={streamdownRehypePluginsWithLocalImageSrc}
         {...props}
       />
     )

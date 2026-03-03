@@ -21,12 +21,14 @@ export function TopFloatingHeader({
 
   return (
     <div
+      data-tauri-drag-region
       className={cn(
         "bg-background relative flex h-11 items-center border-b-[0.5px] pt-0",
         className
       )}
     >
       <div
+        data-tauri-drag-region
         className={cn(
           "fixed left-10 z-50 flex items-center pointer-events-auto",
           !isCompact && open ? "left-66.75" : "left-43",
@@ -39,6 +41,7 @@ export function TopFloatingHeader({
 
       {rightSlot && (
         <div
+          data-tauri-drag-region
           className={cn(
             "absolute top-1/2 right-4 z-50 flex -translate-y-1/2 items-center pointer-events-auto",
             rightSlotClassName

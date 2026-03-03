@@ -21,6 +21,7 @@ const MAX_SESSION_MESSAGES = 40
 const LOG_TEXT_PREVIEW_LENGTH = 100
 const TELEGRAM_MAX_MESSAGE_LENGTH = 4096
 const TELEGRAM_DRAFT_UPDATE_INTERVAL_MS = 700
+const TELEGRAM_CHAT_ACTION_INTERVAL_MS = 3000
 const WHITELIST_JOIN_BUTTON_TEXT = "Join the Channel"
 const JOIN_REQUEST_CALLBACK_DATA = "mf_join_request_v1"
 const WHITELIST_DENY_COOLDOWN_MS = 10 * 60 * 1000
@@ -120,6 +121,15 @@ interface TelegramUpdate {
 interface TelegramSentMessage {
   message_id: number
 }
+
+type TelegramChatAction =
+  | "typing"
+  | "upload_photo"
+  | "upload_video"
+  | "upload_voice"
+  | "upload_document"
+  | "choose_sticker"
+  | "upload_video_note"
 
 type LogValue = string | number | boolean | null | undefined
 
@@ -535,6 +545,63 @@ export class TelegramBotService {
     ])
     this.setSessionMessages(sessionKey, messagesWithLatestInput)
 
+    let currentChatAction: TelegramChatAction = "typing"
+    let chatActionAbortController: AbortController | null = null
+    let chatActionTask: Promise<void> | null = null
+
+    const startChatActionLoop = () => {
+      if (chatActionTask) {
+        return
+      }
+
+      chatActionAbortController = new AbortController()
+      chatActionTask = this.runChatActionLoop(
+        botToken,
+        apiBaseUrl,
+        chatId,
+        () => currentChatAction,
+        chatActionAbortController.signal
+      )
+    }
+
+    const switchChatAction = async (action: TelegramChatAction) => {
+      currentChatAction = action
+
+      try {
+        await this.sendChatAction(botToken, apiBaseUrl, chatId, action)
+      } catch (error) {
+        this.logInfo("sendChatAction failed", {
+          chatId,
+          action,
+          reason: error instanceof Error ? error.message : String(error)
+        })
+      }
+    }
+
+    const stopChatActionLoop = async () => {
+      if (chatActionAbortController) {
+        chatActionAbortController.abort()
+        chatActionAbortController = null
+      }
+
+      if (!chatActionTask) {
+        return
+      }
+
+      try {
+        await chatActionTask
+      } catch (error) {
+        this.logInfo("Chat action loop stopped with error", {
+          chatId,
+          reason: error instanceof Error ? error.message : String(error)
+        })
+      } finally {
+        chatActionTask = null
+      }
+    }
+
+    startChatActionLoop()
+
     try {
       const tools = this.toolService.getRequestTools({
         useWebSearch: true,
@@ -618,7 +685,9 @@ export class TelegramBotService {
 
       const sanitizedText = transformed.sanitizedText || normalizedAssistantText
       await this.sendTextInChunks(chatId, sanitizedText)
-      await this.sendMediaUploads(chatId, transformed.uploads)
+      await this.sendMediaUploads(chatId, transformed.uploads, async upload => {
+        await switchChatAction(this.mapUploadKindToChatAction(upload.kind))
+      })
 
       this.setSessionMessages(
         sessionKey,
@@ -630,6 +699,8 @@ export class TelegramBotService {
     } catch (error) {
       console.error("[TelegramBotService] Failed to process message:", error)
       await this.sendTextMessage(chatId, "Error: Failed to generate response. Please try again.")
+    } finally {
+      await stopChatActionLoop()
     }
   }
 
@@ -700,8 +771,16 @@ export class TelegramBotService {
     })
   }
 
-  private async sendMediaUploads(chatId: string, uploads: TelegramMediaUpload[]): Promise<void> {
+  private async sendMediaUploads(
+    chatId: string,
+    uploads: TelegramMediaUpload[],
+    beforeUpload?: (upload: TelegramMediaUpload) => Promise<void>
+  ): Promise<void> {
     for (const upload of uploads) {
+      if (beforeUpload) {
+        await beforeUpload(upload)
+      }
+
       try {
         await this.sendMediaUpload(chatId, upload)
       } catch (error) {
@@ -755,6 +834,73 @@ export class TelegramBotService {
       chat_id: chatId,
       text
     })
+  }
+
+  private mapUploadKindToChatAction(kind: TelegramMediaUpload["kind"]): TelegramChatAction {
+    if (kind === "photo") {
+      return "upload_photo"
+    }
+
+    if (kind === "video") {
+      return "upload_video"
+    }
+
+    if (kind === "audio") {
+      return "upload_voice"
+    }
+
+    return "upload_document"
+  }
+
+  private async runChatActionLoop(
+    botToken: string,
+    apiBaseUrl: string,
+    chatId: string,
+    getAction: () => TelegramChatAction,
+    signal: AbortSignal
+  ): Promise<void> {
+    while (!signal.aborted) {
+      const action = getAction()
+
+      try {
+        await this.sendChatAction(botToken, apiBaseUrl, chatId, action)
+      } catch (error) {
+        this.logInfo("sendChatAction failed", {
+          chatId,
+          action,
+          reason: error instanceof Error ? error.message : String(error)
+        })
+      }
+
+      await this.delay(TELEGRAM_CHAT_ACTION_INTERVAL_MS, signal)
+    }
+  }
+
+  private async sendChatAction(
+    botToken: string,
+    apiBaseUrl: string,
+    chatId: string,
+    action: TelegramChatAction
+  ): Promise<void> {
+    const response = await fetch(`${apiBaseUrl}/bot${botToken}/sendChatAction`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        action
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`sendChatAction failed with HTTP ${response.status}`)
+    }
+
+    const payload = (await response.json()) as TelegramApiResponse<true>
+    if (!payload.ok) {
+      throw new Error(`sendChatAction failed: ${payload.description || "unknown error"}`)
+    }
   }
 
   private async sendMessageDraft(

@@ -328,7 +328,7 @@ export default function Page() {
       </SidebarInset>
 
       <Dialog open={Boolean(currentWhitelistRequest)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent showCloseButton={false} className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{t("telegramWhitelist.title")}</DialogTitle>
             <DialogDescription>{t("telegramWhitelist.description")}</DialogDescription>

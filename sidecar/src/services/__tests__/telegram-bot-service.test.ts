@@ -207,6 +207,94 @@ describe("TelegramBotService", () => {
     expect(streamTextMock).not.toHaveBeenCalled()
   })
 
+  it("uses latest unauthorized user message as whitelist request preview", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => telegramApiSuccess(true))
+    )
+
+    const providerService = {
+      hasConfig: vi.fn(() => true),
+      createModel: vi.fn(() => ({})),
+      getConfig: vi.fn((provider: string) => {
+        if (provider === "telegram") {
+          return { apiKey: "tg-token", baseUrl: "https://api.telegram.org" }
+        }
+        return { apiKey: "model-key" }
+      })
+    }
+    const toolService = {
+      getRequestTools: vi.fn(() => ({}))
+    }
+
+    const runtimeConfigService = new ChannelRuntimeConfigService()
+    runtimeConfigService.update({
+      selectedModel: { provider: "minimax", modelId: "model-a" },
+      channels: {
+        telegram: {
+          enabled: true,
+          allowedUserIds: []
+        }
+      }
+    })
+
+    const service = new TelegramBotService(
+      providerService as never,
+      toolService as never,
+      runtimeConfigService
+    )
+
+    await (
+      service as unknown as {
+        handleIncomingMessage: (
+          botToken: string,
+          apiBaseUrl: string,
+          message: unknown
+        ) => Promise<void>
+      }
+    ).handleIncomingMessage("token", "https://api.telegram.org", {
+      message_id: 88,
+      chat: {
+        id: 42,
+        type: "private"
+      },
+      from: {
+        id: 42,
+        is_bot: false
+      },
+      text: "please approve me"
+    })
+
+    await (
+      service as unknown as {
+        handleCallbackQuery: (
+          botToken: string,
+          apiBaseUrl: string,
+          callback: unknown
+        ) => Promise<void>
+      }
+    ).handleCallbackQuery("token", "https://api.telegram.org", {
+      id: "callback-2",
+      data: "mf_join_request_v1",
+      from: {
+        id: 42,
+        is_bot: false
+      },
+      message: {
+        message_id: 89,
+        chat: {
+          id: 42,
+          type: "private"
+        },
+        text: "You are not authorized yet. Request access below."
+      }
+    })
+
+    const requests = service.listWhitelistRequests()
+    expect(requests).toHaveLength(1)
+    expect(requests[0]?.lastMessagePreview).toBe("please approve me")
+  })
+
   it("starts typing immediately after reply eligibility", async () => {
     const fetchMock = vi.fn((url: string) => {
       if (url.includes("/sendChatAction")) {

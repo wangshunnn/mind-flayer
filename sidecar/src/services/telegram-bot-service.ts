@@ -163,6 +163,7 @@ export class TelegramBotService {
   private sessionMessages = new Map<string, UIMessage[]>()
   private sessionUpdatedAt = new Map<string, number>()
   private whitelistRequests = new Map<string, TelegramWhitelistRequest>()
+  private pendingWhitelistPreviewByUserId = new Map<string, string>()
   private deniedCooldownByUserId = new Map<string, number>()
   private temporaryApprovedUserIds = new Set<string>()
 
@@ -456,6 +457,8 @@ export class TelegramBotService {
     const requestId = userId
     const existing = this.whitelistRequests.get(requestId)
     if (!existing) {
+      const pendingPreview = this.pendingWhitelistPreviewByUserId.get(userId) ?? ""
+      const callbackPreview = this.toTextPreview(message.text ?? message.caption)
       this.whitelistRequests.set(requestId, {
         requestId,
         userId,
@@ -464,9 +467,10 @@ export class TelegramBotService {
         firstName: callback.from.first_name,
         lastName: callback.from.last_name,
         requestedAt: Date.now(),
-        lastMessagePreview: this.toTextPreview(message.text ?? message.caption)
+        lastMessagePreview: pendingPreview || callbackPreview
       })
     }
+    this.pendingWhitelistPreviewByUserId.delete(userId)
 
     await this.answerCallbackQuery(botToken, apiBaseUrl, callback.id, "Request submitted", true)
     await this.sendTextMessage(chatId, "Your join request has been submitted for approval.")
@@ -498,12 +502,17 @@ export class TelegramBotService {
       return
     }
 
+    const incomingText = this.buildIncomingMessageText(message)
+
     if (!this.isAllowedPrivateUser(userId)) {
+      const incomingPreview = this.toTextPreview(incomingText)
+      if (incomingPreview) {
+        this.pendingWhitelistPreviewByUserId.set(userId, incomingPreview)
+      }
       await this.sendWhitelistJoinButton(chatId)
       return
     }
 
-    const incomingText = this.buildIncomingMessageText(message)
     if (!incomingText) {
       return
     }

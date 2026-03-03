@@ -43,7 +43,7 @@
     "github": "Github",
     "copyrightWithLink": "AI 生成的内容，仅供参考。"
   },
-  "channelDebug": {
+  "channelChat": {
     "title": "Telegram 会话日志",
     "refresh": "刷新",
     "refreshing": "刷新中",

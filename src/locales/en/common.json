@@ -43,7 +43,7 @@
     "github": "Github",
     "copyrightWithLink": "AI-generated content, for reference only."
   },
-  "channelDebug": {
+  "channelChat": {
     "title": "Telegram Session Logs",
     "refresh": "Refresh",
     "refreshing": "Refreshing",

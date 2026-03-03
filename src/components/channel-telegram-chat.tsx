@@ -99,7 +99,7 @@ export function ChannelTelegramChat() {
           return
         }
 
-        setErrorMessage(error instanceof Error ? error.message : t("channelDebug.refreshFailed"))
+        setErrorMessage(error instanceof Error ? error.message : t("channelChat.refreshFailed"))
       } finally {
         if (requestSeq === messagesRequestSeqRef.current) {
           setIsLoadingMessages(false)
@@ -147,7 +147,7 @@ export function ChannelTelegramChat() {
         return
       }
 
-      setErrorMessage(error instanceof Error ? error.message : t("channelDebug.refreshFailed"))
+      setErrorMessage(error instanceof Error ? error.message : t("channelChat.refreshFailed"))
     } finally {
       if (requestSeq === sessionsRequestSeqRef.current) {
         setIsRefreshingSessions(false)
@@ -182,10 +182,10 @@ export function ChannelTelegramChat() {
 
   const lastUpdatedLabel = useMemo(() => {
     if (!lastRefreshedAt) {
-      return t("channelDebug.neverUpdated")
+      return t("channelChat.neverUpdated")
     }
 
-    return t("channelDebug.lastUpdated", {
+    return t("channelChat.lastUpdated", {
       time: new Date(lastRefreshedAt).toLocaleTimeString()
     })
   }, [lastRefreshedAt, t])
@@ -203,12 +203,12 @@ export function ChannelTelegramChat() {
             disabled={isRefreshing}
           >
             <RefreshCwIcon className={cn("size-3.5", isRefreshing && "animate-spin")} />
-            {t("channelDebug.refresh")}
+            {t("channelChat.refresh")}
           </Button>
         }
       >
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{t("channelDebug.title")}</p>
+          <p className="truncate text-sm font-medium">{t("channelChat.title")}</p>
           <p className="truncate text-xs text-muted-foreground">{lastUpdatedLabel}</p>
         </div>
       </TopFloatingHeader>
@@ -224,7 +224,7 @@ export function ChannelTelegramChat() {
           <div className="h-full overflow-y-auto px-2 py-2">
             {sessions.length === 0 ? (
               <div className="px-2 py-4 text-xs text-muted-foreground">
-                {t("channelDebug.noSessionsSidebar")}
+                {t("channelChat.noSessionsSidebar")}
               </div>
             ) : (
               <ul className="space-y-1">
@@ -245,14 +245,14 @@ export function ChannelTelegramChat() {
                       >
                         <div className="flex items-center justify-between gap-2">
                           <p className="truncate text-xs font-medium">
-                            {t("channelDebug.chatId", { chatId: session.chatId })}
+                            {t("channelChat.chatId", { chatId: session.chatId })}
                           </p>
                           <span className="shrink-0 text-[11px] text-muted-foreground">
-                            {t("channelDebug.messageCount", { count: session.messageCount })}
+                            {t("channelChat.messageCount", { count: session.messageCount })}
                           </span>
                         </div>
                         <p className="mt-1 truncate text-xs text-muted-foreground">
-                          {session.lastMessagePreview || t("channelDebug.noPreview")}
+                          {session.lastMessagePreview || t("channelChat.noPreview")}
                         </p>
                       </button>
                     </li>
@@ -268,13 +268,13 @@ export function ChannelTelegramChat() {
             <ConversationContent>
               {sessions.length === 0 ? (
                 <ConversationEmptyState
-                  title={t("channelDebug.noSessionsTitle")}
-                  description={t("channelDebug.noSessionsDescription")}
+                  title={t("channelChat.noSessionsTitle")}
+                  description={t("channelChat.noSessionsDescription")}
                 />
               ) : messages.length === 0 && !isLoadingMessages ? (
                 <ConversationEmptyState
-                  title={t("channelDebug.noMessagesTitle")}
-                  description={t("channelDebug.noMessagesDescription")}
+                  title={t("channelChat.noMessagesTitle")}
+                  description={t("channelChat.noMessagesDescription")}
                 />
               ) : (
                 messages.map(message => {
@@ -283,7 +283,7 @@ export function ChannelTelegramChat() {
                     .map(part => part.text)
                     .join("")
                     .trim()
-                  const textToRender = messageText || t("channelDebug.nonTextPlaceholder")
+                  const textToRender = messageText || t("channelChat.nonTextPlaceholder")
                   const isUserMessage = message.role === "user"
 
                   return (

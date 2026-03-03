@@ -35,6 +35,14 @@
 
 <p align="center">
   <img height="500" alt="App Screenshot 1" src="preview/img-1.png" />
+  <br>
+  <em>Desktop App</em>
+</p>
+
+<p align="center">
+  <img height="500" alt="App Screenshot 2" src="preview/telegram-bot.png" />
+  <br>
+  <em>Telegram Bot Integration</em>
 </p>
 
 <br>

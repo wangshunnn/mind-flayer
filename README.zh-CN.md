@@ -35,6 +35,14 @@
 
 <p align="center">
   <img height="500" alt="应用截图 1" src="preview/img-1.png" />
+  <br>
+  <em>桌面端 App</em>
+</p>
+
+<p align="center">
+  <img height="500" alt="应用截图 2" src="preview/telegram-bot.png" />
+  <br>
+  <em>集成到 Telegram Bot</em>
 </p>
 
 <br>

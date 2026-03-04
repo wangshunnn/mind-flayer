@@ -3,6 +3,12 @@
  * Centralizes system context generation for easy extension.
  */
 
+export interface BuildSystemPromptOptions {
+  modelProvider: string
+  modelId: string
+  channel?: string
+}
+
 /**
  * Build role context for the AI agent.
  *
@@ -29,9 +35,11 @@ function buildResponseFormatRules(): string {
 /**
  * Build system context including environment and time info.
  *
+ * @param options - Runtime context options
  * @returns System context string
  */
-function buildSystemContext(): string {
+function buildRuntimeContext(options: BuildSystemPromptOptions): string {
+  const { modelProvider, modelId, channel } = options
   const platform = process.platform
   const osName =
     platform === "darwin"
@@ -59,22 +67,28 @@ function buildSystemContext(): string {
   const offsetMins = Math.abs(offsetMinutes) % 60
   const offsetSign = offsetMinutes >= 0 ? "+" : "-"
   const utcOffset = `UTC${offsetSign}${offsetHours}${offsetMins > 0 ? `:${offsetMins.toString().padStart(2, "0")}` : ""}`
+  const normalizedChannel = channel?.trim()
 
-  return [
-    "System context:",
+  const runtimeContextLines = [
+    "Runtime context:",
     `- os: ${osName}`,
     `- platform: ${platform}`,
     `- current_date: ${localDate}`,
-    `- time_zone: ${tz} (${utcOffset})`
-  ].join("\n")
+    `- time_zone: ${tz} (${utcOffset})`,
+    `- model: ${modelProvider}/${modelId}`,
+    normalizedChannel ? `- channel: ${normalizedChannel}` : null
+  ]
+
+  return runtimeContextLines.filter(Boolean).join("\n")
 }
 
 /**
  * Build complete system prompt for the AI agent.
  * Combines all context sections for optimal performance and extensibility.
  *
+ * @param options - Runtime context options
  * @returns Complete system prompt
  */
-export function buildSystemPrompt(): string {
-  return [buildRoleContext(), buildResponseFormatRules(), buildSystemContext()].join("\n")
+export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
+  return [buildRoleContext(), buildResponseFormatRules(), buildRuntimeContext(options)].join("\n")
 }

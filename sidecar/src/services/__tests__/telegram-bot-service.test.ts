@@ -492,6 +492,12 @@ describe("TelegramBotService", () => {
       text: "hello"
     })
 
+    expect(buildSystemPromptMock).toHaveBeenCalledWith({
+      modelProvider: "minimax",
+      modelId: "model-a",
+      channel: "telegram"
+    })
+
     const sessions = service.listSessions()
     expect(sessions).toHaveLength(1)
     expect(sessions[0]?.sessionKey).toBe("telegram:1001")

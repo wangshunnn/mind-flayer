@@ -220,7 +220,7 @@ export function ChannelTelegramChat() {
       )}
 
       <div className="flex min-h-0 flex-1">
-        <aside className="w-60 border-r bg-muted/20">
+        <aside className="w-48 border-r bg-muted/20">
           <div className="h-full overflow-y-auto px-2 py-2">
             {sessions.length === 0 ? (
               <div className="px-2 py-4 text-xs text-muted-foreground">

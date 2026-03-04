@@ -628,7 +628,11 @@ export class TelegramBotService {
 
       const result = streamText({
         model,
-        system: buildSystemPrompt(),
+        system: buildSystemPrompt({
+          modelProvider: selectedModel.provider,
+          modelId: selectedModel.modelId,
+          channel: "telegram"
+        }),
         messages: modelMessages,
         tools,
         toolChoice,

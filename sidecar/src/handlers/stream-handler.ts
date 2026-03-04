@@ -35,7 +35,7 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
   const { model, modelProvider, modelId, messages, tools, toolChoice, abortSignal } = options
 
   // Process system prompt
-  const systemPrompt = buildSystemPrompt()
+  const systemPrompt = buildSystemPrompt({ modelProvider, modelId })
   console.info("[sidecar] systemPrompt:", systemPrompt)
 
   // Process and prune messages

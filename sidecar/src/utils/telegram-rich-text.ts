@@ -85,7 +85,7 @@ function replaceHtmlHeadings(
   createPlaceholder: (content: string) => string
 ): string {
   return value.replace(HTML_HEADING_REGEX, (_match, _level, innerText) => {
-    const headingText = String(innerText ?? "")
+    const headingText = unescapeHtml(String(innerText ?? ""))
       .replace(HTML_TAG_REGEX, "")
       .trim()
     return wrapBoldPlaceholder(headingText, createPlaceholder)

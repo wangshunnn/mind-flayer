@@ -1,6 +1,7 @@
 import { randomInt, randomUUID } from "node:crypto"
 import type { LanguageModel } from "ai"
 import { stepCountIs, streamText, type UIMessage } from "ai"
+import { discoverSkills } from "../skills/catalog"
 import { processMessages } from "../utils/message-processor"
 import { buildSystemPrompt } from "../utils/system-prompt-builder"
 import {
@@ -624,7 +625,10 @@ export class TelegramBotService {
         webSearchMode: "auto",
         messages: messagesWithLatestInput
       })
-      const modelMessages = await processMessages(messagesWithLatestInput, tools)
+      const [skills, modelMessages] = await Promise.all([
+        discoverSkills(),
+        processMessages(messagesWithLatestInput, tools)
+      ])
 
       console.info("[TelegramBotService] handling message", {
         chatId,
@@ -637,7 +641,8 @@ export class TelegramBotService {
         system: buildSystemPrompt({
           modelProvider: selectedModel.provider,
           modelId: selectedModel.modelId,
-          channel: "telegram"
+          channel: "telegram",
+          skills
         }),
         messages: modelMessages,
         tools,

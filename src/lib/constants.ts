@@ -13,7 +13,9 @@ export function useToolConstants() {
   return useMemo(
     () => ({
       names: {
-        webSearch: t("names.webSearch")
+        webSearch: t("names.webSearch"),
+        bashExecution: t("names.bashExecution"),
+        read: t("names.read")
       },
       states: {
         running: t("states.running"),

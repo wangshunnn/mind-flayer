@@ -31,6 +31,20 @@ export type ToolBashExecution = ToolUIPart & {
   }
 }
 
+export type ToolRead = ToolUIPart & {
+  input?: {
+    filePath: string
+    offset?: number
+  }
+  output?: {
+    filePath: string
+    content: string
+    offset: number
+    nextOffset: number | null
+    truncated: boolean
+  }
+}
+
 // Determine if tool is in progress
 export const isToolUIPartInProgress = (part: ToolUIPart | DynamicToolUIPart): boolean =>
   part.state === "input-streaming" ||
@@ -46,6 +60,9 @@ export const isBashExecutionToolUIPart = (
   tool: ToolUIPart | DynamicToolUIPart
 ): tool is ToolBashExecution => tool.type === "tool-bashExecution"
 
+export const isReadToolUIPart = (tool: ToolUIPart | DynamicToolUIPart): tool is ToolRead =>
+  tool.type === "tool-read"
+
 export function getToolInputMeta(
   tool: ToolUIPart | DynamicToolUIPart
 ): { content?: string } | null {
@@ -55,6 +72,12 @@ export function getToolInputMeta(
   if (isBashExecutionToolUIPart(tool) && tool.input) {
     return {
       content: `Command: ${tool.input.command} ${tool.input.args?.join(" ")}`
+    }
+  }
+  if (isReadToolUIPart(tool) && tool.input) {
+    const offset = typeof tool.input.offset === "number" ? ` (offset ${tool.input.offset})` : ""
+    return {
+      content: `Read: ${tool.input.filePath}${offset}`
     }
   }
   return null
@@ -77,6 +100,11 @@ export function getToolResultText(
         }
         if (isBashExecutionToolUIPart(tool) && tool.output.exitCode !== undefined) {
           return `Exited with code ${tool.output.exitCode}`
+        }
+        if (isReadToolUIPart(tool) && typeof tool.output.filePath === "string") {
+          return tool.output.truncated
+            ? `Read chunk, next offset ${tool.output.nextOffset}`
+            : "Read complete"
         }
 
         return states.done

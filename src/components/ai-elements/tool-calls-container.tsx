@@ -164,6 +164,49 @@ export type ToolCallTimelineItemProps = {
   duration?: number
 }
 
+type ReadInput = {
+  filePath: string
+  offset?: number
+}
+
+type ReadResult = {
+  filePath: string
+  content: string
+  offset: number
+  nextOffset: number | null
+  truncated: boolean
+}
+
+const getToolName = (part: ToolUIPart | DynamicToolUIPart) => part.type.replace(/^tool-/, "")
+
+const formatStructuredValue = (value: unknown): string | null => {
+  if (value === null || value === undefined) {
+    return null
+  }
+  if (typeof value === "string") {
+    return value
+  }
+
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+const ToolCallStructuredBlock = ({ value }: { value: unknown }) => {
+  const formatted = formatStructuredValue(value)
+  if (!formatted) {
+    return null
+  }
+
+  return (
+    <pre className="scrollbar-thin rounded-md border border-border/50 bg-muted/30 px-3 py-3 text-xs font-mono text-foreground overflow-x-auto max-h-70 overflow-y-auto whitespace-pre-wrap break-words">
+      {formatted}
+    </pre>
+  )
+}
+
 const ToolCallWebSearch = ({
   part,
   onToolApprovalResponse,
@@ -290,6 +333,116 @@ const ToolCallBashExec = ({
   )
 }
 
+const ToolCallRead = ({
+  part,
+  onToolApprovalResponse,
+  duration
+}: {
+  part: ToolUIPart
+  onToolApprovalResponse: ToolCallsListProps["onToolApprovalResponse"]
+  duration?: number
+}) => {
+  const toolCallId = part.toolCallId
+  const input = part.input as ReadInput
+  const output = part.state === "output-available" ? (part.output as ReadResult) : null
+  const approvalId = part.approval?.id
+  const description = `File: ${input?.filePath ?? ""}${typeof input?.offset === "number" ? ` (offset ${input.offset})` : ""}`
+
+  return (
+    <ToolCall
+      key={toolCallId}
+      toolName="read"
+      state={part.state}
+      duration={duration}
+      defaultOpen={part.state === "input-streaming"}
+    >
+      <ToolCallTrigger />
+      <ToolCallContent>
+        {(part.state === "input-streaming" ||
+          part.state === "input-available" ||
+          part.state === "approval-responded") && (
+          <ToolCallInputStreaming description={description} />
+        )}
+        {part.state === "approval-requested" && approvalId && (
+          <ToolCallApprovalRequested
+            description={description}
+            onApprove={() => onToolApprovalResponse({ id: approvalId, approved: true })}
+            onDeny={() => onToolApprovalResponse({ id: approvalId, approved: false })}
+          />
+        )}
+        {part.state === "output-available" && output && (
+          <div className="space-y-2">
+            <div className="text-xs text-muted-foreground pl-1">
+              {output.filePath}
+              {output.offset > 0 ? ` (offset ${output.offset})` : ""}
+            </div>
+            <pre
+              className={cn(
+                "scrollbar-thin rounded-md border border-border/50 bg-muted/30",
+                "px-3 py-3 text-xs font-mono text-foreground",
+                "overflow-x-auto max-h-70 overflow-y-auto whitespace-pre-wrap wrap-break-word"
+              )}
+            >
+              {output.content || "[empty file]"}
+            </pre>
+            {output.truncated && output.nextOffset && (
+              <div className="text-xs text-muted-foreground pl-1">
+                {`Next offset: ${output.nextOffset}`}
+              </div>
+            )}
+          </div>
+        )}
+        {part.state === "output-error" && <ToolCallOutputError errorText={part.errorText} />}
+        {part.state === "output-denied" && <ToolCallOutputDenied message={part.errorText} />}
+      </ToolCallContent>
+    </ToolCall>
+  )
+}
+
+const ToolCallGeneric = ({
+  part,
+  onToolApprovalResponse,
+  duration
+}: {
+  part: ToolUIPart | DynamicToolUIPart
+  onToolApprovalResponse: ToolCallsListProps["onToolApprovalResponse"]
+  duration?: number
+}) => {
+  const toolName = getToolName(part)
+  const approvalId = part.approval?.id
+  const input = formatStructuredValue(part.input)
+  const output = formatStructuredValue(part.state === "output-available" ? part.output : null)
+
+  return (
+    <ToolCall
+      key={part.toolCallId}
+      toolName={toolName}
+      state={part.state}
+      duration={duration}
+      defaultOpen={part.state === "input-streaming"}
+    >
+      <ToolCallTrigger />
+      <ToolCallContent>
+        {(part.state === "input-streaming" ||
+          part.state === "input-available" ||
+          part.state === "approval-responded") && (
+          <ToolCallInputStreaming description={input ?? toolName} />
+        )}
+        {part.state === "approval-requested" && approvalId && (
+          <ToolCallApprovalRequested
+            description={<ToolCallStructuredBlock value={part.input} />}
+            onApprove={() => onToolApprovalResponse({ id: approvalId, approved: true })}
+            onDeny={() => onToolApprovalResponse({ id: approvalId, approved: false })}
+          />
+        )}
+        {part.state === "output-available" && output && <ToolCallStructuredBlock value={output} />}
+        {part.state === "output-error" && <ToolCallOutputError errorText={part.errorText} />}
+        {part.state === "output-denied" && <ToolCallOutputDenied message={part.errorText} />}
+      </ToolCallContent>
+    </ToolCall>
+  )
+}
+
 export const ToolCallTimelineItem = memo(
   ({ part, onToolApprovalResponse, duration }: ToolCallTimelineItemProps) => {
     if (part.type === "tool-webSearch") {
@@ -312,7 +465,23 @@ export const ToolCallTimelineItem = memo(
       )
     }
 
-    return null
+    if (part.type === "tool-read") {
+      return (
+        <ToolCallRead
+          part={part}
+          duration={duration}
+          onToolApprovalResponse={onToolApprovalResponse}
+        />
+      )
+    }
+
+    return (
+      <ToolCallGeneric
+        part={part}
+        duration={duration}
+        onToolApprovalResponse={onToolApprovalResponse}
+      />
+    )
   }
 )
 

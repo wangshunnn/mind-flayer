@@ -255,8 +255,9 @@ const ReasoningPartToolContent = memo(
 export const ReasoningPartHeader = memo(
   ({ className, partSource: part, isChatStreaming = false, ...props }: ReasoningPartProps) => {
     const { names } = useToolConstants()
-    const { t } = useTranslation("chat")
+    const { t } = useTranslation(["chat", "tools"])
     const isWebSearchTool = isToolUIPart(part) && isWebSearchToolUIPart(part)
+    const toolName = isToolUIPart(part) ? part.type.replace(/^tool-/, "") : null
 
     const getIcon = () => {
       if (isWebSearchTool) {
@@ -276,7 +277,7 @@ export const ReasoningPartHeader = memo(
         return names.webSearch
       }
       if (isToolUIPart(part)) {
-        return t("message.usingTool")
+        return t(`tools:names.${toolName}`, { defaultValue: t("message.usingTool") })
       }
       return t("message.usingTool")
     }

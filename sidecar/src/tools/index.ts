@@ -1,4 +1,5 @@
 import { BashExecutionTool, bashExecutionTool } from "./bash-exec"
+import { ReadTool, readTool } from "./read"
 import { ToolRegistry } from "./registry"
 import { WebSearchTool, webSearchTool } from "./web-search"
 
@@ -11,16 +12,18 @@ export const toolRegistry = new ToolRegistry()
 // Register built-in tools
 toolRegistry.register(new WebSearchTool())
 toolRegistry.register(new BashExecutionTool())
+toolRegistry.register(new ReadTool())
 
 export type { ITool } from "./base-tool"
 // Export types and classes for external use
 export { ToolRegistry } from "./registry"
 
 // Keep exporting tool factories for backward compatibility during refactoring
-export { webSearchTool, bashExecutionTool }
+export { webSearchTool, bashExecutionTool, readTool }
 
 // Type for all available tools (used by AI SDK)
 export type AllTools = {
   webSearch?: ReturnType<typeof webSearchTool>
   bashExecution?: ReturnType<typeof bashExecutionTool>
+  read?: ReturnType<typeof readTool>
 }

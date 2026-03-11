@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const streamTextMock = vi.fn()
 const processMessagesMock = vi.fn()
 const buildSystemPromptMock = vi.fn()
+const discoverSkillsMock = vi.fn()
 const buildToolChoiceMock = vi.fn()
 
 vi.mock("ai", () => ({
@@ -14,8 +15,16 @@ vi.mock("../../utils/message-processor", () => ({
   processMessages: (...args: unknown[]) => processMessagesMock(...args)
 }))
 
-vi.mock("../../utils/system-prompt-builder", () => ({
-  buildSystemPrompt: (...args: unknown[]) => buildSystemPromptMock(...args)
+vi.mock("../../utils/system-prompt-builder", async importOriginal => {
+  const actual = await importOriginal<typeof import("../../utils/system-prompt-builder")>()
+  return {
+    ...actual,
+    buildSystemPrompt: (...args: unknown[]) => buildSystemPromptMock(...args)
+  }
+})
+
+vi.mock("../../skills/catalog", () => ({
+  discoverSkills: (...args: unknown[]) => discoverSkillsMock(...args)
 }))
 
 vi.mock("../../utils/tool-choice", () => ({
@@ -102,6 +111,7 @@ describe("TelegramBotService", () => {
 
     processMessagesMock.mockImplementation(async (messages: unknown) => messages)
     buildSystemPromptMock.mockReturnValue("system prompt")
+    discoverSkillsMock.mockResolvedValue([])
     buildToolChoiceMock.mockReturnValue("auto")
   })
 
@@ -495,7 +505,8 @@ describe("TelegramBotService", () => {
     expect(buildSystemPromptMock).toHaveBeenCalledWith({
       modelProvider: "minimax",
       modelId: "model-a",
-      channel: "telegram"
+      channel: "telegram",
+      skills: []
     })
 
     const sessions = service.listSessions()

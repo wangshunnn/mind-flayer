@@ -5,7 +5,8 @@
   "results_other": "{{count}} results",
   "names": {
     "webSearch": "Web search",
-    "bashExecution": "Bash execution"
+    "bashExecution": "Bash execution",
+    "read": "Read file"
   },
   "states": {
     "running": "Running...",

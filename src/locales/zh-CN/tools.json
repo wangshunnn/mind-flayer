@@ -4,7 +4,8 @@
   "names": {
     "webSearch": "联网搜索",
     "bashExecution": "执行 Shell 命令",
-    "read": "读取文件"
+    "read": "读取文件",
+    "skillRead": "读取技能"
   },
   "states": {
     "running": "运行中...",
@@ -13,10 +14,34 @@
     "cancelled": "已取消",
     "awaitingApproval": "等待批准..."
   },
+  "bashExecution": {
+    "exitCode": "退出码 {{code}}"
+  },
   "webSearch": {
     "searching": "正在搜索...",
     "searchedResults": "搜索到 {{count}} 条结果",
     "approvalText": "AI 想要搜索网络：\"{{objective}}\""
+  },
+  "read": {
+    "input": "{{filePath}}",
+    "inputWithOffset": "{{filePath}}（偏移 {{offset}}）",
+    "complete": "读取完成",
+    "chunk": "已读取一段，下一偏移 {{nextOffset}}",
+    "fileDescription": "文件：{{filePath}}",
+    "fileDescriptionWithOffset": "文件：{{filePath}}（偏移 {{offset}}）",
+    "emptyFile": "[空文件]",
+    "nextOffset": "下一偏移：{{nextOffset}}"
+  },
+  "skillRead": {
+    "badge": "技能",
+    "loaded": "已加载技能 {{skillName}}",
+    "chunk": "已加载技能 {{skillName}} 的一部分，下一偏移 {{nextOffset}}",
+    "fileKinds": {
+      "skill-md": "SKILL.md",
+      "reference": "参考文件",
+      "script": "脚本",
+      "other": "其他文件"
+    }
   },
   "buttons": {
     "search": {

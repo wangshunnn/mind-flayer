@@ -6,7 +6,8 @@
   "names": {
     "webSearch": "Web search",
     "bashExecution": "Bash execution",
-    "read": "Read file"
+    "read": "Read file",
+    "skillRead": "Read skill"
   },
   "states": {
     "running": "Running...",
@@ -15,10 +16,34 @@
     "cancelled": "Cancelled",
     "awaitingApproval": "Awaiting approval..."
   },
+  "bashExecution": {
+    "exitCode": "Exit {{code}}"
+  },
   "webSearch": {
     "searching": "Searching...",
     "searchedResults": "Searched {{count}} results",
     "approvalText": "The AI wants to search the web for: \"{{objective}}\""
+  },
+  "read": {
+    "input": "{{filePath}}",
+    "inputWithOffset": "{{filePath}} (offset {{offset}})",
+    "complete": "Read complete",
+    "chunk": "Read chunk, next offset {{nextOffset}}",
+    "fileDescription": "File: {{filePath}}",
+    "fileDescriptionWithOffset": "File: {{filePath}} (offset {{offset}})",
+    "emptyFile": "[empty file]",
+    "nextOffset": "Next offset: {{nextOffset}}"
+  },
+  "skillRead": {
+    "badge": "Skill",
+    "loaded": "Loaded skill {{skillName}}",
+    "chunk": "Loaded part of skill {{skillName}}, next offset {{nextOffset}}",
+    "fileKinds": {
+      "skill-md": "SKILL.md",
+      "reference": "Reference",
+      "script": "Script",
+      "other": "Other file"
+    }
   },
   "buttons": {
     "search": {

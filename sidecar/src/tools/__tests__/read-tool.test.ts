@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
 import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
@@ -14,6 +14,15 @@ type ReadToolResult = {
   offset: number
   nextOffset: number | null
   truncated: boolean
+  displayContext:
+    | {
+        kind: "file"
+      }
+    | {
+        kind: "skill"
+        skillName: string
+        fileKind: "skill-md" | "reference" | "script" | "other"
+      }
 }
 
 const executeReadTool = async (input: { filePath: string; offset: number }) => {
@@ -27,10 +36,16 @@ const executeReadTool = async (input: { filePath: string; offset: number }) => {
 
 describe("ReadTool", () => {
   const tempDirs: string[] = []
+  const originalAppSupportDir = process.env.MINDFLAYER_APP_SUPPORT_DIR
 
   afterEach(async () => {
     await Promise.all(tempDirs.map(dir => rm(dir, { recursive: true, force: true })))
     tempDirs.length = 0
+    if (originalAppSupportDir === undefined) {
+      delete process.env.MINDFLAYER_APP_SUPPORT_DIR
+    } else {
+      process.env.MINDFLAYER_APP_SUPPORT_DIR = originalAppSupportDir
+    }
   })
 
   it("should have correct name", () => {
@@ -54,17 +69,16 @@ describe("ReadTool", () => {
 
     const result = await executeReadTool({ filePath, offset: 0 })
 
-    expect(result.filePath).toBe(filePath)
+    expect(result.filePath).toBe(await realpath(filePath))
     expect(result.content).toBe("hello world")
     expect(result.offset).toBe(0)
     expect(result.nextOffset).toBeNull()
     expect(result.truncated).toBe(false)
+    expect(result.displayContext).toEqual({ kind: "file" })
   })
 
   it("should expand ~ to the real home directory", async () => {
-    await expect(executeReadTool({ filePath: "~", offset: 0 })).rejects.toThrow(
-      new RegExp(homedir())
-    )
+    await expect(executeReadTool({ filePath: "~", offset: 0 })).rejects.toThrow(homedir())
   })
 
   it("should paginate large files", async () => {
@@ -80,10 +94,57 @@ describe("ReadTool", () => {
     expect(result.content).toContain("[Use offset=51200 to continue reading]")
   })
 
+  it("should preserve UTF-8 boundaries when paginating multibyte content", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "mind-flayer-read-utf8-"))
+    tempDirs.push(tempDir)
+    const filePath = join(tempDir, "utf8.txt")
+    const prefix = "a".repeat(50 * 1024 - 1)
+    await writeFile(filePath, `${prefix}你b`, "utf8")
+
+    const firstResult = await executeReadTool({ filePath, offset: 0 })
+    const secondResult = await executeReadTool({
+      filePath,
+      offset: firstResult.nextOffset ?? 0
+    })
+
+    expect(firstResult.content).not.toContain("\uFFFD")
+    expect(firstResult.content).toContain(`${prefix}\n[Use offset=51199 to continue reading]`)
+    expect(firstResult.nextOffset).toBe(50 * 1024 - 1)
+
+    expect(secondResult.content).not.toContain("\uFFFD")
+    expect(secondResult.content.startsWith("你b")).toBe(true)
+  })
+
   it("should reject directory paths", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "mind-flayer-read-dir-"))
     tempDirs.push(tempDir)
 
     await expect(executeReadTool({ filePath: tempDir, offset: 0 })).rejects.toThrow(/directory/)
+  })
+
+  it("should tag skill files with display context", async () => {
+    const appSupportDir = await mkdtemp(join(tmpdir(), "mind-flayer-read-skill-"))
+    tempDirs.push(appSupportDir)
+    process.env.MINDFLAYER_APP_SUPPORT_DIR = appSupportDir
+
+    const filePath = join(appSupportDir, "skills", "skill-smoke-test", "SKILL.md")
+    await mkdir(join(appSupportDir, "skills", "skill-smoke-test"), { recursive: true })
+    await writeFile(
+      filePath,
+      `---
+name: skill-smoke-test
+description: smoke test
+---
+`,
+      "utf8"
+    )
+
+    const result = await executeReadTool({ filePath, offset: 0 })
+
+    expect(result.displayContext).toEqual({
+      kind: "skill",
+      skillName: "skill-smoke-test",
+      fileKind: "skill-md"
+    })
   })
 })

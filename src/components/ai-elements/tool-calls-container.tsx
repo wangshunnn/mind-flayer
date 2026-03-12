@@ -1,6 +1,12 @@
 import { useControllableState } from "@radix-ui/react-use-controllable-state"
 import type { ChatAddToolApproveResponseFunction, DynamicToolUIPart, ToolUIPart } from "ai"
-import { ChevronRightIcon, TerminalIcon, WrenchIcon } from "lucide-react"
+import {
+  ChevronRightIcon,
+  LibraryBigIcon,
+  SparklesIcon,
+  TerminalIcon,
+  WrenchIcon
+} from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useContext } from "react"
 import { useTranslation } from "react-i18next"
@@ -13,6 +19,7 @@ import {
   ToolCallApprovalRequested,
   ToolCallBashExecResults,
   ToolCallContent,
+  ToolCallCopyablePre,
   ToolCallInputStreaming,
   ToolCallOutputDenied,
   ToolCallOutputError,
@@ -20,6 +27,7 @@ import {
   ToolCallWebSearchResults
 } from "@/components/ai-elements/tool-call"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import type { ReadToolDisplayContext, ReadToolInput, ReadToolOutput } from "@/lib/tool-helpers"
 import { cn } from "@/lib/utils"
 
 type ToolCallsContainerContextValue = {
@@ -164,19 +172,6 @@ export type ToolCallTimelineItemProps = {
   duration?: number
 }
 
-type ReadInput = {
-  filePath: string
-  offset?: number
-}
-
-type ReadResult = {
-  filePath: string
-  content: string
-  offset: number
-  nextOffset: number | null
-  truncated: boolean
-}
-
 const getToolName = (part: ToolUIPart | DynamicToolUIPart) => part.type.replace(/^tool-/, "")
 
 const formatStructuredValue = (value: unknown): string | null => {
@@ -244,7 +239,7 @@ const ToolCallWebSearch = ({
       state={part.state}
       duration={duration}
       resultCount={output?.totalResults}
-      defaultOpen={part.state === "input-streaming"}
+      defaultOpen={false}
     >
       <ToolCallTrigger />
       <ToolCallContent>
@@ -280,6 +275,7 @@ const ToolCallBashExec = ({
   duration?: number
 }) => {
   const toolCallId = part.toolCallId
+  const { t } = useTranslation("tools")
   const input = part.input as BashExecInput
   const output = part.state === "output-available" ? (part.output as BashExecResult) : null
 
@@ -291,7 +287,7 @@ const ToolCallBashExec = ({
       toolName="bashExecution"
       state={part.state}
       duration={duration}
-      defaultOpen={part.state === "input-streaming"}
+      defaultOpen={false}
     >
       <ToolCallTrigger
         icon={<TerminalIcon className="size-3.5 transition-colors" />}
@@ -303,7 +299,7 @@ const ToolCallBashExec = ({
                 getToolCallStatusBadgeClass(output.exitCode === 0 ? "success" : "error")
               )}
             >
-              Exit: {output.exitCode}
+              {t("bashExecution.exitCode", { code: output.exitCode })}
             </span>
           ) : null
         }
@@ -343,51 +339,71 @@ const ToolCallRead = ({
   duration?: number
 }) => {
   const toolCallId = part.toolCallId
-  const input = part.input as ReadInput
-  const output = part.state === "output-available" ? (part.output as ReadResult) : null
+  const { t } = useTranslation("tools")
+  const input = part.input as ReadToolInput
+  const output = part.state === "output-available" ? (part.output as ReadToolOutput) : null
   const approvalId = part.approval?.id
-  const description = `File: ${input?.filePath ?? ""}${typeof input?.offset === "number" ? ` (offset ${input.offset})` : ""}`
+  const inputFilePath = input?.filePath || t("read.emptyFile")
+  const outputFilePath = output?.filePath || t("read.emptyFile")
+  const skillContext = output?.displayContext?.kind === "skill" ? output.displayContext : null
+  const toolDisplayName = skillContext ? "skillRead" : "read"
 
   return (
     <ToolCall
       key={toolCallId}
-      toolName="read"
+      toolName={toolDisplayName}
       state={part.state}
       duration={duration}
-      defaultOpen={part.state === "input-streaming"}
+      defaultOpen={false}
     >
-      <ToolCallTrigger />
+      <ToolCallTrigger>
+        {skillContext ? (
+          <ToolCallSkillBadge
+            skillContext={skillContext}
+            skillLabel={t("skillRead.badge")}
+            fileKindLabel={t(`skillRead.fileKinds.${skillContext.fileKind}`)}
+          />
+        ) : undefined}
+      </ToolCallTrigger>
       <ToolCallContent>
         {(part.state === "input-streaming" ||
           part.state === "input-available" ||
           part.state === "approval-responded") && (
-          <ToolCallInputStreaming description={description} />
+          <ToolCallInputStreaming
+            description={
+              <ToolCallCopyablePre
+                displayText={inputFilePath}
+                leadingContent={<LibraryBigIcon className="mt-0.5 size-3" />}
+              />
+            }
+          />
         )}
         {part.state === "approval-requested" && approvalId && (
           <ToolCallApprovalRequested
-            description={description}
+            description={
+              <ToolCallCopyablePre
+                displayText={inputFilePath}
+                leadingContent={<LibraryBigIcon className="mt-0.5 size-3" />}
+              />
+            }
             onApprove={() => onToolApprovalResponse({ id: approvalId, approved: true })}
             onDeny={() => onToolApprovalResponse({ id: approvalId, approved: false })}
           />
         )}
         {part.state === "output-available" && output && (
           <div className="space-y-2">
-            <div className="text-xs text-muted-foreground pl-1">
-              {output.filePath}
-              {output.offset > 0 ? ` (offset ${output.offset})` : ""}
-            </div>
-            <pre
-              className={cn(
-                "scrollbar-thin rounded-md border border-border/50 bg-muted/30",
-                "px-3 py-3 text-xs font-mono text-foreground",
-                "overflow-x-auto max-h-70 overflow-y-auto whitespace-pre-wrap wrap-break-word"
-              )}
-            >
-              {output.content || "[empty file]"}
-            </pre>
-            {output.truncated && output.nextOffset && (
+            <ToolCallCopyablePre
+              displayText={outputFilePath}
+              leadingContent={<LibraryBigIcon className="mt-0.5 size-3" />}
+            />
+            <ToolCallCopyablePre
+              displayText={output.content || t("read.emptyFile")}
+              copyText={output.content}
+              textClassName="scrollbar-thin max-h-70 overflow-y-auto"
+            />
+            {output.truncated && output.nextOffset !== null && (
               <div className="text-xs text-muted-foreground pl-1">
-                {`Next offset: ${output.nextOffset}`}
+                {t("read.nextOffset", { nextOffset: output.nextOffset })}
               </div>
             )}
           </div>
@@ -398,6 +414,31 @@ const ToolCallRead = ({
     </ToolCall>
   )
 }
+
+const ToolCallSkillBadge = ({
+  skillContext,
+  skillLabel,
+  fileKindLabel
+}: {
+  skillContext: Extract<ReadToolDisplayContext, { kind: "skill" }>
+  skillLabel: string
+  fileKindLabel: string
+}) => (
+  <div className="flex min-w-0 flex-wrap items-center gap-2">
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full",
+        "px-2 py-1 text-[10px] font-medium",
+        "bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 dark:bg-indigo-500/20"
+      )}
+    >
+      <SparklesIcon className="size-3" />
+      {skillLabel}
+    </span>
+    <span className="text-xs font-medium text-foreground">{skillContext.skillName}</span>
+    <span className="text-xs text-muted-foreground">{fileKindLabel}</span>
+  </div>
+)
 
 const ToolCallGeneric = ({
   part,
@@ -419,7 +460,7 @@ const ToolCallGeneric = ({
       toolName={toolName}
       state={part.state}
       duration={duration}
-      defaultOpen={part.state === "input-streaming"}
+      defaultOpen={false}
     >
       <ToolCallTrigger />
       <ToolCallContent>

@@ -15,7 +15,8 @@ export function useToolConstants() {
       names: {
         webSearch: t("names.webSearch"),
         bashExecution: t("names.bashExecution"),
-        read: t("names.read")
+        read: t("names.read"),
+        skillRead: t("names.skillRead")
       },
       states: {
         running: t("states.running"),
@@ -28,6 +29,26 @@ export function useToolConstants() {
         searching: t("webSearch.searching"),
         searchedResults: (count: number) => t("webSearch.searchedResults", { count }),
         approvalText: (objective: string) => t("webSearch.approvalText", { objective })
+      },
+      read: {
+        input: (filePath: string) => t("read.input", { filePath }),
+        inputWithOffset: (filePath: string, offset: number) =>
+          t("read.inputWithOffset", { filePath, offset }),
+        complete: t("read.complete"),
+        chunk: (nextOffset: number) => t("read.chunk", { nextOffset }),
+        fileDescription: (filePath: string) => t("read.fileDescription", { filePath }),
+        fileDescriptionWithOffset: (filePath: string, offset: number) =>
+          t("read.fileDescriptionWithOffset", { filePath, offset }),
+        emptyFile: t("read.emptyFile"),
+        nextOffset: (nextOffset: number) => t("read.nextOffset", { nextOffset })
+      },
+      skillRead: {
+        badge: t("skillRead.badge"),
+        loaded: (skillName: string) => t("skillRead.loaded", { skillName }),
+        chunk: (skillName: string, nextOffset: number) =>
+          t("skillRead.chunk", { skillName, nextOffset }),
+        fileKind: (fileKind: "skill-md" | "reference" | "script" | "other") =>
+          t(`skillRead.fileKinds.${fileKind}`)
       }
     }),
     [t]

@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { discoverSkills } from "../catalog"
 
 async function writeSkill(root: string, relativeDir: string, content: string) {
@@ -113,5 +113,47 @@ metadata:
     })
 
     expect(skills).toEqual([])
+  })
+
+  it("resolves duplicate skill names deterministically and logs the override", async () => {
+    const appSupportDir = await mkdtemp(join(tmpdir(), "mind-flayer-skills-duplicates-"))
+    tempDirs.push(appSupportDir)
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+    await writeSkill(
+      join(appSupportDir, "skills"),
+      "alpha",
+      `---
+name: duplicate-skill
+description: alpha description
+---
+
+# Alpha
+`
+    )
+
+    await writeSkill(
+      join(appSupportDir, "skills"),
+      "omega",
+      `---
+name: duplicate-skill
+description: omega description
+---
+
+# Omega
+`
+    )
+
+    const skills = await discoverSkills({
+      appSupportDir
+    })
+
+    expect(skills).toHaveLength(1)
+    expect(skills[0]?.description).toBe("omega description")
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Duplicate skill 'duplicate-skill'")
+    )
+
+    consoleWarnSpy.mockRestore()
   })
 })

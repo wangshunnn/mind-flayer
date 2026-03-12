@@ -1,9 +1,10 @@
 import { constants as fsConstants } from "node:fs"
-import { open, stat } from "node:fs/promises"
+import { open, realpath, stat } from "node:fs/promises"
 import { homedir } from "node:os"
 import { resolve } from "node:path"
 import { tool } from "ai"
 import { z } from "zod"
+import { getSkillFileDisplayContext } from "../../skills/catalog"
 import type { ITool } from "../base-tool"
 
 const MAX_READ_BYTES = 50 * 1024
@@ -18,6 +19,55 @@ function expandUserPath(filePath: string): string {
   }
 
   return filePath
+}
+
+function normalizeFilePath(filePath: string): string {
+  return resolve(expandUserPath(filePath))
+}
+
+function getExpectedUtf8SequenceLength(byte: number): number | null {
+  if (byte <= 0x7f) {
+    return 1
+  }
+  if (byte >= 0xc2 && byte <= 0xdf) {
+    return 2
+  }
+  if (byte >= 0xe0 && byte <= 0xef) {
+    return 3
+  }
+  if (byte >= 0xf0 && byte <= 0xf4) {
+    return 4
+  }
+  return null
+}
+
+function getUtf8SafeReadLength(buffer: Buffer, bytesRead: number): number {
+  if (bytesRead === 0) {
+    return 0
+  }
+
+  const chunk = buffer.subarray(0, bytesRead)
+  let leadingByteIndex = chunk.length - 1
+
+  while (leadingByteIndex >= 0 && (chunk[leadingByteIndex] & 0b1100_0000) === 0b1000_0000) {
+    leadingByteIndex -= 1
+  }
+
+  if (leadingByteIndex < 0) {
+    return chunk.length
+  }
+
+  const expectedLength = getExpectedUtf8SequenceLength(chunk[leadingByteIndex])
+  if (!expectedLength || expectedLength === 1) {
+    return chunk.length
+  }
+
+  const actualLength = chunk.length - leadingByteIndex
+  if (actualLength < expectedLength) {
+    return leadingByteIndex
+  }
+
+  return chunk.length
 }
 
 /**
@@ -73,15 +123,17 @@ Use this when you need the contents of a file, including skill files such as SKI
     ],
 
     execute: async ({ filePath, offset }) => {
-      const resolvedPath = expandUserPath(filePath)
+      const normalizedPath = normalizeFilePath(filePath)
       const normalizedOffset = Math.max(0, Number.isFinite(offset) ? offset : 0)
-
+      let resolvedPath: string
       let fileInfo: Awaited<ReturnType<typeof stat>>
+
       try {
+        resolvedPath = await realpath(normalizedPath)
         fileInfo = await stat(resolvedPath)
       } catch (error) {
         throw new Error(
-          `Failed to access '${resolvedPath}': ${error instanceof Error ? error.message : String(error)}`
+          `Failed to access '${normalizedPath}': ${error instanceof Error ? error.message : String(error)}`
         )
       }
 
@@ -97,18 +149,21 @@ Use this when you need the contents of a file, including skill files such as SKI
       try {
         const buffer = Buffer.alloc(MAX_READ_BYTES)
         const { bytesRead } = await handle.read(buffer, 0, MAX_READ_BYTES, normalizedOffset)
+        const safeBytesRead = getUtf8SafeReadLength(buffer, bytesRead)
         const nextOffset =
-          normalizedOffset + bytesRead < fileInfo.size ? normalizedOffset + bytesRead : null
+          normalizedOffset + safeBytesRead < fileInfo.size ? normalizedOffset + safeBytesRead : null
         const truncated = nextOffset !== null
-        const content = buffer.subarray(0, bytesRead).toString("utf8")
+        const content = buffer.subarray(0, safeBytesRead).toString("utf8")
         const suffix = truncated ? `\n[Use offset=${nextOffset} to continue reading]` : ""
+        const displayContext = await getSkillFileDisplayContext(resolvedPath)
 
         return {
           filePath: resolvedPath,
           content: `${content}${suffix}`,
           offset: normalizedOffset,
           nextOffset,
-          truncated
+          truncated,
+          displayContext: displayContext ?? { kind: "file" as const }
         }
       } catch (error) {
         throw new Error(

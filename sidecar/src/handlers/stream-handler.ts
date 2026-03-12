@@ -8,7 +8,7 @@ import {
   type ToolSet,
   type UIMessage
 } from "ai"
-import { discoverSkills } from "../skills/catalog"
+import { discoverSkillsSafely } from "../skills/catalog"
 import { processMessages } from "../utils/message-processor"
 import { buildSystemPrompt } from "../utils/system-prompt-builder"
 
@@ -36,7 +36,7 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
   const { model, modelProvider, modelId, messages, tools, toolChoice, abortSignal } = options
 
   const [skills, prunedMessages] = await Promise.all([
-    discoverSkills(),
+    discoverSkillsSafely("stream request"),
     processMessages(messages, tools)
   ])
   const systemPrompt = buildSystemPrompt({ modelProvider, modelId, skills })

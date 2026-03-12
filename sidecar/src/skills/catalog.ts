@@ -1,7 +1,7 @@
-import { constants as fsConstants } from "node:fs"
-import { access, readdir, readFile } from "node:fs/promises"
+import { type Dirent, constants as fsConstants } from "node:fs"
+import { access, readdir, readFile, realpath } from "node:fs/promises"
 import { homedir } from "node:os"
-import { delimiter, resolve } from "node:path"
+import { delimiter, isAbsolute, relative, resolve } from "node:path"
 
 const APP_SUPPORT_DIR_ENV_KEY = "MINDFLAYER_APP_SUPPORT_DIR"
 const SKILL_FILE_NAME = "SKILL.md"
@@ -34,6 +34,14 @@ export interface SkillCatalogEntry {
   skillDir: string
 }
 
+export type SkillFileKind = "skill-md" | "reference" | "script" | "other"
+
+export interface SkillFileDisplayContext {
+  kind: "skill"
+  skillName: string
+  fileKind: SkillFileKind
+}
+
 function toDisplayPath(path: string): string {
   const normalizedPath = path.replaceAll("\\", "/")
   const userHome = homedir().replaceAll("\\", "/")
@@ -62,6 +70,54 @@ function getSkillRoots(options?: { appSupportDir?: string }): SkillRoot[] {
       displayPrefix: toDisplayPath(absolutePath)
     }
   ]
+}
+
+function getGlobalSkillsRootPath(options?: { appSupportDir?: string }): string | null {
+  return getSkillRoots(options)[0]?.absolutePath ?? null
+}
+
+export async function getSkillFileDisplayContext(
+  filePath: string,
+  options?: { appSupportDir?: string }
+): Promise<SkillFileDisplayContext | null> {
+  const skillsRoot = getGlobalSkillsRootPath(options)
+  if (!skillsRoot) {
+    return null
+  }
+
+  let resolvedSkillsRoot = skillsRoot
+  try {
+    resolvedSkillsRoot = await realpath(skillsRoot)
+  } catch {}
+
+  const relativePath = relative(resolvedSkillsRoot, filePath)
+  if (!relativePath || relativePath.startsWith("..") || isAbsolute(relativePath)) {
+    return null
+  }
+
+  const pathSegments = relativePath.split(/[/\\]+/).filter(Boolean)
+  const skillName = pathSegments[0]
+  if (!skillName) {
+    return null
+  }
+
+  const nestedSegments = pathSegments.slice(1)
+  const nestedPath = nestedSegments.join("/")
+  let fileKind: SkillFileKind = "other"
+
+  if (nestedPath === SKILL_FILE_NAME) {
+    fileKind = "skill-md"
+  } else if (nestedSegments[0] === "references") {
+    fileKind = "reference"
+  } else if (nestedSegments[0] === "scripts") {
+    fileKind = "script"
+  }
+
+  return {
+    kind: "skill",
+    skillName,
+    fileKind
+  }
 }
 
 function countIndent(line: string): number {
@@ -421,28 +477,42 @@ async function isSkillEligible(metadata: SkillMetadata): Promise<boolean> {
 }
 
 async function collectSkillFilePaths(rootPath: string): Promise<string[]> {
-  try {
-    const entries = await readdir(rootPath, { withFileTypes: true })
-    const nestedPaths = await Promise.all(
-      entries.map(async entry => {
-        const entryPath = resolve(rootPath, entry.name)
+  const pendingDirectories = [rootPath]
+  const skillFilePaths: string[] = []
 
-        if (entry.isDirectory()) {
-          return collectSkillFilePaths(entryPath)
-        }
+  while (pendingDirectories.length > 0) {
+    const currentDirectory = pendingDirectories.pop()
+    if (!currentDirectory) {
+      continue
+    }
 
-        if (entry.isFile() && entry.name === SKILL_FILE_NAME) {
-          return [entryPath]
-        }
-
+    let entries: Dirent[]
+    try {
+      entries = await readdir(currentDirectory, { withFileTypes: true })
+    } catch {
+      if (currentDirectory === rootPath) {
         return []
-      })
-    )
+      }
+      continue
+    }
 
-    return nestedPaths.flat()
-  } catch {
-    return []
+    const sortedEntries = [...entries].sort((left, right) => left.name.localeCompare(right.name))
+
+    for (const entry of sortedEntries) {
+      const entryPath = resolve(currentDirectory, entry.name)
+
+      if (entry.isDirectory()) {
+        pendingDirectories.push(entryPath)
+        continue
+      }
+
+      if (entry.isFile() && entry.name === SKILL_FILE_NAME) {
+        skillFilePaths.push(entryPath)
+      }
+    }
   }
+
+  return skillFilePaths.sort((left, right) => left.localeCompare(right))
 }
 
 async function loadSkillFromFile(
@@ -498,14 +568,38 @@ export async function discoverSkills(options?: {
 
   for (const root of roots) {
     const skillFilePaths = await collectSkillFilePaths(root.absolutePath)
-    const skills = await Promise.all(skillFilePaths.map(path => loadSkillFromFile(path, root)))
-
-    for (const skill of skills) {
-      if (skill) {
-        catalog.set(skill.name, skill)
+    for (const skillFilePath of skillFilePaths) {
+      const skill = await loadSkillFromFile(skillFilePath, root)
+      if (!skill) {
+        continue
       }
+
+      const existing = catalog.get(skill.name)
+      if (existing) {
+        console.warn(
+          `[Skills] Duplicate skill '${skill.name}' found at '${skill.filePath}'. Overriding previously loaded skill from '${existing.filePath}'.`
+        )
+      }
+
+      catalog.set(skill.name, skill)
     }
   }
 
   return [...catalog.values()].sort((left, right) => left.name.localeCompare(right.name))
+}
+
+export async function discoverSkillsSafely(
+  context: string,
+  options?: {
+    appSupportDir?: string
+  }
+): Promise<SkillCatalogEntry[]> {
+  try {
+    return await discoverSkills(options)
+  } catch (error) {
+    console.warn(
+      `[Skills] Failed to discover skills for ${context}: ${error instanceof Error ? error.message : String(error)}`
+    )
+    return []
+  }
 }

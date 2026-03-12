@@ -1,7 +1,9 @@
 use log::{debug, error, info, warn};
 use std::{
     fs,
+    io::{ErrorKind, Write},
     net::TcpListener,
+    path::Path,
     sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -21,6 +23,27 @@ const SIDECAR_RETRY_DELAY_MS: u64 = 200;
 const SIDECAR_SERVICE_NAME: &str = "mind-flayer-sidecar";
 const SIDECAR_STARTUP_TOKEN_ENV_KEY: &str = "SIDECAR_STARTUP_TOKEN";
 const MINDFLAYER_APP_SUPPORT_DIR_ENV_KEY: &str = "MINDFLAYER_APP_SUPPORT_DIR";
+const GLOBAL_SKILLS_DIR_NAME: &str = "skills";
+
+struct BundledSkillFile {
+    relative_path: &'static str,
+    contents: &'static str,
+}
+
+struct BundledSkill {
+    name: &'static str,
+    files: &'static [BundledSkillFile],
+}
+
+const BUNDLED_SMOKE_TEST_SKILL_FILES: &[BundledSkillFile] = &[BundledSkillFile {
+    relative_path: "SKILL.md",
+    contents: include_str!("../../bundled-skills/skill-smoke-test/SKILL.md"),
+}];
+
+const BUNDLED_SKILLS: &[BundledSkill] = &[BundledSkill {
+    name: "skill-smoke-test",
+    files: BUNDLED_SMOKE_TEST_SKILL_FILES,
+}];
 
 /// State to hold the sidecar process handle
 pub struct SidecarState {
@@ -112,6 +135,65 @@ fn resolve_sidecar_app_support_dir() -> Result<String, String> {
     })?;
 
     Ok(app_support_dir.to_string_lossy().to_string())
+}
+
+fn install_bundled_skills(app_support_dir: &str) -> Result<(), String> {
+    let skills_root = Path::new(app_support_dir).join(GLOBAL_SKILLS_DIR_NAME);
+    fs::create_dir_all(&skills_root).map_err(|e| {
+        format!(
+            "Failed to create bundled skills root '{}': {}",
+            skills_root.display(),
+            e
+        )
+    })?;
+
+    for skill in BUNDLED_SKILLS {
+        for file in skill.files {
+            let destination = skills_root.join(skill.name).join(file.relative_path);
+
+            if let Some(parent_dir) = destination.parent() {
+                fs::create_dir_all(parent_dir).map_err(|e| {
+                    format!(
+                        "Failed to create bundled skill directory '{}': {}",
+                        parent_dir.display(),
+                        e
+                    )
+                })?;
+            }
+
+            match fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&destination)
+            {
+                Ok(mut output) => {
+                    output.write_all(file.contents.as_bytes()).map_err(|e| {
+                        format!(
+                            "Failed to write bundled skill file '{}': {}",
+                            destination.display(),
+                            e
+                        )
+                    })?;
+                    info!("Installed bundled skill file '{}'", destination.display());
+                }
+                Err(error) if error.kind() == ErrorKind::AlreadyExists => {
+                    debug!(
+                        "Bundled skill file already installed, skipping '{}'",
+                        destination.display()
+                    );
+                }
+                Err(error) => {
+                    return Err(format!(
+                        "Failed to create bundled skill file '{}': {}",
+                        destination.display(),
+                        error
+                    ));
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -471,6 +553,26 @@ async fn start_sidecar_internal(
 
     let mut last_error = String::from("Unknown sidecar startup failure");
     let app_support_dir = resolve_sidecar_app_support_dir()?;
+    match tokio::task::spawn_blocking({
+        let app_support_dir = app_support_dir.clone();
+        move || install_bundled_skills(&app_support_dir)
+    })
+    .await
+    {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => {
+            warn!(
+                "Failed to install bundled skills into '{}': {}. Continuing sidecar startup without bundled skills.",
+                app_support_dir, error
+            );
+        }
+        Err(error) => {
+            warn!(
+                "Bundled skill installation task failed for '{}': {}. Continuing sidecar startup without bundled skills.",
+                app_support_dir, error
+            );
+        }
+    }
 
     for attempt in 1..=SIDECAR_START_MAX_ATTEMPTS {
         let use_preferred_port = attempt == 1;
@@ -715,6 +817,17 @@ fn force_kill_pid(pid: u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
+
+    fn create_temp_dir(prefix: &str) -> std::path::PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_else(|_| Duration::from_secs(0))
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("{}-{}", prefix, nanos));
+        fs::create_dir_all(&path).expect("failed to create temp test directory");
+        path
+    }
 
     #[test]
     fn detects_addr_in_use_from_structured_bind_error() {
@@ -777,5 +890,61 @@ mod tests {
         });
 
         assert!(!is_expected_health_payload(&payload, "token-1"));
+    }
+
+    #[test]
+    fn installs_bundled_smoke_test_skill_when_missing() {
+        let app_support_dir = create_temp_dir("mind-flayer-bundled-skill-install");
+
+        install_bundled_skills(
+            app_support_dir
+                .to_str()
+                .expect("temp dir should be valid utf-8"),
+        )
+        .expect("bundled skill installation should succeed");
+
+        let installed_skill = app_support_dir
+            .join(GLOBAL_SKILLS_DIR_NAME)
+            .join("skill-smoke-test")
+            .join("SKILL.md");
+        let contents = fs::read_to_string(&installed_skill)
+            .expect("bundled skill file should be readable after install");
+
+        assert!(installed_skill.exists());
+        assert!(contents.contains("name: skill-smoke-test"));
+        assert!(contents.contains("skill smoke test ok"));
+
+        let _ = fs::remove_dir_all(app_support_dir);
+    }
+
+    #[test]
+    fn does_not_overwrite_existing_bundled_skill_file() {
+        let app_support_dir = create_temp_dir("mind-flayer-bundled-skill-existing");
+        let existing_skill = app_support_dir
+            .join(GLOBAL_SKILLS_DIR_NAME)
+            .join("skill-smoke-test")
+            .join("SKILL.md");
+
+        fs::create_dir_all(
+            existing_skill
+                .parent()
+                .expect("skill file should have a parent"),
+        )
+        .expect("failed to create existing skill directory");
+        fs::write(&existing_skill, "custom skill content")
+            .expect("failed to seed existing skill file");
+
+        install_bundled_skills(
+            app_support_dir
+                .to_str()
+                .expect("temp dir should be valid utf-8"),
+        )
+        .expect("bundled skill installation should succeed");
+
+        let contents = fs::read_to_string(&existing_skill)
+            .expect("existing skill file should still be readable");
+        assert_eq!(contents, "custom skill content");
+
+        let _ = fs::remove_dir_all(app_support_dir);
     }
 }

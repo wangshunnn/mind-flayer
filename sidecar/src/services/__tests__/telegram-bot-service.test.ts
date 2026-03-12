@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const streamTextMock = vi.fn()
 const processMessagesMock = vi.fn()
 const buildSystemPromptMock = vi.fn()
+const discoverSkillsSafelyMock = vi.fn()
 const buildToolChoiceMock = vi.fn()
 
 vi.mock("ai", () => ({
@@ -14,8 +15,16 @@ vi.mock("../../utils/message-processor", () => ({
   processMessages: (...args: unknown[]) => processMessagesMock(...args)
 }))
 
-vi.mock("../../utils/system-prompt-builder", () => ({
-  buildSystemPrompt: (...args: unknown[]) => buildSystemPromptMock(...args)
+vi.mock("../../utils/system-prompt-builder", async importOriginal => {
+  const actual = await importOriginal<typeof import("../../utils/system-prompt-builder")>()
+  return {
+    ...actual,
+    buildSystemPrompt: (...args: unknown[]) => buildSystemPromptMock(...args)
+  }
+})
+
+vi.mock("../../skills/catalog", () => ({
+  discoverSkillsSafely: (...args: unknown[]) => discoverSkillsSafelyMock(...args)
 }))
 
 vi.mock("../../utils/tool-choice", () => ({
@@ -102,6 +111,7 @@ describe("TelegramBotService", () => {
 
     processMessagesMock.mockImplementation(async (messages: unknown) => messages)
     buildSystemPromptMock.mockReturnValue("system prompt")
+    discoverSkillsSafelyMock.mockResolvedValue([])
     buildToolChoiceMock.mockReturnValue("auto")
   })
 
@@ -495,7 +505,8 @@ describe("TelegramBotService", () => {
     expect(buildSystemPromptMock).toHaveBeenCalledWith({
       modelProvider: "minimax",
       modelId: "model-a",
-      channel: "telegram"
+      channel: "telegram",
+      skills: []
     })
 
     const sessions = service.listSessions()
@@ -510,6 +521,86 @@ describe("TelegramBotService", () => {
     expect(fetchMock.mock.calls.some(call => String(call[0]).includes("/sendMessageDraft"))).toBe(
       true
     )
+  })
+
+  it("uses safe skill discovery when handling Telegram messages", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes("/sendMessageDraft")) {
+        return Promise.resolve(new Response("method not found", { status: 404 }))
+      }
+      return telegramApiSuccess({ message_id: 8 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+    streamTextMock.mockReturnValue({
+      textStream: createTextStream("Assistant reply")
+    })
+    discoverSkillsSafelyMock.mockResolvedValueOnce([])
+
+    const providerService = {
+      hasConfig: vi.fn(() => true),
+      createModel: vi.fn(() => ({})),
+      getConfig: vi.fn((provider: string) => {
+        if (provider === "telegram") {
+          return { apiKey: "tg-token", baseUrl: "https://api.telegram.org" }
+        }
+        return { apiKey: "model-key" }
+      })
+    }
+    const toolService = {
+      getRequestTools: vi.fn(() => ({}))
+    }
+
+    const runtimeConfigService = new ChannelRuntimeConfigService()
+    runtimeConfigService.update({
+      selectedModel: { provider: "minimax", modelId: "model-a" },
+      channels: {
+        telegram: {
+          enabled: true,
+          allowedUserIds: ["1003"]
+        }
+      }
+    })
+
+    const service = new TelegramBotService(
+      providerService as never,
+      toolService as never,
+      runtimeConfigService
+    )
+
+    await (
+      service as unknown as {
+        handleIncomingMessage: (
+          botToken: string,
+          apiBaseUrl: string,
+          message: unknown
+        ) => Promise<void>
+      }
+    ).handleIncomingMessage("token", "https://api.telegram.org", {
+      message_id: 101,
+      chat: {
+        id: 1003,
+        type: "private"
+      },
+      from: {
+        id: 1003,
+        is_bot: false
+      },
+      text: "hello"
+    })
+
+    expect(buildSystemPromptMock).toHaveBeenCalledWith({
+      modelProvider: "minimax",
+      modelId: "model-a",
+      channel: "telegram",
+      skills: []
+    })
+    expect(discoverSkillsSafelyMock).toHaveBeenCalledWith("Telegram request")
+    expect(streamTextMock).toHaveBeenCalled()
+    expect(consoleWarnSpy).not.toHaveBeenCalled()
+
+    consoleWarnSpy.mockRestore()
   })
 
   it("sends converted text with HTML parse_mode", async () => {

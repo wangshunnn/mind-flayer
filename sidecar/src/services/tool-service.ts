@@ -42,6 +42,8 @@ export class ToolService {
   }): AllTools {
     const { useWebSearch, chatId, includeBashExecution = true, source = "desktop" } = options
     const tools: AllTools = {}
+    const readToolPlugin = toolRegistry.get("read")
+    tools.read = readToolPlugin.createInstance("") as AllTools["read"]
 
     // Add web search tool if enabled
     if (useWebSearch) {

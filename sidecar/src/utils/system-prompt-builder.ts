@@ -3,10 +3,15 @@
  * Centralizes system context generation for easy extension.
  */
 
+import type { SkillCatalogEntry } from "../skills/catalog"
+
+type SkillPromptEntry = Pick<SkillCatalogEntry, "name" | "description" | "location">
+
 export interface BuildSystemPromptOptions {
   modelProvider: string
   modelId: string
   channel?: string
+  skills?: SkillPromptEntry[]
 }
 
 /**
@@ -30,6 +35,40 @@ function buildResponseFormatRules(): string {
     "- Use an absolute file URI in the image URL: ![screenshot](file:///absolute/path/to/image.png).",
     "- Do not reply with only a plain file path for images."
   ].join("\n")
+}
+
+function escapeXmlAttribute(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("'", "&apos;")
+}
+
+function buildSkillsPromptSection(options: BuildSystemPromptOptions): string {
+  const skills = options.skills ?? []
+  if (skills.length === 0) {
+    return ""
+  }
+
+  const lines = [
+    "## Skills",
+    "Before replying, scan each skill description in <available_skills>.",
+    "- If exactly one skill clearly applies, use the read tool to read its SKILL.md, then follow it.",
+    "- If multiple skills might apply, choose the most specific one and read only that skill first.",
+    "- If no skill clearly applies, do not read any skill file.",
+    "- Constraint: read at most one skill's SKILL.md per assistant turn.",
+    "- After selecting a skill, you may continue reading only files inside that same skill directory if the SKILL.md points to them.",
+    "<available_skills>",
+    ...skills.map(
+      skill =>
+        `<skill name="${escapeXmlAttribute(skill.name)}" description="${escapeXmlAttribute(skill.description)}" location="${escapeXmlAttribute(skill.location)}" />`
+    ),
+    "</available_skills>"
+  ]
+
+  return lines.join("\n")
 }
 
 /**
@@ -90,5 +129,12 @@ function buildRuntimeContext(options: BuildSystemPromptOptions): string {
  * @returns Complete system prompt
  */
 export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
-  return [buildRoleContext(), buildResponseFormatRules(), buildRuntimeContext(options)].join("\n")
+  return [
+    buildRoleContext(),
+    buildResponseFormatRules(),
+    buildSkillsPromptSection(options) || null,
+    buildRuntimeContext(options)
+  ]
+    .filter(Boolean)
+    .join("\n")
 }

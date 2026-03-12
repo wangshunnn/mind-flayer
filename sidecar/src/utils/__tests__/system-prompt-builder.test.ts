@@ -36,4 +36,33 @@ describe("buildSystemPrompt", () => {
 
     expect(prompt).not.toContain("- channel:")
   })
+
+  it("includes skills section when skills are provided", () => {
+    const prompt = buildSystemPrompt({
+      ...baseOptions,
+      skills: [
+        {
+          name: "file-reader",
+          description: 'Reads "complex" files & references.',
+          location: "~/Library/Application Support/mind-flayer/skills/reader/SKILL.md"
+        }
+      ]
+    })
+
+    expect(prompt).toContain("## Skills")
+    expect(prompt).toContain("<available_skills>")
+    expect(prompt).toContain('name="file-reader"')
+    expect(prompt).toContain('description="Reads &quot;complex&quot; files &amp; references."')
+    expect(prompt).toContain(
+      'location="~/Library/Application Support/mind-flayer/skills/reader/SKILL.md"'
+    )
+    expect(prompt).toContain("read at most one skill's SKILL.md")
+  })
+
+  it("omits skills section when no skills are provided", () => {
+    const prompt = buildSystemPrompt(baseOptions)
+
+    expect(prompt).not.toContain("## Skills")
+    expect(prompt).not.toContain("<available_skills>")
+  })
 })

@@ -11,7 +11,6 @@ import {
   ChevronRightIcon,
   CircleCheckIcon,
   CircleIcon,
-  CircleXIcon,
   GlobeIcon,
   WrenchIcon
 } from "lucide-react"
@@ -226,27 +225,21 @@ const ReasoningPartToolContent = memo(
     part: ToolUIPart | DynamicToolUIPart
     isChatStreaming?: boolean
   }) => {
-    const { toolRunning, toolDone } = useThinkingConstants()
+    const { toolRunning } = useThinkingConstants()
     // Determine if tool is in progress
     const isToolInProgress = isChatStreaming && isToolUIPart(part) && isToolUIPartInProgress(part)
     const toolConstants = useToolConstants()
-    const toolInputMeta = getToolInputMeta(part)
+    const toolInputMeta = getToolInputMeta(part, toolConstants)
     const toolResult = getToolResultText(part, toolConstants)
 
     return (
       <div className="text-muted-foreground text-xs">
-        <div className="mb-2.5 text-sm">{toolInputMeta?.content || ""}</div>
+        <div className="text-xs font-mono">{toolInputMeta?.content || ""}</div>
         {isToolInProgress ? (
           <div className="flex items-center gap-1.5">
             <span>{toolResult || toolRunning}</span>
           </div>
-        ) : (
-          <div className="flex items-center gap-1.5">
-            {part.state === "output-available" && <CircleCheckIcon className="size-3" />}
-            {part.state === "output-error" && <CircleXIcon className="size-3" />}
-            <span>{toolResult || toolDone}</span>
-          </div>
-        )}
+        ) : null}
       </div>
     )
   }
@@ -255,8 +248,9 @@ const ReasoningPartToolContent = memo(
 export const ReasoningPartHeader = memo(
   ({ className, partSource: part, isChatStreaming = false, ...props }: ReasoningPartProps) => {
     const { names } = useToolConstants()
-    const { t } = useTranslation("chat")
+    const { t } = useTranslation(["chat", "tools"])
     const isWebSearchTool = isToolUIPart(part) && isWebSearchToolUIPart(part)
+    const toolName = isToolUIPart(part) ? part.type.replace(/^tool-/, "") : null
 
     const getIcon = () => {
       if (isWebSearchTool) {
@@ -276,7 +270,7 @@ export const ReasoningPartHeader = memo(
         return names.webSearch
       }
       if (isToolUIPart(part)) {
-        return t("message.usingTool")
+        return t(`tools:names.${toolName}`, { defaultValue: t("message.usingTool") })
       }
       return t("message.usingTool")
     }

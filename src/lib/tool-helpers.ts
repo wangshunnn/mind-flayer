@@ -31,6 +31,35 @@ export type ToolBashExecution = ToolUIPart & {
   }
 }
 
+export type ReadToolInput = {
+  filePath: string
+  offset?: number
+}
+
+export type ReadToolDisplayContext =
+  | {
+      kind: "file"
+    }
+  | {
+      kind: "skill"
+      skillName: string
+      fileKind: "skill-md" | "reference" | "script" | "other"
+    }
+
+export type ReadToolOutput = {
+  filePath: string
+  content: string
+  offset: number
+  nextOffset: number | null
+  truncated: boolean
+  displayContext?: ReadToolDisplayContext
+}
+
+export type ToolRead = ToolUIPart & {
+  input?: ReadToolInput
+  output?: ReadToolOutput
+}
+
 // Determine if tool is in progress
 export const isToolUIPartInProgress = (part: ToolUIPart | DynamicToolUIPart): boolean =>
   part.state === "input-streaming" ||
@@ -46,15 +75,27 @@ export const isBashExecutionToolUIPart = (
   tool: ToolUIPart | DynamicToolUIPart
 ): tool is ToolBashExecution => tool.type === "tool-bashExecution"
 
+export const isReadToolUIPart = (tool: ToolUIPart | DynamicToolUIPart): tool is ToolRead =>
+  tool.type === "tool-read"
+
 export function getToolInputMeta(
-  tool: ToolUIPart | DynamicToolUIPart
+  tool: ToolUIPart | DynamicToolUIPart,
+  toolConstants: ReturnType<typeof useToolConstants>
 ): { content?: string } | null {
   if (isWebSearchToolUIPart(tool) && tool.input) {
     return { content: (isWebSearchToolUIPart(tool) && tool.input?.objective) || "" }
   }
   if (isBashExecutionToolUIPart(tool) && tool.input) {
     return {
-      content: `Command: ${tool.input.command} ${tool.input.args?.join(" ")}`
+      content: `$ ${tool.input.command} ${tool.input.args?.join(" ")}`
+    }
+  }
+  if (isReadToolUIPart(tool) && tool.input) {
+    return {
+      content:
+        typeof tool.input.offset === "number" && tool.input.offset > 0
+          ? toolConstants.read.inputWithOffset(tool.input.filePath, tool.input.offset)
+          : toolConstants.read.input(tool.input.filePath)
     }
   }
   return null
@@ -67,7 +108,7 @@ export function getToolResultText(
   tool: ToolUIPart | DynamicToolUIPart,
   toolConstants: ReturnType<typeof useToolConstants>
 ): string {
-  const { states, webSearch } = toolConstants
+  const { read, skillRead, states, webSearch } = toolConstants
 
   switch (tool.state) {
     case "output-available": {
@@ -76,7 +117,18 @@ export function getToolResultText(
           return webSearch.searchedResults(tool.output.totalResults)
         }
         if (isBashExecutionToolUIPart(tool) && tool.output.exitCode !== undefined) {
-          return `Exited with code ${tool.output.exitCode}`
+          return toolConstants.bashExecution.exitCode(tool.output.exitCode)
+        }
+        if (isReadToolUIPart(tool) && typeof tool.output.filePath === "string") {
+          if (tool.output.displayContext?.kind === "skill") {
+            return tool.output.truncated && tool.output.nextOffset !== null
+              ? skillRead.chunk(tool.output.displayContext.skillName, tool.output.nextOffset)
+              : skillRead.loaded(tool.output.displayContext.skillName)
+          }
+
+          return tool.output.truncated && tool.output.nextOffset !== null
+            ? read.chunk(tool.output.nextOffset)
+            : read.complete
         }
 
         return states.done

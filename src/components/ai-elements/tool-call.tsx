@@ -1,10 +1,12 @@
 import { useControllableState } from "@radix-ui/react-use-controllable-state"
 import {
+  BookOpenTextIcon,
   CheckIcon,
   ChevronRightIcon,
   CircleXIcon,
   CopyIcon,
   GlobeIcon,
+  LibraryBigIcon,
   Loader2Icon,
   TerminalIcon,
   TimerIcon,
@@ -62,7 +64,7 @@ export type ToolCallProps = ComponentProps<typeof Collapsible> & {
 const MS_IN_S = 1000
 const FINAL_STATES: ToolCallState[] = ["output-available", "output-error", "output-denied"]
 const TOOL_CALL_STATUS_BADGE_BASE =
-  "inline-flex items-center rounded-full ml-1.5 px-2 py-1 text-[10px] min-w-max"
+  "inline-flex items-center font-normal rounded-full px-2 py-1 text-[10px] min-w-max"
 const TOOL_CALL_STATUS_BADGE_VARIANTS = {
   success: "bg-green-500/10 text-green-600 dark:text-green-400",
   error: "bg-red-500/10 text-red-600 dark:text-red-400"
@@ -133,6 +135,10 @@ const getToolIcon = (toolName: string) => {
       return <GlobeIcon className={iconClass} />
     case "bashexecution":
       return <TerminalIcon className={iconClass} />
+    case "read":
+      return <BookOpenTextIcon className={iconClass} />
+    case "skillread":
+      return <LibraryBigIcon className={iconClass} />
     default:
       return <WrenchIcon className={iconClass} />
   }
@@ -210,6 +216,13 @@ export const ToolCallTrigger = memo(
   }: ToolCallTriggerProps) => {
     const { isOpen, toolName, duration, resultCount, state } = useToolCall()
     const showDuration = FINAL_STATES.includes(state) && duration !== undefined
+    const triggerContent = children ?? (
+      <>
+        {icon ?? getToolIcon(toolName)}
+        {getToolMessage(toolName, state, resultCount)}
+        {trailingContent}
+      </>
+    )
 
     return (
       <CollapsibleTrigger
@@ -219,27 +232,23 @@ export const ToolCallTrigger = memo(
         )}
         {...props}
       >
-        {children ?? (
-          <>
-            {icon ?? getToolIcon(toolName)}
-            {getToolMessage(toolName, state, resultCount)}
-            {trailingContent}
-            <div className="ml-auto flex items-center gap-2">
-              {showDuration && (
-                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/90">
-                  <TimerIcon className="size-3" />
-                  {formatDuration(duration)}
-                </span>
-              )}
-              <ChevronRightIcon
-                className={cn(
-                  "size-3.5 transition-transform opacity-50",
-                  isOpen ? "rotate-90" : "rotate-0"
-                )}
-              />
-            </div>
-          </>
-        )}
+        <div className="flex min-w-0 flex-1 text-xs font-medium items-center gap-2">
+          {triggerContent}
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {showDuration && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/90">
+              <TimerIcon className="size-3" />
+              {formatDuration(duration)}
+            </span>
+          )}
+          <ChevronRightIcon
+            className={cn(
+              "size-3.5 transition-transform opacity-50",
+              isOpen ? "rotate-90" : "rotate-0"
+            )}
+          />
+        </div>
       </CollapsibleTrigger>
     )
   }
@@ -276,9 +285,9 @@ export type ToolCallInputStreamingProps = {
 export const ToolCallInputStreaming = memo(({ description }: ToolCallInputStreamingProps) => {
   const toolConstants = useToolConstants()
   return (
-    <div className="flex items-center gap-2 py-1">
-      <Loader2Icon className="size-3.5 animate-spin" />
-      <div className="text-sm text-muted-foreground">
+    <div className="flex items-start gap-2 py-1">
+      <Loader2Icon className="mt-0.5 size-3.5 shrink-0 animate-spin" />
+      <div className="min-w-0 flex-1 text-sm text-muted-foreground">
         {description ?? toolConstants.states.running}
       </div>
     </div>
@@ -334,6 +343,71 @@ export type BashExecInput = {
   command?: string
   args?: string[]
 }
+
+export type ToolCallCopyablePreProps = {
+  displayText: string
+  copyText?: string
+  className?: string
+  textClassName?: string
+  leadingContent?: ReactNode
+}
+
+export const ToolCallCopyablePre = memo(
+  ({
+    displayText,
+    copyText = displayText,
+    className,
+    textClassName,
+    leadingContent
+  }: ToolCallCopyablePreProps) => {
+    const actionConstants = useActionConstants()
+    const [copied, setCopied] = useState(false)
+    const isCopyDisabled = copyText.length === 0
+
+    const handleCopy = useCallback(async () => {
+      if (isCopyDisabled) {
+        return
+      }
+
+      try {
+        await navigator.clipboard.writeText(copyText)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      } catch (error) {
+        console.error("Failed to copy tool content:", error)
+      }
+    }, [copyText, isCopyDisabled])
+
+    return (
+      <div className={cn("rounded-md border border-border/50 bg-muted/30 px-3 py-3", className)}>
+        <div className="flex items-start gap-2">
+          {leadingContent ? (
+            <span className="shrink-0 text-muted-foreground">{leadingContent}</span>
+          ) : null}
+          <pre
+            className={cn(
+              "min-w-0 flex-1 overflow-x-auto whitespace-pre-wrap wrap-break-word text-xs font-mono text-foreground",
+              textClassName
+            )}
+          >
+            {displayText}
+          </pre>
+          <button
+            type="button"
+            onClick={handleCopy}
+            disabled={isCopyDisabled}
+            className="shrink-0 text-muted-foreground/50 transition-colors hover:text-foreground disabled:cursor-default disabled:opacity-30"
+          >
+            {copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
+            <span className="sr-only">
+              {copied ? actionConstants.copied : actionConstants.copy}
+            </span>
+          </button>
+        </div>
+      </div>
+    )
+  }
+)
 
 const formatBashExecCommand = (input?: BashExecInput) =>
   `${input?.command ?? ""} ${input?.args?.join(" ") ?? ""}`.trim()
@@ -474,20 +548,21 @@ export const ToolCallBashExecResults = memo(({ input, result }: ToolCallBashExec
       {/* Stdout */}
       {hasStdout && (
         <div className="space-y-1">
-          {/* <div className="text-xs text-muted-foreground pl-1">Output</div> */}
-          <pre className="scrollbar-thin rounded-md border border-border/50 bg-muted/30 px-3 py-3 text-xs font-mono text-foreground overflow-x-auto max-h-70 overflow-y-auto">
-            {result.stdout}
-          </pre>
+          <ToolCallCopyablePre
+            displayText={result.stdout}
+            textClassName="scrollbar-thin max-h-70 overflow-y-auto"
+          />
         </div>
       )}
 
       {/* Stderr */}
       {hasStderr && !hasStdout && (
         <div className="space-y-1">
-          {/* <div className="text-xs text-muted-foreground">Error output:</div> */}
-          <pre className="scrollbar-thin rounded-md border border-destructive/50 bg-destructive/5 px-3 py-3 text-xs font-mono text-destructive overflow-x-auto max-h-48 overflow-y-auto">
-            {result.stderr}
-          </pre>
+          <ToolCallCopyablePre
+            displayText={result.stderr}
+            className="border-destructive/50 bg-destructive/5"
+            textClassName="scrollbar-thin max-h-48 overflow-y-auto text-destructive"
+          />
         </div>
       )}
     </div>
@@ -504,3 +579,4 @@ ToolCallOutputError.displayName = "ToolCallOutputError"
 ToolCallOutputDenied.displayName = "ToolCallOutputDenied"
 ToolCallWebSearchResults.displayName = "ToolCallWebSearchResults"
 ToolCallBashExecResults.displayName = "ToolCallBashExecResults"
+ToolCallCopyablePre.displayName = "ToolCallCopyablePre"

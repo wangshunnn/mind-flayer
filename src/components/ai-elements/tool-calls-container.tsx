@@ -193,7 +193,7 @@ const ToolCallStructuredBlock = ({ value }: { value: unknown }) => {
   }
 
   return (
-    <pre className="scrollbar-thin rounded-md border border-border/50 bg-muted/30 px-3 py-3 text-xs font-mono text-foreground overflow-x-auto max-h-70 overflow-y-auto whitespace-pre-wrap break-words">
+    <pre className="scrollbar-thin rounded-md border border-border/50 bg-muted/30 px-3 py-3 text-xs font-mono text-foreground overflow-x-auto max-h-70 overflow-y-auto whitespace-pre-wrap wrap-break-word">
       {formatted}
     </pre>
   )

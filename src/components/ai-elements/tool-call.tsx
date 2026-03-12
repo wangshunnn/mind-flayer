@@ -14,7 +14,7 @@ import {
   XIcon
 } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
-import { createContext, memo, useCallback, useContext, useState } from "react"
+import { createContext, memo, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Streamdown } from "streamdown"
 import { Shimmer } from "@/components/ai-elements/shimmer"
@@ -100,8 +100,41 @@ export const ToolCall = memo(
       defaultProp: defaultOpen,
       onChange: onOpenChange
     })
+    const hasUserToggledRef = useRef(false)
+    const autoExpandedForApprovalRef = useRef(false)
+    const previousStateRef = useRef(state)
+
+    useEffect(() => {
+      if (open !== undefined) {
+        previousStateRef.current = state
+        return
+      }
+
+      const previousState = previousStateRef.current
+
+      if (state === "approval-requested") {
+        if (!hasUserToggledRef.current && !isOpen) {
+          autoExpandedForApprovalRef.current = true
+          setIsOpen(true)
+        }
+      } else if (
+        previousState === "approval-requested" &&
+        autoExpandedForApprovalRef.current &&
+        !hasUserToggledRef.current &&
+        isOpen
+      ) {
+        autoExpandedForApprovalRef.current = false
+        setIsOpen(false)
+      }
+
+      previousStateRef.current = state
+    }, [isOpen, open, setIsOpen, state])
 
     const handleOpenChange = (newOpen: boolean) => {
+      if (open === undefined) {
+        hasUserToggledRef.current = true
+        autoExpandedForApprovalRef.current = false
+      }
       setIsOpen(newOpen)
     }
 
@@ -496,7 +529,7 @@ export type ToolCallWebSearchResultsProps = {
 }
 
 export const ToolCallWebSearchResults = memo(({ results }: ToolCallWebSearchResultsProps) => (
-  <div className="space-y-2 pr-2 max-h-70 overflow-y-auto">
+  <div className="space-y-2 pr-2 max-h-48 overflow-y-auto">
     {results.map(result => (
       <div key={result.url} className="rounded-md border border-border/50 bg-muted/30 py-1 px-2">
         <a
@@ -550,7 +583,7 @@ export const ToolCallBashExecResults = memo(({ input, result }: ToolCallBashExec
         <div className="space-y-1">
           <ToolCallCopyablePre
             displayText={result.stdout}
-            textClassName="scrollbar-thin max-h-70 overflow-y-auto"
+            textClassName="scrollbar-thin max-h-48 overflow-y-auto"
           />
         </div>
       )}

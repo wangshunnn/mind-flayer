@@ -44,7 +44,7 @@ describe("buildSystemPrompt", () => {
         {
           name: "file-reader",
           description: 'Reads "complex" files & references.',
-          location: "~/Library/Application Support/mind-flayer/skills/reader/SKILL.md"
+          location: "~/Library/Application Support/Mind Flayer/skills/reader/SKILL.md"
         }
       ]
     })
@@ -54,7 +54,7 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain('name="file-reader"')
     expect(prompt).toContain('description="Reads &quot;complex&quot; files &amp; references."')
     expect(prompt).toContain(
-      'location="~/Library/Application Support/mind-flayer/skills/reader/SKILL.md"'
+      'location="~/Library/Application Support/Mind Flayer/skills/reader/SKILL.md"'
     )
     expect(prompt).toContain("read at most one skill's SKILL.md")
   })

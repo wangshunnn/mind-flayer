@@ -37,15 +37,7 @@ fn get_config_file_path() -> Result<PathBuf, String> {
         }
     }
 
-    let app_dir = dirs::data_local_dir()
-        .ok_or_else(|| "Failed to get app data directory".to_string())?
-        .join("mind-flayer");
-
-    fs::create_dir_all(&app_dir).map_err(|e| {
-        error!("[Storage] Failed to create app directory: {}", e);
-        e.to_string()
-    })?;
-
+    let app_dir = crate::app_support::resolve_custom_app_support_dir()?;
     Ok(app_dir.join(CONFIG_FILE_NAME))
 }
 

@@ -122,18 +122,7 @@ pub async fn start_sidecar(app: tauri::AppHandle) -> Result<u16, String> {
 }
 
 fn resolve_sidecar_app_support_dir() -> Result<String, String> {
-    let app_support_dir = dirs::data_local_dir()
-        .ok_or_else(|| "Failed to get local app data directory for sidecar".to_string())?
-        .join("mind-flayer");
-
-    fs::create_dir_all(&app_support_dir).map_err(|e| {
-        format!(
-            "Failed to create sidecar app support directory '{}': {}",
-            app_support_dir.display(),
-            e
-        )
-    })?;
-
+    let app_support_dir = crate::app_support::resolve_custom_app_support_dir()?;
     Ok(app_support_dir.to_string_lossy().to_string())
 }
 

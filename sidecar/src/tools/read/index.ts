@@ -110,13 +110,13 @@ Use this when you need the contents of a file, including skill files such as SKI
     inputExamples: [
       {
         input: {
-          filePath: "/Users/you/Library/Application Support/mind-flayer/skills/example/SKILL.md",
+          filePath: "/Users/you/Library/Application Support/Mind Flayer/skills/example/SKILL.md",
           offset: 0
         }
       },
       {
         input: {
-          filePath: "/Users/you/Library/Application Support/mind-flayer/skills/example/SKILL.md",
+          filePath: "/Users/you/Library/Application Support/Mind Flayer/skills/example/SKILL.md",
           offset: 51200
         }
       }

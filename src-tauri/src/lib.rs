@@ -1,3 +1,4 @@
+mod app_support;
 mod keychain;
 mod setup;
 mod shortcuts;

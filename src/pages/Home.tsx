@@ -22,6 +22,7 @@ import {
   getTelegramWhitelistRequests,
   type TelegramWhitelistRequest
 } from "@/lib/sidecar-client"
+import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import type { ChatId } from "@/types/chat"
 import { ShortcutAction } from "@/types/settings"
@@ -299,7 +300,11 @@ export default function Page() {
       {/* Top buttons */}
       <div
         data-tauri-drag-region
-        className="z-50 pt-1.5 h-12 fixed left-24 flex items-center justify-center pointer-events-auto gap-2"
+        className={cn(
+          "z-50 h-12 fixed left-24 pt-1.5",
+          "flex items-center justify-center gap-2",
+          "pointer-events-auto"
+        )}
       >
         <SidebarTrigger />
         <NewChatTrigger onClick={handleNewChat} />

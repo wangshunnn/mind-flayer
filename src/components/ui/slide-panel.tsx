@@ -47,8 +47,11 @@ export function SlidePanel({
     <div
       style={{ width }}
       className={cn(
-        "bg-sidebar-impact text-sidebar-foreground fixed inset-y-0 z-50 flex flex-col transition-transform duration-300 ease-out",
-        "m-1.5 rounded-sm border-none outline-[0.5px] outline-black/10 shadow-[12px_12px_36px_0_rgba(0,0,0,0.15)]",
+        "fixed inset-y-0 z-50 flex flex-col",
+        "bg-sidebar-impact text-sidebar-foreground",
+        "transition-transform duration-300 ease-out",
+        "m-1.5 rounded-sm border-none",
+        "outline-[0.5px] outline-black/10 shadow-[12px_12px_36px_0_rgba(0,0,0,0.15)]",
         side === "left" && ["left-0", shouldAnimate ? "translate-x-0" : "-translate-x-full"],
         side === "right" && ["right-0", shouldAnimate ? "translate-x-0" : "translate-x-full"],
         className

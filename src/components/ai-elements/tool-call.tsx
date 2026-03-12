@@ -429,7 +429,11 @@ export const ToolCallCopyablePre = memo(
             type="button"
             onClick={handleCopy}
             disabled={isCopyDisabled}
-            className="shrink-0 text-muted-foreground/50 transition-colors hover:text-foreground disabled:cursor-default disabled:opacity-30"
+            className={cn(
+              "shrink-0 text-muted-foreground/50",
+              "transition-colors hover:text-foreground",
+              "disabled:cursor-default disabled:opacity-30"
+            )}
           >
             {copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
             <span className="sr-only">

@@ -369,7 +369,12 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
           {onRemove && (
             <Button
               aria-label="Remove attachment"
-              className="absolute top-2 right-2 size-6 rounded-full bg-background/80 p-0 opacity-0 backdrop-blur-sm transition-opacity hover:bg-background group-hover:opacity-100 [&>svg]:size-3"
+              className={cn(
+                "absolute top-2 right-2 size-6 rounded-full p-0",
+                "bg-background/80 backdrop-blur-sm hover:bg-background",
+                "opacity-0 transition-opacity group-hover:opacity-100",
+                "[&>svg]:size-3"
+              )}
               onClick={e => {
                 e.stopPropagation()
                 onRemove()
@@ -386,7 +391,12 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
         <>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex size-full shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <div
+                className={cn(
+                  "flex size-full shrink-0 items-center justify-center",
+                  "rounded-lg bg-muted text-muted-foreground"
+                )}
+              >
                 <PaperclipIcon className="size-4" />
               </div>
             </TooltipTrigger>
@@ -397,7 +407,11 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
           {onRemove && (
             <Button
               aria-label="Remove attachment"
-              className="size-6 shrink-0 rounded-full p-0 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 [&>svg]:size-3"
+              className={cn(
+                "size-6 shrink-0 rounded-full p-0",
+                "opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100",
+                "[&>svg]:size-3"
+              )}
               onClick={e => {
                 e.stopPropagation()
                 onRemove()

@@ -115,6 +115,7 @@ Rust Keychain → stdin JSON → providerService.updateConfigs()
 ### Styling & State
 - Tailwind CSS + Radix UI design system
 - Use `cn()` for conditional classes, support dark mode
+- When a `className` string is long, use `cn()` to split classes into multiple lines grouped by concern
 - `useState` for simple state, `useReducer` for complex
 - Keep state local, use context sparingly
 

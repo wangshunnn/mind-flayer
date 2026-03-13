@@ -3,14 +3,38 @@ import type { Context } from "hono"
 import { providerService } from "../services/provider-service"
 import { BadRequestError, mapErrorToResponse, UnauthorizedError } from "../utils/http-errors"
 
-const TITLE_SYSTEM_PROMPT = `Generate a short, concise title for a conversation that starts with the following user message.
+const TITLE_MAX_LENGTH = 20
+
+const TITLE_SYSTEM_PROMPT = `Generate a short, concise title for a conversation based on the first user message.
+You are generating a title, not replying to the user.
+If the user message is a question, request, or command, convert it into a topic/title instead of answering it.
+
 Rules:
 - The title should be in the same language as the user message
-- Maximum 20 characters
-- No quotes, no punctuation at the end
+- Maximum ${TITLE_MAX_LENGTH} characters
+- Prefer a noun phrase or short topic, not a full sentence
+- No quotes, no emojis, no markdown
+- No punctuation at the end
 - Return ONLY the title text, nothing else`
 
-const TITLE_MAX_LENGTH = 50
+function buildTitlePrompt(messageText: string): string {
+  return `First user message for title generation only. Do not answer it.
+<user_message>
+${messageText}
+</user_message>`
+}
+
+function sanitizeGeneratedTitle(text: string): string {
+  return (
+    text
+      .trim()
+      .split(/\r?\n/u)[0]
+      ?.trim()
+      .replace(/^["'“”‘’]+|["'“”‘’]+$/gu, "")
+      .replace(/[.。!?！？:：;,，、]+$/gu, "")
+      .slice(0, TITLE_MAX_LENGTH) ?? ""
+  )
+}
 
 /**
  * Generate a chat title using LLM.
@@ -43,13 +67,10 @@ export async function handleTitleGenerator(c: Context) {
     const result = await generateText({
       model,
       system: TITLE_SYSTEM_PROMPT,
-      prompt: messageText.trim()
+      prompt: buildTitlePrompt(messageText.trim())
     })
 
-    let title = result.text.trim()
-    if (title.length > TITLE_MAX_LENGTH) {
-      title = `${title.substring(0, TITLE_MAX_LENGTH)}...`
-    }
+    const title = sanitizeGeneratedTitle(result.text)
 
     return c.json({ title })
   } catch (error) {

@@ -1,6 +1,7 @@
 {
   "nav": {
     "newChat": "New Chat",
+    "skills": "Skills",
     "channelSessions": "Channel Sessions",
     "recentChats": "Recent Chats",
     "noChatsYet": "No chats yet. Start a new chat!",
@@ -59,6 +60,29 @@
     "noMessagesTitle": "No messages in this session",
     "noMessagesDescription": "Messages for the selected session will appear here.",
     "nonTextPlaceholder": "[non-text message]"
+  },
+  "skills": {
+    "title": "Skills",
+    "summary": "Manage available skills",
+    "refresh": "Refresh",
+    "loadError": "Failed to load skills.",
+    "detailLoadError": "Failed to load skill details.",
+    "bundledSectionTitle": "Built-in",
+    "bundledSectionDescription": "Installed with the app. These skills can be enabled or disabled.",
+    "userSectionTitle": "User-installed",
+    "userSectionDescription": "Installed by the user. These skills can be enabled, disabled, or uninstalled.",
+    "emptyBundled": "No built-in skills are available.",
+    "emptyUser": "No user-installed skills yet.",
+    "openFolder": "Open Folder",
+    "openFolderError": "Failed to open the folder.",
+    "contentTitle": "Skill Content",
+    "uninstall": "Uninstall",
+    "uninstalling": "Uninstalling",
+    "cancel": "Cancel",
+    "uninstallTitle": "Uninstall Skill",
+    "uninstallDescription": "Remove {{skillName}} from this device?",
+    "uninstallSuccess": "{{skillName}} was uninstalled.",
+    "uninstallError": "Failed to uninstall the selected skill."
   },
   "telegramWhitelist": {
     "title": "Telegram Join Request",

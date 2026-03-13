@@ -31,6 +31,24 @@ export class BadRequestError extends HttpError {
 }
 
 /**
+ * 403 Forbidden - Request is understood but not allowed.
+ */
+export class ForbiddenError extends HttpError {
+  constructor(message: string, code = "FORBIDDEN") {
+    super(message, 403, code)
+  }
+}
+
+/**
+ * 404 Not Found - Requested resource does not exist.
+ */
+export class NotFoundError extends HttpError {
+  constructor(message: string, code = "NOT_FOUND") {
+    super(message, 404, code)
+  }
+}
+
+/**
  * 500 Internal Server Error - Server-side error
  */
 export class InternalServerError extends HttpError {
@@ -46,12 +64,12 @@ export class InternalServerError extends HttpError {
  * @returns Object with status code and error response
  */
 export function mapErrorToResponse(error: unknown): {
-  statusCode: 400 | 401 | 500
+  statusCode: 400 | 401 | 403 | 404 | 500
   body: { error: string; code?: string }
 } {
   if (error instanceof HttpError) {
     return {
-      statusCode: error.statusCode as 400 | 401 | 500,
+      statusCode: error.statusCode as 400 | 401 | 403 | 404 | 500,
       body: { error: error.message, code: error.code }
     }
   }

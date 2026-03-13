@@ -16,6 +16,7 @@ import { handleChat } from "./chat"
 import { handleCleanupWorkspace } from "./cleanup"
 import { handleHealth } from "./health"
 import { handleLocalImage } from "./local-image"
+import { handleDeleteSkill, handleGetSkillDetail, handleListSkills } from "./skills"
 import { handleTitleGenerator } from "./title"
 
 /**
@@ -35,7 +36,7 @@ export function registerRoutes(
   app.get("/health", handleHealth)
 
   // AI streaming chat endpoint
-  app.post("/api/chat", c => handleChat(c, globalAbortController))
+  app.post("/api/chat", c => handleChat(c, globalAbortController, channelRuntimeConfigService))
 
   // Chat title generation endpoint
   app.post("/api/title", handleTitleGenerator)
@@ -45,6 +46,11 @@ export function registerRoutes(
 
   // Workspace cleanup endpoint
   app.post("/api/cleanup-workspace", handleCleanupWorkspace)
+
+  // Skills management endpoints
+  app.get("/api/skills", handleListSkills)
+  app.get("/api/skills/:skillId", handleGetSkillDetail)
+  app.delete("/api/skills/:skillId", handleDeleteSkill)
 
   // Runtime config endpoint for channel services
   app.post("/api/channel-runtime-config", c =>

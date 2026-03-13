@@ -8,7 +8,7 @@ export interface SelectedModelRuntime {
   modelId: string
 }
 
-export interface ChannelRuntimeConfig {
+export interface RuntimeConfig {
   selectedModel: SelectedModelRuntime | null
   channels: {
     telegram: {
@@ -16,7 +16,10 @@ export interface ChannelRuntimeConfig {
       allowedUserIds: string[]
     }
   }
+  disabledSkills: string[]
 }
+
+export type ChannelRuntimeConfig = RuntimeConfig
 
 export type WebSearchMode = "auto" | "always"
 

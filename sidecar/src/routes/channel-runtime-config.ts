@@ -16,12 +16,13 @@ const channelRuntimeConfigSchema = z.object({
       enabled: z.boolean(),
       allowedUserIds: z.array(z.string().trim().regex(/^\d+$/))
     })
-  })
+  }),
+  disabledSkills: z.array(z.string().trim().min(1))
 })
 
 /**
- * Runtime config endpoint used by the desktop frontend to sync selected model
- * and channel enablement switches.
+ * Runtime config endpoint used by the desktop frontend to sync selected model,
+ * channel enablement, and skill availability switches.
  */
 export async function handleChannelRuntimeConfig(
   c: Context,

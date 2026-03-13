@@ -20,9 +20,13 @@ vi.mock("../../utils/message-processor", () => ({
   processMessages: (...args: unknown[]) => processMessagesMock(...args)
 }))
 
-vi.mock("../../skills/catalog", () => ({
-  discoverSkillsSafely: (...args: unknown[]) => discoverSkillsSafelyMock(...args)
-}))
+vi.mock("../../skills/catalog", async importOriginal => {
+  const actual = await importOriginal<typeof import("../../skills/catalog")>()
+  return {
+    ...actual,
+    discoverSkillsSafely: (...args: unknown[]) => discoverSkillsSafelyMock(...args)
+  }
+})
 
 vi.mock("../../utils/system-prompt-builder", async importOriginal => {
   const actual = await importOriginal<typeof import("../../utils/system-prompt-builder")>()
@@ -48,7 +52,22 @@ describe("createStreamResponse", () => {
 
   it("uses safe skill discovery for stream requests", async () => {
     const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
-    discoverSkillsSafelyMock.mockResolvedValueOnce([])
+    discoverSkillsSafelyMock.mockResolvedValueOnce([
+      {
+        id: "bundled:reader",
+        name: "reader",
+        source: "bundled",
+        description: "Read files",
+        location: "~/skills/builtin/reader/SKILL.md"
+      },
+      {
+        id: "user:writer",
+        name: "writer",
+        source: "user",
+        description: "Write files",
+        location: "~/skills/user/writer/SKILL.md"
+      }
+    ])
 
     const response = await createStreamResponse({
       model: {} as never,
@@ -57,14 +76,23 @@ describe("createStreamResponse", () => {
       messages: [{ role: "user", parts: [] }] as never,
       tools: {},
       toolChoice: "auto" as never,
-      abortSignal: new AbortController().signal
+      abortSignal: new AbortController().signal,
+      disabledSkillIds: ["user:writer"]
     })
 
     expect(response).toBe("stream-response")
     expect(buildSystemPromptMock).toHaveBeenCalledWith({
       modelProvider: "minimax",
       modelId: "model-a",
-      skills: []
+      skills: [
+        {
+          id: "bundled:reader",
+          name: "reader",
+          source: "bundled",
+          description: "Read files",
+          location: "~/skills/builtin/reader/SKILL.md"
+        }
+      ]
     })
     expect(streamTextMock).toHaveBeenCalled()
     expect(discoverSkillsSafelyMock).toHaveBeenCalledWith("stream request")

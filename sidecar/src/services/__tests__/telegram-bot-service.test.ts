@@ -23,9 +23,13 @@ vi.mock("../../utils/system-prompt-builder", async importOriginal => {
   }
 })
 
-vi.mock("../../skills/catalog", () => ({
-  discoverSkillsSafely: (...args: unknown[]) => discoverSkillsSafelyMock(...args)
-}))
+vi.mock("../../skills/catalog", async importOriginal => {
+  const actual = await importOriginal<typeof import("../../skills/catalog")>()
+  return {
+    ...actual,
+    discoverSkillsSafely: (...args: unknown[]) => discoverSkillsSafelyMock(...args)
+  }
+})
 
 vi.mock("../../utils/tool-choice", () => ({
   buildToolChoice: (...args: unknown[]) => buildToolChoiceMock(...args)
@@ -601,6 +605,104 @@ describe("TelegramBotService", () => {
     expect(consoleWarnSpy).not.toHaveBeenCalled()
 
     consoleWarnSpy.mockRestore()
+  })
+
+  it("filters disabled skills before building the Telegram system prompt", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes("/sendMessageDraft")) {
+        return Promise.resolve(new Response("method not found", { status: 404 }))
+      }
+      return telegramApiSuccess({ message_id: 19 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    streamTextMock.mockReturnValue({
+      textStream: createTextStream("Assistant reply")
+    })
+    discoverSkillsSafelyMock.mockResolvedValueOnce([
+      {
+        id: "bundled:reader",
+        name: "reader",
+        source: "bundled",
+        description: "Bundled reader",
+        location: "~/skills/builtin/reader/SKILL.md"
+      },
+      {
+        id: "user:writer",
+        name: "writer",
+        source: "user",
+        description: "User writer",
+        location: "~/skills/user/writer/SKILL.md"
+      }
+    ])
+
+    const providerService = {
+      hasConfig: vi.fn(() => true),
+      createModel: vi.fn(() => ({})),
+      getConfig: vi.fn((provider: string) => {
+        if (provider === "telegram") {
+          return { apiKey: "tg-token", baseUrl: "https://api.telegram.org" }
+        }
+        return { apiKey: "model-key" }
+      })
+    }
+    const toolService = {
+      getRequestTools: vi.fn(() => ({}))
+    }
+
+    const runtimeConfigService = new ChannelRuntimeConfigService()
+    runtimeConfigService.update({
+      selectedModel: { provider: "minimax", modelId: "model-a" },
+      channels: {
+        telegram: {
+          enabled: true,
+          allowedUserIds: ["1004"]
+        }
+      },
+      disabledSkills: ["user:writer"]
+    })
+
+    const service = new TelegramBotService(
+      providerService as never,
+      toolService as never,
+      runtimeConfigService
+    )
+
+    await (
+      service as unknown as {
+        handleIncomingMessage: (
+          botToken: string,
+          apiBaseUrl: string,
+          message: unknown
+        ) => Promise<void>
+      }
+    ).handleIncomingMessage("token", "https://api.telegram.org", {
+      message_id: 102,
+      chat: {
+        id: 1004,
+        type: "private"
+      },
+      from: {
+        id: 1004,
+        is_bot: false
+      },
+      text: "hello"
+    })
+
+    expect(buildSystemPromptMock).toHaveBeenCalledWith({
+      modelProvider: "minimax",
+      modelId: "model-a",
+      channel: "telegram",
+      skills: [
+        {
+          id: "bundled:reader",
+          name: "reader",
+          source: "bundled",
+          description: "Bundled reader",
+          location: "~/skills/builtin/reader/SKILL.md"
+        }
+      ]
+    })
   })
 
   it("sends converted text with HTML parse_mode", async () => {

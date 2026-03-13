@@ -1,7 +1,7 @@
 use log::{debug, error, info, warn};
 use std::{
+    collections::HashSet,
     fs,
-    io::{ErrorKind, Write},
     net::TcpListener,
     path::Path,
     sync::{Arc, Mutex},
@@ -24,6 +24,8 @@ const SIDECAR_SERVICE_NAME: &str = "mind-flayer-sidecar";
 const SIDECAR_STARTUP_TOKEN_ENV_KEY: &str = "SIDECAR_STARTUP_TOKEN";
 const MINDFLAYER_APP_SUPPORT_DIR_ENV_KEY: &str = "MINDFLAYER_APP_SUPPORT_DIR";
 const GLOBAL_SKILLS_DIR_NAME: &str = "skills";
+const BUNDLED_SKILLS_DIR_NAME: &str = "builtin";
+const USER_SKILLS_DIR_NAME: &str = "user";
 
 struct BundledSkillFile {
     relative_path: &'static str,
@@ -128,17 +130,112 @@ fn resolve_sidecar_app_support_dir() -> Result<String, String> {
 
 fn install_bundled_skills(app_support_dir: &str) -> Result<(), String> {
     let skills_root = Path::new(app_support_dir).join(GLOBAL_SKILLS_DIR_NAME);
-    fs::create_dir_all(&skills_root).map_err(|e| {
+    let bundled_skills_root = skills_root.join(BUNDLED_SKILLS_DIR_NAME);
+    let user_skills_root = skills_root.join(USER_SKILLS_DIR_NAME);
+    let bundled_skill_names: HashSet<&str> =
+        BUNDLED_SKILLS.iter().map(|skill| skill.name).collect();
+
+    fs::create_dir_all(&bundled_skills_root).map_err(|e| {
         format!(
             "Failed to create bundled skills root '{}': {}",
-            skills_root.display(),
+            bundled_skills_root.display(),
+            e
+        )
+    })?;
+
+    fs::create_dir_all(&user_skills_root).map_err(|e| {
+        format!(
+            "Failed to create user skills root '{}': {}",
+            user_skills_root.display(),
             e
         )
     })?;
 
     for skill in BUNDLED_SKILLS {
+        let legacy_skill_dir = skills_root.join(skill.name);
+        let bundled_skill_dir = bundled_skills_root.join(skill.name);
+
+        if !legacy_skill_dir.exists() || bundled_skill_dir.exists() {
+            continue;
+        }
+
+        fs::rename(&legacy_skill_dir, &bundled_skill_dir).map_err(|e| {
+            format!(
+                "Failed to migrate legacy bundled skill '{}' to '{}': {}",
+                legacy_skill_dir.display(),
+                bundled_skill_dir.display(),
+                e
+            )
+        })?;
+        info!(
+            "Migrated legacy bundled skill '{}' to '{}'",
+            legacy_skill_dir.display(),
+            bundled_skill_dir.display()
+        );
+    }
+
+    let bundled_root_entries = fs::read_dir(&bundled_skills_root).map_err(|e| {
+        format!(
+            "Failed to read bundled skills root '{}': {}",
+            bundled_skills_root.display(),
+            e
+        )
+    })?;
+
+    for entry_result in bundled_root_entries {
+        let entry = entry_result.map_err(|e| {
+            format!(
+                "Failed to read an entry in bundled skills root '{}': {}",
+                bundled_skills_root.display(),
+                e
+            )
+        })?;
+        let entry_path = entry.path();
+        let file_type = entry.file_type().map_err(|e| {
+            format!(
+                "Failed to inspect bundled skills entry '{}': {}",
+                entry_path.display(),
+                e
+            )
+        })?;
+
+        if !file_type.is_dir() {
+            continue;
+        }
+
+        let entry_name = entry.file_name();
+        let entry_name = entry_name.to_string_lossy();
+        if bundled_skill_names.contains(entry_name.as_ref()) {
+            continue;
+        }
+
+        fs::remove_dir_all(&entry_path).map_err(|e| {
+            format!(
+                "Failed to remove stale bundled skill directory '{}': {}",
+                entry_path.display(),
+                e
+            )
+        })?;
+        info!(
+            "Removed stale bundled skill directory '{}'",
+            entry_path.display()
+        );
+    }
+
+    for skill in BUNDLED_SKILLS {
+        let bundled_skill_dir = bundled_skills_root.join(skill.name);
+        if bundled_skill_dir.exists() {
+            fs::remove_dir_all(&bundled_skill_dir).map_err(|e| {
+                format!(
+                    "Failed to replace bundled skill directory '{}': {}",
+                    bundled_skill_dir.display(),
+                    e
+                )
+            })?;
+        }
+
         for file in skill.files {
-            let destination = skills_root.join(skill.name).join(file.relative_path);
+            let destination = bundled_skill_dir.join(file.relative_path);
 
             if let Some(parent_dir) = destination.parent() {
                 fs::create_dir_all(parent_dir).map_err(|e| {
@@ -150,35 +247,14 @@ fn install_bundled_skills(app_support_dir: &str) -> Result<(), String> {
                 })?;
             }
 
-            match fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&destination)
-            {
-                Ok(mut output) => {
-                    output.write_all(file.contents.as_bytes()).map_err(|e| {
-                        format!(
-                            "Failed to write bundled skill file '{}': {}",
-                            destination.display(),
-                            e
-                        )
-                    })?;
-                    info!("Installed bundled skill file '{}'", destination.display());
-                }
-                Err(error) if error.kind() == ErrorKind::AlreadyExists => {
-                    debug!(
-                        "Bundled skill file already installed, skipping '{}'",
-                        destination.display()
-                    );
-                }
-                Err(error) => {
-                    return Err(format!(
-                        "Failed to create bundled skill file '{}': {}",
-                        destination.display(),
-                        error
-                    ));
-                }
-            }
+            fs::write(&destination, file.contents).map_err(|e| {
+                format!(
+                    "Failed to write bundled skill file '{}': {}",
+                    destination.display(),
+                    e
+                )
+            })?;
+            info!("Synced bundled skill file '{}'", destination.display());
         }
     }
 
@@ -894,6 +970,7 @@ mod tests {
 
         let installed_skill = app_support_dir
             .join(GLOBAL_SKILLS_DIR_NAME)
+            .join(BUNDLED_SKILLS_DIR_NAME)
             .join("skill-smoke-test")
             .join("SKILL.md");
         let contents = fs::read_to_string(&installed_skill)
@@ -907,12 +984,18 @@ mod tests {
     }
 
     #[test]
-    fn does_not_overwrite_existing_bundled_skill_file() {
+    fn overwrites_existing_bundled_skill_file() {
         let app_support_dir = create_temp_dir("mind-flayer-bundled-skill-existing");
         let existing_skill = app_support_dir
             .join(GLOBAL_SKILLS_DIR_NAME)
+            .join(BUNDLED_SKILLS_DIR_NAME)
             .join("skill-smoke-test")
             .join("SKILL.md");
+        let stale_file = app_support_dir
+            .join(GLOBAL_SKILLS_DIR_NAME)
+            .join(BUNDLED_SKILLS_DIR_NAME)
+            .join("skill-smoke-test")
+            .join("stale.txt");
 
         fs::create_dir_all(
             existing_skill
@@ -922,6 +1005,7 @@ mod tests {
         .expect("failed to create existing skill directory");
         fs::write(&existing_skill, "custom skill content")
             .expect("failed to seed existing skill file");
+        fs::write(&stale_file, "stale skill content").expect("failed to seed stale skill file");
 
         install_bundled_skills(
             app_support_dir
@@ -932,7 +1016,72 @@ mod tests {
 
         let contents = fs::read_to_string(&existing_skill)
             .expect("existing skill file should still be readable");
-        assert_eq!(contents, "custom skill content");
+        assert!(contents.contains("name: skill-smoke-test"));
+        assert!(contents.contains("skill smoke test ok"));
+        assert!(!stale_file.exists());
+
+        let _ = fs::remove_dir_all(app_support_dir);
+    }
+
+    #[test]
+    fn migrates_legacy_bundled_skill_directory() {
+        let app_support_dir = create_temp_dir("mind-flayer-bundled-skill-migration");
+        let legacy_skill = app_support_dir
+            .join(GLOBAL_SKILLS_DIR_NAME)
+            .join("skill-smoke-test")
+            .join("SKILL.md");
+
+        fs::create_dir_all(
+            legacy_skill
+                .parent()
+                .expect("legacy skill file should have a parent"),
+        )
+        .expect("failed to create legacy skill directory");
+        fs::write(&legacy_skill, "legacy bundled skill").expect("failed to seed legacy skill file");
+
+        install_bundled_skills(
+            app_support_dir
+                .to_str()
+                .expect("temp dir should be valid utf-8"),
+        )
+        .expect("bundled skill installation should succeed");
+
+        let migrated_skill = app_support_dir
+            .join(GLOBAL_SKILLS_DIR_NAME)
+            .join(BUNDLED_SKILLS_DIR_NAME)
+            .join("skill-smoke-test")
+            .join("SKILL.md");
+
+        let contents =
+            fs::read_to_string(&migrated_skill).expect("migrated skill should still be readable");
+        assert!(contents.contains("name: skill-smoke-test"));
+        assert!(contents.contains("skill smoke test ok"));
+        assert!(!legacy_skill.exists());
+
+        let _ = fs::remove_dir_all(app_support_dir);
+    }
+
+    #[test]
+    fn removes_stale_bundled_skill_directories() {
+        let app_support_dir = create_temp_dir("mind-flayer-bundled-skill-cleanup");
+        let stale_skill_dir = app_support_dir
+            .join(GLOBAL_SKILLS_DIR_NAME)
+            .join(BUNDLED_SKILLS_DIR_NAME)
+            .join("obsolete-skill");
+        let stale_skill_file = stale_skill_dir.join("SKILL.md");
+
+        fs::create_dir_all(&stale_skill_dir).expect("failed to create stale skill directory");
+        fs::write(&stale_skill_file, "obsolete bundled skill")
+            .expect("failed to seed stale bundled skill");
+
+        install_bundled_skills(
+            app_support_dir
+                .to_str()
+                .expect("temp dir should be valid utf-8"),
+        )
+        .expect("bundled skill installation should succeed");
+
+        assert!(!stale_skill_dir.exists());
 
         let _ = fs::remove_dir_all(app_support_dir);
     }

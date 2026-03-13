@@ -5,6 +5,7 @@ import { AppChat } from "@/components/app-chat"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChannelTelegramChat } from "@/components/channel-telegram-chat"
 import { NewChatTrigger } from "@/components/nav-top"
+import { SkillsPane } from "@/components/skills-pane"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -14,12 +15,14 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { useAvailableModels } from "@/hooks/use-available-models"
 import { useChatStorage } from "@/hooks/use-chat-storage"
 import { useLocalShortcut } from "@/hooks/use-local-shortcut"
 import { useSetting } from "@/hooks/use-settings-store"
 import {
   decideTelegramWhitelistRequest,
   getTelegramWhitelistRequests,
+  syncRuntimeConfig,
   type TelegramWhitelistRequest
 } from "@/lib/sidecar-client"
 import { cn } from "@/lib/utils"
@@ -34,7 +37,7 @@ const handleOpenSettings = () => {
 
 const TELEGRAM_WHITELIST_POLL_INTERVAL_MS = 2000
 const createNewChatToken = () => globalThis.crypto.randomUUID()
-type ActivePane = "desktop-chat" | "telegram-debug"
+type ActivePane = "desktop-chat" | "skills" | "telegram-debug"
 
 export default function Page() {
   const { t } = useTranslation("common")
@@ -48,12 +51,15 @@ export default function Page() {
     saveChatAllMessages,
     updateChatTitle
   } = useChatStorage()
+  const { availableModels } = useAvailableModels()
   const [newChatToken, setNewChatToken] = useState(createNewChatToken)
   const [activePane, setActivePane] = useState<ActivePane>("desktop-chat")
   const [unreadChatIds, setUnreadChatIds] = useState<Set<ChatId>>(new Set())
   const [replyingChatIds, setReplyingChatIds] = useState<Set<ChatId>>(new Set())
+  const [selectedModelApiId] = useSetting("selectedModelApiId")
   const [enabledChannels] = useSetting("enabledChannels")
   const [telegramAllowedUserIds, setTelegramAllowedUserIds] = useSetting("telegramAllowedUserIds")
+  const [disabledSkills, setDisabledSkills] = useSetting("disabledSkills")
   const [whitelistRequests, setWhitelistRequests] = useState<TelegramWhitelistRequest[]>([])
   const [isDecidingWhitelistRequest, setIsDecidingWhitelistRequest] = useState(false)
   const sidebarActiveChatId = activePane === "desktop-chat" ? activeChatId : null
@@ -62,6 +68,10 @@ export default function Page() {
   const activeChatIdRef = useRef(activeChatId)
   const newChatTokenRef = useRef(newChatToken)
   const telegramAllowedUserIdsRef = useRef(telegramAllowedUserIds)
+  const selectedModel =
+    availableModels.find(model => model.api_id === selectedModelApiId) ?? availableModels[0] ?? null
+  const selectedModelProvider = selectedModel?.provider ?? null
+  const selectedModelId = selectedModel?.api_id ?? null
 
   useEffect(() => {
     activeChatIdRef.current = activeChatId
@@ -78,6 +88,47 @@ export default function Page() {
   useEffect(() => {
     activePaneRef.current = activePane
   }, [activePane])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const pushRuntimeConfig = async () => {
+      try {
+        await syncRuntimeConfig({
+          selectedModel:
+            selectedModelProvider && selectedModelId
+              ? {
+                  provider: selectedModelProvider,
+                  modelId: selectedModelId
+                }
+              : null,
+          channels: {
+            telegram: {
+              enabled: enabledChannels.telegram ?? false,
+              allowedUserIds: telegramAllowedUserIds
+            }
+          },
+          disabledSkills
+        })
+      } catch (error) {
+        if (!cancelled) {
+          console.warn("[Home] Failed to sync runtime config:", error)
+        }
+      }
+    }
+
+    void pushRuntimeConfig()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    disabledSkills,
+    enabledChannels.telegram,
+    selectedModelId,
+    selectedModelProvider,
+    telegramAllowedUserIds
+  ])
 
   const handleNewChat = useCallback(() => {
     setActivePane("desktop-chat")
@@ -103,6 +154,10 @@ export default function Page() {
 
   const handleOpenTelegramDebug = useCallback(() => {
     setActivePane("telegram-debug")
+  }, [])
+
+  const handleOpenSkills = useCallback(() => {
+    setActivePane("skills")
   }, [])
 
   const isDesktopChatPaneActive = useCallback(() => {
@@ -289,6 +344,8 @@ export default function Page() {
         onChatClick={handleChatClick}
         onDeleteChat={deleteChat}
         onNewChat={handleNewChat}
+        isSkillsActive={activePane === "skills"}
+        onSkillsClick={handleOpenSkills}
         isTelegramChannelEnabled={enabledChannels.telegram ?? false}
         isTelegramDebugActive={activePane === "telegram-debug"}
         onTelegramDebugClick={handleOpenTelegramDebug}
@@ -314,6 +371,8 @@ export default function Page() {
       <SidebarInset className="overflow-hidden">
         {activePane === "telegram-debug" ? (
           <ChannelTelegramChat />
+        ) : activePane === "skills" ? (
+          <SkillsPane disabledSkillIds={disabledSkills} setDisabledSkillIds={setDisabledSkills} />
         ) : (
           <AppChat
             activeChatId={activeChatId}

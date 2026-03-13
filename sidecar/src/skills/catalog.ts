@@ -1,19 +1,24 @@
 import { type Dirent, constants as fsConstants } from "node:fs"
-import { access, readdir, readFile, realpath } from "node:fs/promises"
+import { access, readdir, readFile, realpath, rm } from "node:fs/promises"
 import { homedir } from "node:os"
 import { delimiter, isAbsolute, relative, resolve } from "node:path"
 
 const APP_SUPPORT_DIR_ENV_KEY = "MINDFLAYER_APP_SUPPORT_DIR"
 const SKILL_FILE_NAME = "SKILL.md"
 const GLOBAL_SKILLS_DIR_NAME = "skills"
+const BUNDLED_SKILLS_DIR_NAME = "builtin"
+const USER_SKILLS_DIR_NAME = "user"
 
 type ParsedYamlValue = unknown
 
 type ParsedYamlObject = Record<string, ParsedYamlValue>
 
+export type SkillSource = "bundled" | "user"
+
 interface SkillRoot {
   absolutePath: string
   displayPrefix: string
+  source: SkillSource
 }
 
 export interface SkillMetadata {
@@ -26,12 +31,19 @@ export interface SkillMetadata {
 }
 
 export interface SkillCatalogEntry {
+  id: string
   name: string
   description: string
   metadata: SkillMetadata
   filePath: string
   location: string
   skillDir: string
+  source: SkillSource
+  canUninstall: boolean
+}
+
+export interface SkillCatalogDetail extends SkillCatalogEntry {
+  bodyMarkdown: string
 }
 
 export type SkillFileKind = "skill-md" | "reference" | "script" | "other"
@@ -63,67 +75,107 @@ function getSkillRoots(options?: { appSupportDir?: string }): SkillRoot[] {
     return []
   }
 
-  const absolutePath = resolve(appSupportDir, GLOBAL_SKILLS_DIR_NAME)
+  const skillsRoot = resolve(appSupportDir, GLOBAL_SKILLS_DIR_NAME)
+  const bundledRoot = resolve(skillsRoot, BUNDLED_SKILLS_DIR_NAME)
+  const userRoot = resolve(skillsRoot, USER_SKILLS_DIR_NAME)
+
   return [
     {
-      absolutePath,
-      displayPrefix: toDisplayPath(absolutePath)
+      absolutePath: bundledRoot,
+      displayPrefix: toDisplayPath(bundledRoot),
+      source: "bundled"
+    },
+    {
+      absolutePath: userRoot,
+      displayPrefix: toDisplayPath(userRoot),
+      source: "user"
     }
   ]
 }
 
-function getGlobalSkillsRootPath(options?: { appSupportDir?: string }): string | null {
-  return getSkillRoots(options)[0]?.absolutePath ?? null
+function getSkillRootBySource(
+  source: SkillSource,
+  options?: {
+    appSupportDir?: string
+  }
+): SkillRoot | null {
+  return getSkillRoots(options).find(root => root.source === source) ?? null
+}
+
+function isPathWithinRoot(rootPath: string, candidatePath: string): boolean {
+  const relativePath = relative(rootPath, candidatePath)
+  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath))
+}
+
+export function getSkillId(source: SkillSource, name: string): string {
+  return `${source}:${name}`
+}
+
+export function parseSkillId(skillId: string): { source: SkillSource; name: string } | null {
+  const separatorIndex = skillId.indexOf(":")
+  if (separatorIndex <= 0 || separatorIndex >= skillId.length - 1) {
+    return null
+  }
+
+  const source = skillId.slice(0, separatorIndex)
+  const name = skillId.slice(separatorIndex + 1).trim()
+  if ((source !== "bundled" && source !== "user") || !name) {
+    return null
+  }
+
+  return {
+    source,
+    name
+  }
 }
 
 export async function getSkillFileDisplayContext(
   filePath: string,
   options?: { appSupportDir?: string }
 ): Promise<SkillFileDisplayContext | null> {
-  const skillsRoot = getGlobalSkillsRootPath(options)
-  if (!skillsRoot) {
-    return null
+  for (const root of getSkillRoots(options)) {
+    let resolvedSkillsRoot = root.absolutePath
+    try {
+      resolvedSkillsRoot = await realpath(root.absolutePath)
+    } catch (error) {
+      console.debug(
+        `[Skills] Failed to resolve skills root '${root.absolutePath}', falling back to the configured path: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      )
+    }
+
+    const relativePath = relative(resolvedSkillsRoot, filePath)
+    if (!relativePath || relativePath.startsWith("..") || isAbsolute(relativePath)) {
+      continue
+    }
+
+    const pathSegments = relativePath.split(/[/\\]+/).filter(Boolean)
+    const skillName = pathSegments[0]
+    if (!skillName) {
+      continue
+    }
+
+    const nestedSegments = pathSegments.slice(1)
+    const nestedPath = nestedSegments.join("/")
+    let fileKind: SkillFileKind = "other"
+
+    if (nestedPath === SKILL_FILE_NAME) {
+      fileKind = "skill-md"
+    } else if (nestedSegments[0] === "references") {
+      fileKind = "reference"
+    } else if (nestedSegments[0] === "scripts") {
+      fileKind = "script"
+    }
+
+    return {
+      kind: "skill",
+      skillName,
+      fileKind
+    }
   }
 
-  let resolvedSkillsRoot = skillsRoot
-  try {
-    resolvedSkillsRoot = await realpath(skillsRoot)
-  } catch (error) {
-    console.debug(
-      `[Skills] Failed to resolve skills root '${skillsRoot}', falling back to the configured path: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    )
-  }
-
-  const relativePath = relative(resolvedSkillsRoot, filePath)
-  if (!relativePath || relativePath.startsWith("..") || isAbsolute(relativePath)) {
-    return null
-  }
-
-  const pathSegments = relativePath.split(/[/\\]+/).filter(Boolean)
-  const skillName = pathSegments[0]
-  if (!skillName) {
-    return null
-  }
-
-  const nestedSegments = pathSegments.slice(1)
-  const nestedPath = nestedSegments.join("/")
-  let fileKind: SkillFileKind = "other"
-
-  if (nestedPath === SKILL_FILE_NAME) {
-    fileKind = "skill-md"
-  } else if (nestedSegments[0] === "references") {
-    fileKind = "reference"
-  } else if (nestedSegments[0] === "scripts") {
-    fileKind = "script"
-  }
-
-  return {
-    kind: "skill",
-    skillName,
-    fileKind
-  }
+  return null
 }
 
 function countIndent(line: string): number {
@@ -366,6 +418,23 @@ function parseFrontmatter(markdown: string): ParsedYamlObject | null {
   return parseObject(lines, 0, 0).value
 }
 
+export function stripSkillFrontmatter(markdown: string): string {
+  const lines = markdown.split(/\r?\n/)
+  if (lines[0]?.trim() !== "---") {
+    return markdown.trim()
+  }
+
+  const endIndex = lines.findIndex((line, index) => index > 0 && line.trim() === "---")
+  if (endIndex < 0) {
+    return markdown.trim()
+  }
+
+  return lines
+    .slice(endIndex + 1)
+    .join("\n")
+    .trim()
+}
+
 function normalizeStringArray(value: unknown): string[] {
   if (typeof value === "string" && value.trim().length > 0) {
     return [value.trim()]
@@ -551,12 +620,15 @@ async function loadSkillFromFile(
     const relativePath = skillFilePath.slice(root.absolutePath.length + 1).replaceAll("\\", "/")
 
     return {
+      id: getSkillId(root.source, name),
       name,
       description,
       metadata,
       filePath: skillFilePath,
       location: `${root.displayPrefix}/${relativePath}`,
-      skillDir: skillFilePath.slice(0, -SKILL_FILE_NAME.length - 1)
+      skillDir: skillFilePath.slice(0, -SKILL_FILE_NAME.length - 1),
+      source: root.source,
+      canUninstall: root.source === "user"
     }
   } catch (error) {
     console.warn(
@@ -564,6 +636,19 @@ async function loadSkillFromFile(
     )
     return null
   }
+}
+
+function compareSkillEntries(left: SkillCatalogEntry, right: SkillCatalogEntry): number {
+  if (left.source !== right.source) {
+    return left.source === "bundled" ? -1 : 1
+  }
+
+  const byName = left.name.localeCompare(right.name)
+  if (byName !== 0) {
+    return byName
+  }
+
+  return left.id.localeCompare(right.id)
 }
 
 export async function discoverSkills(options?: {
@@ -580,18 +665,98 @@ export async function discoverSkills(options?: {
         continue
       }
 
-      const existing = catalog.get(skill.name)
+      const existing = catalog.get(skill.id)
       if (existing) {
         console.warn(
-          `[Skills] Duplicate skill '${skill.name}' found at '${skill.filePath}'. Overriding previously loaded skill from '${existing.filePath}'.`
+          `[Skills] Duplicate skill '${skill.id}' found at '${skill.filePath}'. Overriding previously loaded skill from '${existing.filePath}'.`
         )
       }
 
-      catalog.set(skill.name, skill)
+      catalog.set(skill.id, skill)
     }
   }
 
-  return [...catalog.values()].sort((left, right) => left.name.localeCompare(right.name))
+  return [...catalog.values()].sort(compareSkillEntries)
+}
+
+export async function getSkillById(
+  skillId: string,
+  options?: {
+    appSupportDir?: string
+  }
+): Promise<SkillCatalogEntry | null> {
+  const skills = await discoverSkills(options)
+  return skills.find(skill => skill.id === skillId) ?? null
+}
+
+export async function getSkillDetailById(
+  skillId: string,
+  options?: {
+    appSupportDir?: string
+  }
+): Promise<SkillCatalogDetail | null> {
+  const skill = await getSkillById(skillId, options)
+  if (!skill) {
+    return null
+  }
+
+  const contents = await readFile(skill.filePath, "utf8")
+
+  return {
+    ...skill,
+    bodyMarkdown: stripSkillFrontmatter(contents)
+  }
+}
+
+export async function uninstallUserSkill(
+  skill: SkillCatalogEntry,
+  options?: {
+    appSupportDir?: string
+  }
+): Promise<void> {
+  if (skill.source !== "user") {
+    throw new Error(`Only user-installed skills can be uninstalled (received ${skill.source})`)
+  }
+
+  const userRoot = getSkillRootBySource("user", options)
+  if (!userRoot) {
+    throw new Error("User skill root is not configured")
+  }
+
+  let resolvedUserRoot = userRoot.absolutePath
+  let resolvedSkillDir = skill.skillDir
+
+  try {
+    resolvedUserRoot = await realpath(userRoot.absolutePath)
+  } catch {}
+
+  try {
+    resolvedSkillDir = await realpath(skill.skillDir)
+  } catch (error) {
+    throw new Error(
+      `Failed to resolve skill directory '${skill.skillDir}': ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    )
+  }
+
+  if (!isPathWithinRoot(resolvedUserRoot, resolvedSkillDir)) {
+    throw new Error(`Refusing to uninstall skill outside user root: '${resolvedSkillDir}'`)
+  }
+
+  await rm(resolvedSkillDir, { recursive: true, force: false })
+}
+
+export function filterDisabledSkills(
+  skills: SkillCatalogEntry[],
+  disabledSkillIds: string[]
+): SkillCatalogEntry[] {
+  if (disabledSkillIds.length === 0) {
+    return skills
+  }
+
+  const disabledIds = new Set(disabledSkillIds)
+  return skills.filter(skill => !disabledIds.has(skill.id))
 }
 
 export async function discoverSkillsSafely(

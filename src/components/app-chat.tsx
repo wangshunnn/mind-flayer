@@ -82,7 +82,7 @@ import {
   useTooltipConstants
 } from "@/lib/constants"
 import { findModelPricing } from "@/lib/provider-constants"
-import { generateTitle, getSidecarUrl, syncChannelRuntimeConfig } from "@/lib/sidecar-client"
+import { generateTitle, getSidecarUrl } from "@/lib/sidecar-client"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import type { ChatId, MessageId, Chat as StoredChat } from "@/types/chat"
@@ -194,13 +194,9 @@ const AppChatInner = ({
   const [useWebSearch, setUseWebSearch] = useSetting("webSearchEnabled")
   const [webSearchMode, setWebSearchMode] = useSetting("webSearchMode")
   const [useDeepThink, setUseDeepThink] = useSetting("deepThinkEnabled")
-  const [enabledChannels] = useSetting("enabledChannels")
-  const [telegramAllowedUserIds] = useSetting("telegramAllowedUserIds")
 
   const selectedModel =
     availableModels.find(m => m.api_id === selectedModelApiId) ?? availableModels[0] ?? null
-  const selectedModelProvider = selectedModel?.provider ?? null
-  const selectedModelId = selectedModel?.api_id ?? null
 
   const [isCondensed, setIsCondensed] = useState(false)
   const [input, setInput] = useState("")
@@ -240,40 +236,6 @@ const AppChatInner = ({
 
   const currentDraftKey = getDraftKey(activeChatId)
   const focusTargetKey = activeChatId ?? `new:${newChatToken ?? "default"}`
-
-  useEffect(() => {
-    let cancelled = false
-
-    const syncRuntimeConfig = async () => {
-      try {
-        await syncChannelRuntimeConfig({
-          selectedModel:
-            selectedModelProvider && selectedModelId
-              ? {
-                  provider: selectedModelProvider,
-                  modelId: selectedModelId
-                }
-              : null,
-          channels: {
-            telegram: {
-              enabled: enabledChannels.telegram ?? false,
-              allowedUserIds: telegramAllowedUserIds
-            }
-          }
-        })
-      } catch (error) {
-        if (!cancelled) {
-          console.warn("[AppChat] Failed to sync channel runtime config:", error)
-        }
-      }
-    }
-
-    syncRuntimeConfig()
-
-    return () => {
-      cancelled = true
-    }
-  }, [enabledChannels.telegram, selectedModelId, selectedModelProvider, telegramAllowedUserIds])
 
   const showChatErrorToast = useCallback(
     (error: Error) => {

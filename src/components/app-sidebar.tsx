@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { NavChannelDebug } from "@/components/nav-channel-debug"
 import { NavChats } from "@/components/nav-chats"
 import { NavMain } from "@/components/nav-main"
+import { NavSkills } from "@/components/nav-skills"
 import { NavUser } from "@/components/nav-user"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar"
 import { SearchChat } from "@/components/ui/sidebar-search"
@@ -17,6 +18,8 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   unreadChatIds?: ReadonlySet<ChatId>
   replyingChatIds?: ReadonlySet<ChatId>
   onNewChat?: () => void
+  isSkillsActive?: boolean
+  onSkillsClick?: () => void
   isTelegramChannelEnabled?: boolean
   isTelegramDebugActive?: boolean
   onTelegramDebugClick?: () => void
@@ -30,6 +33,8 @@ export function AppSidebar({
   onChatClick,
   onNewChat,
   onDeleteChat,
+  isSkillsActive = false,
+  onSkillsClick,
   isTelegramChannelEnabled = false,
   isTelegramDebugActive = false,
   onTelegramDebugClick,
@@ -54,6 +59,7 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent>
         <NavMain onNewChat={onNewChat} />
+        {onSkillsClick && <NavSkills isActive={isSkillsActive} onClick={onSkillsClick} />}
         {isTelegramChannelEnabled && onTelegramDebugClick && (
           <NavChannelDebug isActive={isTelegramDebugActive} onClick={onTelegramDebugClick} />
         )}

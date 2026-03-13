@@ -1,6 +1,7 @@
 {
   "nav": {
     "newChat": "新建聊天",
+    "skills": "技能",
     "channelSessions": "渠道会话",
     "recentChats": "最近聊天",
     "noChatsYet": "暂无聊天，开始新聊天吧！",
@@ -59,6 +60,29 @@
     "noMessagesTitle": "当前会话暂无消息",
     "noMessagesDescription": "所选会话的消息会显示在这里。",
     "nonTextPlaceholder": "[非文本消息]"
+  },
+  "skills": {
+    "title": "技能",
+    "summary": "管理当前可用的技能",
+    "refresh": "刷新",
+    "loadError": "加载技能失败。",
+    "detailLoadError": "加载技能详情失败。",
+    "bundledSectionTitle": "内置",
+    "bundledSectionDescription": "随应用一起安装，只支持启用或禁用。",
+    "userSectionTitle": "用户安装",
+    "userSectionDescription": "由用户安装，支持启用、禁用和卸载。",
+    "emptyBundled": "当前没有可用的内置技能。",
+    "emptyUser": "当前还没有用户安装的技能。",
+    "openFolder": "打开文件夹",
+    "openFolderError": "打开文件夹失败。",
+    "contentTitle": "技能内容",
+    "uninstall": "卸载",
+    "uninstalling": "卸载中",
+    "cancel": "取消",
+    "uninstallTitle": "卸载技能",
+    "uninstallDescription": "确认从本机移除 {{skillName}} 吗？",
+    "uninstallSuccess": "已卸载 {{skillName}}。",
+    "uninstallError": "卸载所选技能失败。"
   },
   "telegramWhitelist": {
     "title": "Telegram 加白请求",

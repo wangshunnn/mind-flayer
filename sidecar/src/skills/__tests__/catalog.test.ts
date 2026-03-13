@@ -2,10 +2,15 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { discoverSkills } from "../catalog"
+import { discoverSkills, getSkillDetailById } from "../catalog"
 
-async function writeSkill(root: string, relativeDir: string, content: string) {
-  const skillDir = join(root, relativeDir)
+async function writeSkill(
+  appSupportDir: string,
+  sourceDir: "builtin" | "user",
+  relativeDir: string,
+  content: string
+) {
+  const skillDir = join(appSupportDir, "skills", sourceDir, relativeDir)
   await mkdir(skillDir, { recursive: true })
   await writeFile(join(skillDir, "SKILL.md"), content, "utf8")
 }
@@ -24,32 +29,17 @@ describe("skills catalog", () => {
     }
   })
 
-  it("discovers eligible skills from the app support skills directory", async () => {
+  it("discovers eligible skills from bundled and user skill roots", async () => {
     const appSupportDir = await mkdtemp(join(tmpdir(), "mind-flayer-app-support-"))
     tempDirs.push(appSupportDir)
 
     await writeSkill(
-      join(appSupportDir, "skills"),
+      appSupportDir,
+      "builtin",
       "shared",
       `---
 name: shared-skill
-description: global description
-metadata:
-  requires:
-    bins: ["node"]
----
-
-# Shared
-`
-    )
-
-    // Write the same skill twice to verify that the later file contents win.
-    await writeSkill(
-      join(appSupportDir, "skills"),
-      "shared",
-      `---
-name: shared-skill
-description: current description
+description: bundled description
 metadata:
   requires:
     bins:
@@ -62,22 +52,8 @@ metadata:
 
     process.env.MINDFLAYER_SKILL_TEST = "present"
     await writeSkill(
-      join(appSupportDir, "skills"),
-      "filtered",
-      `---
-name: filtered-skill
-description: should be hidden
-metadata:
-  requires:
-    bins: ["definitely-missing-binary"]
----
-
-# Filtered
-`
-    )
-
-    await writeSkill(
-      join(appSupportDir, "skills"),
+      appSupportDir,
+      "builtin",
       "env",
       `---
 name: env-skill
@@ -92,17 +68,56 @@ metadata:
 `
     )
 
+    await writeSkill(
+      appSupportDir,
+      "user",
+      "shared",
+      `---
+name: shared-skill
+description: user description
+---
+
+# User Shared
+`
+    )
+
+    await writeSkill(
+      appSupportDir,
+      "user",
+      "filtered",
+      `---
+name: filtered-skill
+description: should be hidden
+metadata:
+  requires:
+    bins: ["definitely-missing-binary"]
+---
+
+# Filtered
+`
+    )
+
     const skills = await discoverSkills({
       appSupportDir
     })
 
-    expect(skills.map(skill => skill.name)).toEqual(["env-skill", "shared-skill"])
-    expect(skills.find(skill => skill.name === "shared-skill")?.description).toBe(
-      "current description"
-    )
-    expect(skills.find(skill => skill.name === "shared-skill")?.location).toBe(
-      `${appSupportDir.replaceAll("\\", "/")}/skills/shared/SKILL.md`
-    )
+    expect(skills.map(skill => skill.id)).toEqual([
+      "bundled:env-skill",
+      "bundled:shared-skill",
+      "user:shared-skill"
+    ])
+    expect(skills.find(skill => skill.id === "bundled:shared-skill")).toMatchObject({
+      source: "bundled",
+      canUninstall: false,
+      description: "bundled description",
+      location: `${appSupportDir.replaceAll("\\", "/")}/skills/builtin/shared/SKILL.md`
+    })
+    expect(skills.find(skill => skill.id === "user:shared-skill")).toMatchObject({
+      source: "user",
+      canUninstall: true,
+      description: "user description",
+      location: `${appSupportDir.replaceAll("\\", "/")}/skills/user/shared/SKILL.md`
+    })
   })
 
   it("returns an empty list when no skills exist", async () => {
@@ -116,13 +131,14 @@ metadata:
     expect(skills).toEqual([])
   })
 
-  it("resolves duplicate skill names deterministically and logs the override", async () => {
+  it("resolves duplicate skill ids deterministically and logs the override", async () => {
     const appSupportDir = await mkdtemp(join(tmpdir(), "mind-flayer-skills-duplicates-"))
     tempDirs.push(appSupportDir)
     const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
 
     await writeSkill(
-      join(appSupportDir, "skills"),
+      appSupportDir,
+      "builtin",
       "alpha",
       `---
 name: duplicate-skill
@@ -134,7 +150,8 @@ description: alpha description
     )
 
     await writeSkill(
-      join(appSupportDir, "skills"),
+      appSupportDir,
+      "builtin",
       "omega",
       `---
 name: duplicate-skill
@@ -150,11 +167,39 @@ description: omega description
     })
 
     expect(skills).toHaveLength(1)
+    expect(skills[0]?.id).toBe("bundled:duplicate-skill")
     expect(skills[0]?.description).toBe("omega description")
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Duplicate skill 'duplicate-skill'")
+      expect.stringContaining("Duplicate skill 'bundled:duplicate-skill'")
     )
 
     consoleWarnSpy.mockRestore()
+  })
+
+  it("returns detail markdown without frontmatter", async () => {
+    const appSupportDir = await mkdtemp(join(tmpdir(), "mind-flayer-skill-detail-"))
+    tempDirs.push(appSupportDir)
+
+    await writeSkill(
+      appSupportDir,
+      "builtin",
+      "detail",
+      `---
+name: detail-skill
+description: detail description
+---
+
+# Detail
+
+Body content
+`
+    )
+
+    const detail = await getSkillDetailById("bundled:detail-skill", {
+      appSupportDir
+    })
+
+    expect(detail?.bodyMarkdown).toBe("# Detail\n\nBody content")
+    expect(detail?.source).toBe("bundled")
   })
 })

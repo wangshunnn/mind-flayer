@@ -8,7 +8,7 @@ import {
   type ToolSet,
   type UIMessage
 } from "ai"
-import { discoverSkillsSafely } from "../skills/catalog"
+import { discoverSkillsSafely, filterDisabledSkills } from "../skills/catalog"
 import { processMessages } from "../utils/message-processor"
 import { buildSystemPrompt } from "../utils/system-prompt-builder"
 
@@ -23,6 +23,7 @@ export interface StreamHandlerOptions {
   tools: ToolSet
   toolChoice: ToolChoice<ToolSet>
   abortSignal: AbortSignal
+  disabledSkillIds?: string[]
 }
 
 /**
@@ -39,7 +40,8 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
     discoverSkillsSafely("stream request"),
     processMessages(messages, tools)
   ])
-  const systemPrompt = buildSystemPrompt({ modelProvider, modelId, skills })
+  const enabledSkills = filterDisabledSkills(skills, options.disabledSkillIds ?? [])
+  const systemPrompt = buildSystemPrompt({ modelProvider, modelId, skills: enabledSkills })
   console.info("[sidecar] systemPrompt:", systemPrompt)
   console.dir({ prunedMessages }, { depth: null })
 

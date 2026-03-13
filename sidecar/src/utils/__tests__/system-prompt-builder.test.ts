@@ -42,27 +42,41 @@ describe("buildSystemPrompt", () => {
       ...baseOptions,
       skills: [
         {
+          id: "bundled:file-reader",
           name: "file-reader",
+          source: "bundled",
           description: 'Reads "complex" files & references.',
-          location: "~/Library/Application Support/Mind Flayer/skills/reader/SKILL.md"
+          location: "~/Library/Application Support/Mind Flayer/skills/builtin/reader/SKILL.md"
         }
       ]
     })
 
     expect(prompt).toContain("## Skills")
     expect(prompt).toContain("<available_skills>")
+    expect(prompt).toContain('id="bundled:file-reader"')
     expect(prompt).toContain('name="file-reader"')
+    expect(prompt).toContain('source="bundled"')
     expect(prompt).toContain('description="Reads &quot;complex&quot; files &amp; references."')
     expect(prompt).toContain(
-      'location="~/Library/Application Support/Mind Flayer/skills/reader/SKILL.md"'
+      'location="~/Library/Application Support/Mind Flayer/skills/builtin/reader/SKILL.md"'
     )
     expect(prompt).toContain("read at most one skill's SKILL.md")
   })
 
-  it("omits skills section when no skills are provided", () => {
+  it("includes skills-disabled notice when no skills are provided", () => {
     const prompt = buildSystemPrompt(baseOptions)
 
-    expect(prompt).not.toContain("## Skills")
+    expect(prompt).toContain("## Skills")
+    expect(prompt).toContain("No skills are currently available")
+    expect(prompt).toContain("Do not attempt to discover or read SKILL.md files")
+    expect(prompt).not.toContain("<available_skills>")
+  })
+
+  it("includes skills-disabled notice when skills array is empty", () => {
+    const prompt = buildSystemPrompt({ ...baseOptions, skills: [] })
+
+    expect(prompt).toContain("No skills are currently available")
+    expect(prompt).toContain("Do not attempt to discover or read SKILL.md files")
     expect(prompt).not.toContain("<available_skills>")
   })
 })

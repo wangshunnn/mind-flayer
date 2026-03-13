@@ -34,7 +34,7 @@ export async function getSidecarUrl(
   return `http://localhost:${port}${normalizedPath}`
 }
 
-export interface ChannelRuntimeConfigPayload {
+export interface RuntimeConfigPayload {
   selectedModel: {
     provider: string
     modelId: string
@@ -45,11 +45,10 @@ export interface ChannelRuntimeConfigPayload {
       allowedUserIds: string[]
     }
   }
+  disabledSkills: string[]
 }
 
-export async function syncChannelRuntimeConfig(
-  payload: ChannelRuntimeConfigPayload
-): Promise<void> {
+export async function syncRuntimeConfig(payload: RuntimeConfigPayload): Promise<void> {
   const url = await getSidecarUrl("/api/channel-runtime-config")
 
   const response = await fetch(url, {
@@ -63,6 +62,92 @@ export async function syncChannelRuntimeConfig(
   if (!response.ok) {
     const text = await response.text()
     throw new Error(`Failed to sync channel runtime config (${response.status}): ${text}`)
+  }
+}
+
+export type SkillSource = "bundled" | "user"
+
+export interface SkillListItem {
+  id: string
+  name: string
+  description: string
+  source: SkillSource
+  canUninstall: boolean
+  location: string
+  filePath: string
+}
+
+export interface SkillDetail extends SkillListItem {
+  bodyMarkdown: string
+}
+
+export async function listSkills(): Promise<SkillListItem[]> {
+  const url = await getSidecarUrl("/api/skills")
+  const response = await fetch(url, {
+    method: "GET"
+  })
+
+  if (!response.ok) {
+    let details = ""
+    try {
+      const data = (await response.json()) as { error?: string }
+      details = data.error || ""
+    } catch {
+      details = await response.text()
+    }
+    throw new Error(details || `Skills request failed (${response.status})`)
+  }
+
+  const payload = (await response.json()) as {
+    success: boolean
+    skills: SkillListItem[]
+  }
+
+  return payload.skills ?? []
+}
+
+export async function getSkillDetail(skillId: string): Promise<SkillDetail> {
+  const encodedSkillId = encodeURIComponent(skillId)
+  const url = await getSidecarUrl(`/api/skills/${encodedSkillId}`)
+  const response = await fetch(url, {
+    method: "GET"
+  })
+
+  if (!response.ok) {
+    let details = ""
+    try {
+      const data = (await response.json()) as { error?: string }
+      details = data.error || ""
+    } catch {
+      details = await response.text()
+    }
+    throw new Error(details || `Skill detail request failed (${response.status})`)
+  }
+
+  const payload = (await response.json()) as {
+    success: boolean
+    skill: SkillDetail
+  }
+
+  return payload.skill
+}
+
+export async function deleteSkill(skillId: string): Promise<void> {
+  const encodedSkillId = encodeURIComponent(skillId)
+  const url = await getSidecarUrl(`/api/skills/${encodedSkillId}`)
+  const response = await fetch(url, {
+    method: "DELETE"
+  })
+
+  if (!response.ok) {
+    let details = ""
+    try {
+      const data = (await response.json()) as { error?: string }
+      details = data.error || ""
+    } catch {
+      details = await response.text()
+    }
+    throw new Error(details || `Skill delete failed (${response.status})`)
   }
 }
 

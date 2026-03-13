@@ -1,7 +1,7 @@
 import { randomInt, randomUUID } from "node:crypto"
 import type { LanguageModel } from "ai"
 import { stepCountIs, streamText, type UIMessage } from "ai"
-import { discoverSkillsSafely } from "../skills/catalog"
+import { discoverSkillsSafely, filterDisabledSkills } from "../skills/catalog"
 import { processMessages } from "../utils/message-processor"
 import { buildSystemPrompt } from "../utils/system-prompt-builder"
 import {
@@ -629,6 +629,10 @@ export class TelegramBotService {
         discoverSkillsSafely("Telegram request"),
         processMessages(messagesWithLatestInput, tools)
       ])
+      const enabledSkills = filterDisabledSkills(
+        skills,
+        this.channelRuntimeConfigService.getDisabledSkillIds()
+      )
 
       console.info("[TelegramBotService] handling message", {
         chatId,
@@ -642,7 +646,7 @@ export class TelegramBotService {
           modelProvider: selectedModel.provider,
           modelId: selectedModel.modelId,
           channel: "telegram",
-          skills
+          skills: enabledSkills
         }),
         messages: modelMessages,
         tools,

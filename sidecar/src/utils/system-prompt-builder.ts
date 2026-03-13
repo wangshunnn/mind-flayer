@@ -5,7 +5,10 @@
 
 import type { SkillCatalogEntry } from "../skills/catalog"
 
-type SkillPromptEntry = Pick<SkillCatalogEntry, "name" | "description" | "location">
+type SkillPromptEntry = Pick<
+  SkillCatalogEntry,
+  "id" | "name" | "description" | "location" | "source"
+>
 
 export interface BuildSystemPromptOptions {
   modelProvider: string
@@ -49,7 +52,11 @@ function escapeXmlAttribute(value: string): string {
 function buildSkillsPromptSection(options: BuildSystemPromptOptions): string {
   const skills = options.skills ?? []
   if (skills.length === 0) {
-    return ""
+    return [
+      "## Skills",
+      "No skills are currently available.",
+      "Do not attempt to discover or read SKILL.md files from the file system."
+    ].join("\n")
   }
 
   const lines = [
@@ -63,7 +70,7 @@ function buildSkillsPromptSection(options: BuildSystemPromptOptions): string {
     "<available_skills>",
     ...skills.map(
       skill =>
-        `<skill name="${escapeXmlAttribute(skill.name)}" description="${escapeXmlAttribute(skill.description)}" location="${escapeXmlAttribute(skill.location)}" />`
+        `<skill id="${escapeXmlAttribute(skill.id)}" name="${escapeXmlAttribute(skill.name)}" source="${escapeXmlAttribute(skill.source)}" description="${escapeXmlAttribute(skill.description)}" location="${escapeXmlAttribute(skill.location)}" />`
     ),
     "</available_skills>"
   ]

@@ -131,8 +131,10 @@ describe("ReadTool", () => {
     tempDirs.push(appSupportDir)
     process.env.MINDFLAYER_APP_SUPPORT_DIR = appSupportDir
 
-    const filePath = join(appSupportDir, "skills", "skill-smoke-test", "SKILL.md")
-    await mkdir(join(appSupportDir, "skills", "skill-smoke-test"), { recursive: true })
+    const filePath = join(appSupportDir, "skills", "builtin", "skill-smoke-test", "SKILL.md")
+    await mkdir(join(appSupportDir, "skills", "builtin", "skill-smoke-test"), {
+      recursive: true
+    })
     await writeFile(
       filePath,
       `---

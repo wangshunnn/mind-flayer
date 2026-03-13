@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai"
 import type { Context } from "hono"
 import { createStreamResponse } from "../handlers/stream-handler"
+import type { ChannelRuntimeConfigService } from "../services/channel-runtime-config-service"
 import { providerService } from "../services/provider-service"
 import { toolService } from "../services/tool-service"
 import type { WebSearchMode } from "../type"
@@ -11,7 +12,11 @@ import { buildToolChoice } from "../utils/tool-choice"
  * AI chat streaming route handler.
  * Processes chat requests and returns streaming AI responses.
  */
-export async function handleChat(c: Context, globalAbortController: AbortController) {
+export async function handleChat(
+  c: Context,
+  globalAbortController: AbortController,
+  channelRuntimeConfigService: ChannelRuntimeConfigService
+) {
   try {
     const body = await c.req.json()
 
@@ -73,7 +78,8 @@ export async function handleChat(c: Context, globalAbortController: AbortControl
       messages,
       tools: requestTools,
       toolChoice,
-      abortSignal
+      abortSignal,
+      disabledSkillIds: channelRuntimeConfigService.getDisabledSkillIds()
     })
   } catch (error) {
     // Handle abort errors at info level

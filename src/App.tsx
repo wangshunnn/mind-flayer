@@ -46,7 +46,7 @@ function App() {
   }, [])
 
   return (
-    <ThemeProvider defaultTheme="system">
+    <ThemeProvider>
       <I18nextProvider i18n={i18n}>
         <RouterProvider router={router} />
         <Toaster />

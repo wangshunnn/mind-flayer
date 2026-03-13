@@ -1,4 +1,6 @@
 export type Theme = "dark" | "light" | "system"
+export const APPEARANCE_THEME_IDS = ["forest", "sand", "workbench", "graphite"] as const
+export type AppearanceThemeId = (typeof APPEARANCE_THEME_IDS)[number]
 export type Language = "en" | "zh-CN" | "system"
 export type WebSearchMode = "auto" | "always"
 
@@ -37,6 +39,7 @@ export interface ShortcutConfig {
 export interface AppSettings {
   // Theme settings
   theme: Theme
+  appearanceTheme: AppearanceThemeId
 
   // Language settings
   language: Language
@@ -65,6 +68,7 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: "system",
+  appearanceTheme: "forest",
   language: "system",
   enabledProviders: {
     minimax: false,

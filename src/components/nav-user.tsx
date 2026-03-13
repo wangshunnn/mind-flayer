@@ -1,4 +1,5 @@
 import {
+  BrushCleaningIcon,
   LanguagesIcon,
   MonitorIcon,
   MoonStarIcon,
@@ -7,6 +8,10 @@ import {
   SunIcon
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import {
+  AppearanceThemePreview,
+  useAppearanceThemeOptions
+} from "@/components/appearance-theme-preview"
 import { useTheme } from "@/components/theme-provider"
 import {
   DropdownMenu,
@@ -28,13 +33,14 @@ import { useLanguage } from "@/hooks/use-language"
 import { useShortcutDisplay } from "@/hooks/use-shortcut-config"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
-import { ShortcutAction } from "@/types/settings"
+import { type AppearanceThemeId, ShortcutAction } from "@/types/settings"
 
 export function NavUser() {
   const { t } = useTranslation(["common", "settings"])
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, appearanceTheme, setAppearanceTheme, resolvedTheme } = useTheme()
   const { language, changeLanguage } = useLanguage()
   const shortcutKeys = useShortcutDisplay(ShortcutAction.OPEN_SETTINGS)
+  const appearanceThemeOptions = useAppearanceThemeOptions()
 
   return (
     <SidebarMenu>
@@ -86,6 +92,34 @@ export function NavUser() {
                         <MonitorIcon />
                         {t("theme.system")}
                       </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <BrushCleaningIcon />
+                {t("general.appearanceTheme", { ns: "settings" })}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent sideOffset={4} alignOffset={-4} className="min-w-52">
+                  <DropdownMenuGroup>
+                    <DropdownMenuRadioGroup
+                      value={appearanceTheme}
+                      onValueChange={value => void setAppearanceTheme(value as AppearanceThemeId)}
+                    >
+                      {appearanceThemeOptions.map(({ themeId, label }) => (
+                        <DropdownMenuRadioItem key={themeId} value={themeId}>
+                          <AppearanceThemePreview
+                            themeId={themeId}
+                            label={label}
+                            resolvedTheme={resolvedTheme}
+                            swatchClassName="size-2.5"
+                          />
+                        </DropdownMenuRadioItem>
+                      ))}
                     </DropdownMenuRadioGroup>
                   </DropdownMenuGroup>
                 </DropdownMenuSubContent>

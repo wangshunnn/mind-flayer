@@ -1,4 +1,8 @@
 import { useTranslation } from "react-i18next"
+import {
+  AppearanceThemePreview,
+  useAppearanceThemeOptions
+} from "@/components/appearance-theme-preview"
 import { useTheme } from "@/components/theme-provider"
 import {
   Select,
@@ -11,13 +15,15 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { useLanguage } from "@/hooks/use-language"
 import { useSetting } from "@/hooks/use-settings-store"
+import type { AppearanceThemeId } from "@/types/settings"
 import { SettingGroup } from "./shared"
 
 export function GeneralSection() {
   const { t } = useTranslation("settings")
   const { language, changeLanguage } = useLanguage()
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, appearanceTheme, setAppearanceTheme, resolvedTheme } = useTheme()
   const [autoLaunch, setAutoLaunch] = useSetting("autoLaunch")
+  const appearanceThemeOptions = useAppearanceThemeOptions()
 
   return (
     <div data-tauri-drag-region className="space-y-4 pb-8">
@@ -36,6 +42,31 @@ export function GeneralSection() {
               <SelectItem value="light">{t("theme.light", { ns: "common" })}</SelectItem>
               <SelectItem value="dark">{t("theme.dark", { ns: "common" })}</SelectItem>
               <SelectItem value="system">{t("theme.system", { ns: "common" })}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-between py-2.5">
+          <div className="text-base">{t("general.appearanceTheme")}</div>
+          <Select
+            value={appearanceTheme}
+            onValueChange={value => setAppearanceTheme(value as AppearanceThemeId)}
+          >
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {appearanceThemeOptions.map(({ themeId, label }) => (
+                <SelectItem key={themeId} value={themeId} textValue={label} className="py-2">
+                  <AppearanceThemePreview
+                    themeId={themeId}
+                    label={label}
+                    resolvedTheme={resolvedTheme}
+                  />
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

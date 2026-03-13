@@ -6,6 +6,10 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Neutral bootstrap tokens only.
+ * Active appearance presets are applied by ThemeProvider from src/lib/appearance-themes.ts.
+ */
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -34,20 +38,21 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.963 0.0016 148.69 / 75%);
-  --sidebar-impact: oklch(0.964 0 271.152);
+  --sidebar: oklch(0.963 0 0 / 75%);
+  --sidebar-impact: oklch(0.964 0 0);
   --sidebar-foreground: oklch(0 0 0 / 90%);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0 0 0 / 5%);
   --sidebar-accent-foreground: oklch(0 0 0 / 90%);
-  --sidebar-search: oklch(0 0 0 / 5%);
-  --sidebar-search-hover: oklch(0 0 0 / 8%);
+  --sidebar-search: oklch(0 0 0 / 3%);
+  --sidebar-search-hover: oklch(0 0 0 / 5%);
   --sidebar-search-border: oklch(1 0 0 / 10%);
   --sidebar-search-foreground: rgba(0, 0, 0, 0.4);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   --chat-input-bg-color: oklch(1 0 0);
+  --chat-input-hover-bg-color: oklch(0.965 0 0);
   --chat-input-placeholder-color: oklch(0.61 0 271.152);
   --brand-green-color: oklch(0.683 0.195 148.32);
   --brand-green-color-light: oklch(0.943 0.03539 159.839);
@@ -84,19 +89,20 @@
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.2 0 268 / 75%);
-  --sidebar-impact: #252525;
+  --sidebar-impact: oklch(0.24776 0 271.152);
   --sidebar-foreground: oklch(1 0 0 / 90%);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.922 0 0);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
   --sidebar-accent: oklch(1 0 0 / 5%);
   --sidebar-accent-foreground: oklch(1 0 0 / 90%);
-  --sidebar-search: oklch(1 0 0 / 5%);
-  --sidebar-search-hover: oklch(1 0 0 / 10%);
+  --sidebar-search: oklch(1 0 0 / 3%);
+  --sidebar-search-hover: oklch(1 0 0 / 5%);
   --sidebar-search-border: oklch(0 0 0 / 10%);
   --sidebar-search-foreground: oklch(1 0 0 / 40%);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
   --chat-input-bg-color: oklch(0.309 0 271.152);
+  --chat-input-hover-bg-color: oklch(0.359 0 271.152);
   --chat-input-placeholder-color: oklch(0.683 0 271.152);
   --brand-green-color: oklch(0.62117 0.17972 148.03);
   --brand-green-color-light: oklch(0.45467 0.1285 148.952);
@@ -160,6 +166,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-chat-input-bg: var(--chat-input-bg-color);
+  --color-chat-input-hover-bg: var(--chat-input-hover-bg-color);
   --color-chat-input-placeholder: var(--chat-input-placeholder-color);
   --color-brand-green: var(--brand-green-color);
   --color-brand-green-light: var(--brand-green-color-light);

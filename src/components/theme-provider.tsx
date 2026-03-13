@@ -1,53 +1,52 @@
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useLayoutEffect, useState } from "react"
 import { useSetting } from "@/hooks/use-settings-store"
-import type { Theme } from "@/types/settings"
+import { APPEARANCE_THEME_CSS_VAR_NAMES, getAppearanceThemeTokens } from "@/lib/appearance-themes"
+import type { AppearanceThemeId, Theme } from "@/types/settings"
 
-type ResolvedTheme = "dark" | "light"
+export type ResolvedTheme = "dark" | "light"
 
 type ThemeProviderProps = {
   children: React.ReactNode
-  defaultTheme?: Theme
 }
 
 type ThemeProviderState = {
   theme: Theme
+  appearanceTheme: AppearanceThemeId
   resolvedTheme: ResolvedTheme
-  setTheme: (theme: Theme) => void
+  setTheme: (theme: Theme) => Promise<void>
+  setAppearanceTheme: (appearanceTheme: AppearanceThemeId) => Promise<void>
 }
 
-const initialState: ThemeProviderState = {
-  theme: "system",
-  resolvedTheme: "light",
-  setTheme: () => null
-}
+const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undefined)
 
-const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
-
-export function ThemeProvider({ children, defaultTheme = "system", ...props }: ThemeProviderProps) {
+export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setThemeValue] = useSetting("theme")
+  const [appearanceTheme, setAppearanceThemeValue] = useSetting("appearanceTheme")
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light")
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = window.document.documentElement
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
 
     const applyTheme = () => {
-      root.classList.remove("light", "dark")
+      const nextResolvedTheme: ResolvedTheme =
+        theme === "system" ? (mediaQuery.matches ? "dark" : "light") : theme
+      const tokens = getAppearanceThemeTokens(appearanceTheme, nextResolvedTheme)
 
-      if (theme === "system") {
-        const systemTheme = mediaQuery.matches ? "dark" : "light"
-        root.classList.add(systemTheme)
-        setResolvedTheme(systemTheme)
-      } else {
-        root.classList.add(theme)
-        setResolvedTheme(theme)
+      root.classList.remove("light", "dark")
+      root.classList.add(nextResolvedTheme)
+      root.dataset.appearanceTheme = appearanceTheme
+      root.style.colorScheme = nextResolvedTheme
+
+      for (const variableName of APPEARANCE_THEME_CSS_VAR_NAMES) {
+        root.style.setProperty(variableName, tokens[variableName])
       }
+
+      setResolvedTheme(nextResolvedTheme)
     }
 
-    // Apply theme immediately
     applyTheme()
 
-    // Listen for system theme changes
     const handleChange = () => {
       if (theme === "system") {
         applyTheme()
@@ -56,21 +55,18 @@ export function ThemeProvider({ children, defaultTheme = "system", ...props }: T
 
     mediaQuery.addEventListener("change", handleChange)
 
-    // Cleanup listener
     return () => mediaQuery.removeEventListener("change", handleChange)
-  }, [theme])
+  }, [appearanceTheme, theme])
 
   const value = {
     theme,
+    appearanceTheme,
     resolvedTheme,
-    setTheme: setThemeValue
+    setTheme: setThemeValue,
+    setAppearanceTheme: setAppearanceThemeValue
   }
 
-  return (
-    <ThemeProviderContext.Provider {...props} value={value}>
-      {children}
-    </ThemeProviderContext.Provider>
-  )
+  return <ThemeProviderContext.Provider value={value}>{children}</ThemeProviderContext.Provider>
 }
 
 export const useTheme = () => {

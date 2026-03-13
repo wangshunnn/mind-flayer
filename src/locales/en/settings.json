@@ -52,12 +52,19 @@
     "openBotFather": "Open @BotFather"
   },
   "general": {
+    "appearanceTheme": "Theme preset",
     "language": "Language",
     "languageEnglish": "English",
     "languageChinese": "简体中文",
     "languageSystem": "Device",
     "autoLaunch": "Launch on startup",
-    "autoLaunchDescription": "Automatically launch Mind Flayer when you log in"
+    "autoLaunchDescription": "Automatically launch Mind Flayer when you log in",
+    "appearanceThemes": {
+      "forest": "Forest Green",
+      "sand": "Amber Sand",
+      "workbench": "Deep Sea Blue",
+      "graphite": "Ink White"
+    }
   },
   "shortcuts": {
     "groups": {

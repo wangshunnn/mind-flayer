@@ -7,7 +7,6 @@ export type ResolvedTheme = "dark" | "light"
 
 type ThemeProviderProps = {
   children: React.ReactNode
-  defaultTheme?: Theme
 }
 
 type ThemeProviderState = {
@@ -18,17 +17,9 @@ type ThemeProviderState = {
   setAppearanceTheme: (appearanceTheme: AppearanceThemeId) => Promise<void>
 }
 
-const initialState: ThemeProviderState = {
-  theme: "system",
-  appearanceTheme: "forest",
-  resolvedTheme: "light",
-  setTheme: async () => {},
-  setAppearanceTheme: async () => {}
-}
+const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undefined)
 
-const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
-
-export function ThemeProvider({ children, defaultTheme = "system", ...props }: ThemeProviderProps) {
+export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setThemeValue] = useSetting("theme")
   const [appearanceTheme, setAppearanceThemeValue] = useSetting("appearanceTheme")
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light")
@@ -36,11 +27,10 @@ export function ThemeProvider({ children, defaultTheme = "system", ...props }: T
   useLayoutEffect(() => {
     const root = window.document.documentElement
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-    const effectiveTheme = theme ?? defaultTheme
 
     const applyTheme = () => {
       const nextResolvedTheme: ResolvedTheme =
-        effectiveTheme === "system" ? (mediaQuery.matches ? "dark" : "light") : effectiveTheme
+        theme === "system" ? (mediaQuery.matches ? "dark" : "light") : theme
       const tokens = getAppearanceThemeTokens(appearanceTheme, nextResolvedTheme)
 
       root.classList.remove("light", "dark")
@@ -58,7 +48,7 @@ export function ThemeProvider({ children, defaultTheme = "system", ...props }: T
     applyTheme()
 
     const handleChange = () => {
-      if (effectiveTheme === "system") {
+      if (theme === "system") {
         applyTheme()
       }
     }
@@ -66,7 +56,7 @@ export function ThemeProvider({ children, defaultTheme = "system", ...props }: T
     mediaQuery.addEventListener("change", handleChange)
 
     return () => mediaQuery.removeEventListener("change", handleChange)
-  }, [appearanceTheme, defaultTheme, theme])
+  }, [appearanceTheme, theme])
 
   const value = {
     theme,
@@ -76,11 +66,7 @@ export function ThemeProvider({ children, defaultTheme = "system", ...props }: T
     setAppearanceTheme: setAppearanceThemeValue
   }
 
-  return (
-    <ThemeProviderContext.Provider {...props} value={value}>
-      {children}
-    </ThemeProviderContext.Provider>
-  )
+  return <ThemeProviderContext.Provider value={value}>{children}</ThemeProviderContext.Provider>
 }
 
 export const useTheme = () => {

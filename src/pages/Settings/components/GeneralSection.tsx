@@ -1,4 +1,8 @@
 import { useTranslation } from "react-i18next"
+import {
+  AppearanceThemePreview,
+  useAppearanceThemeOptions
+} from "@/components/appearance-theme-preview"
 import { useTheme } from "@/components/theme-provider"
 import {
   Select,
@@ -11,48 +15,15 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { useLanguage } from "@/hooks/use-language"
 import { useSetting } from "@/hooks/use-settings-store"
-import { getAppearanceThemePreviewColors } from "@/lib/appearance-themes"
-import { APPEARANCE_THEME_IDS, type AppearanceThemeId } from "@/types/settings"
+import type { AppearanceThemeId } from "@/types/settings"
 import { SettingGroup } from "./shared"
-
-function AppearanceThemePreview({
-  themeId,
-  label,
-  resolvedTheme
-}: {
-  themeId: AppearanceThemeId
-  label: string
-  resolvedTheme: "light" | "dark"
-}) {
-  const previewColors = getAppearanceThemePreviewColors(themeId, resolvedTheme)
-
-  return (
-    <span className="flex w-full items-center justify-between gap-3">
-      <span>{label}</span>
-      <span aria-hidden className="flex items-center gap-1.5">
-        {previewColors.map(color => (
-          <span
-            key={`${themeId}-${resolvedTheme}-${color}`}
-            className="size-3 rounded-full border border-black/10 dark:border-white/10"
-            style={{ backgroundColor: color }}
-          />
-        ))}
-      </span>
-    </span>
-  )
-}
 
 export function GeneralSection() {
   const { t } = useTranslation("settings")
   const { language, changeLanguage } = useLanguage()
   const { theme, setTheme, appearanceTheme, setAppearanceTheme, resolvedTheme } = useTheme()
   const [autoLaunch, setAutoLaunch] = useSetting("autoLaunch")
-  const appearanceThemeLabels: Record<AppearanceThemeId, string> = {
-    forest: t("general.appearanceThemes.forest"),
-    sand: t("general.appearanceThemes.sand"),
-    workbench: t("general.appearanceThemes.workbench"),
-    graphite: t("general.appearanceThemes.graphite")
-  }
+  const appearanceThemeOptions = useAppearanceThemeOptions()
 
   return (
     <div data-tauri-drag-region className="space-y-4 pb-8">
@@ -87,16 +58,11 @@ export function GeneralSection() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {APPEARANCE_THEME_IDS.map(themeId => (
-                <SelectItem
-                  key={themeId}
-                  value={themeId}
-                  textValue={appearanceThemeLabels[themeId]}
-                  className="py-2"
-                >
+              {appearanceThemeOptions.map(({ themeId, label }) => (
+                <SelectItem key={themeId} value={themeId} textValue={label} className="py-2">
                   <AppearanceThemePreview
                     themeId={themeId}
-                    label={appearanceThemeLabels[themeId]}
+                    label={label}
                     resolvedTheme={resolvedTheme}
                   />
                 </SelectItem>

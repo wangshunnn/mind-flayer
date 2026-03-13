@@ -107,8 +107,10 @@ function updateSystemTheme(matches: boolean) {
 describe("ThemeProvider", () => {
   const mountedRoots: Array<{ container: HTMLDivElement; root: Root }> = []
   let previousActEnvironment: boolean | undefined
+  let previousMatchMedia: typeof window.matchMedia | undefined
 
   beforeAll(() => {
+    previousMatchMedia = window.matchMedia
     previousActEnvironment = (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean })
       .IS_REACT_ACT_ENVIRONMENT
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -170,6 +172,10 @@ describe("ThemeProvider", () => {
   })
 
   afterAll(() => {
+    if (previousMatchMedia) {
+      window.matchMedia = previousMatchMedia
+    }
+
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
       previousActEnvironment
   })

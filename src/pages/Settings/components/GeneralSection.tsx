@@ -11,13 +11,48 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { useLanguage } from "@/hooks/use-language"
 import { useSetting } from "@/hooks/use-settings-store"
+import { getAppearanceThemePreviewColors } from "@/lib/appearance-themes"
+import { APPEARANCE_THEME_IDS, type AppearanceThemeId } from "@/types/settings"
 import { SettingGroup } from "./shared"
+
+function AppearanceThemePreview({
+  themeId,
+  label,
+  resolvedTheme
+}: {
+  themeId: AppearanceThemeId
+  label: string
+  resolvedTheme: "light" | "dark"
+}) {
+  const previewColors = getAppearanceThemePreviewColors(themeId, resolvedTheme)
+
+  return (
+    <span className="flex w-full items-center justify-between gap-3">
+      <span>{label}</span>
+      <span aria-hidden className="flex items-center gap-1.5">
+        {previewColors.map(color => (
+          <span
+            key={`${themeId}-${resolvedTheme}-${color}`}
+            className="size-3 rounded-full border border-black/10 dark:border-white/10"
+            style={{ backgroundColor: color }}
+          />
+        ))}
+      </span>
+    </span>
+  )
+}
 
 export function GeneralSection() {
   const { t } = useTranslation("settings")
   const { language, changeLanguage } = useLanguage()
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, appearanceTheme, setAppearanceTheme, resolvedTheme } = useTheme()
   const [autoLaunch, setAutoLaunch] = useSetting("autoLaunch")
+  const appearanceThemeLabels: Record<AppearanceThemeId, string> = {
+    forest: t("general.appearanceThemes.forest"),
+    sand: t("general.appearanceThemes.sand"),
+    workbench: t("general.appearanceThemes.workbench"),
+    graphite: t("general.appearanceThemes.graphite")
+  }
 
   return (
     <div data-tauri-drag-region className="space-y-4 pb-8">
@@ -36,6 +71,36 @@ export function GeneralSection() {
               <SelectItem value="light">{t("theme.light", { ns: "common" })}</SelectItem>
               <SelectItem value="dark">{t("theme.dark", { ns: "common" })}</SelectItem>
               <SelectItem value="system">{t("theme.system", { ns: "common" })}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-between py-2.5">
+          <div className="text-base">{t("general.appearanceTheme")}</div>
+          <Select
+            value={appearanceTheme}
+            onValueChange={value => setAppearanceTheme(value as AppearanceThemeId)}
+          >
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {APPEARANCE_THEME_IDS.map(themeId => (
+                <SelectItem
+                  key={themeId}
+                  value={themeId}
+                  textValue={appearanceThemeLabels[themeId]}
+                  className="py-2"
+                >
+                  <AppearanceThemePreview
+                    themeId={themeId}
+                    label={appearanceThemeLabels[themeId]}
+                    resolvedTheme={resolvedTheme}
+                  />
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

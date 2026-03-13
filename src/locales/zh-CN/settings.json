@@ -53,12 +53,19 @@
   },
 
   "general": {
+    "appearanceTheme": "主题",
     "language": "语言",
     "languageEnglish": "English",
     "languageChinese": "简体中文",
     "languageSystem": "跟随系统",
     "autoLaunch": "开机自动启动",
-    "autoLaunchDescription": "在登录时自动启动 Mind Flayer"
+    "autoLaunchDescription": "在登录时自动启动 Mind Flayer",
+    "appearanceThemes": {
+      "forest": "森林绿",
+      "sand": "琥珀砂",
+      "workbench": "深海蓝",
+      "graphite": "素墨白"
+    }
   },
   "shortcuts": {
     "groups": {

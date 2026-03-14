@@ -11,11 +11,19 @@ const USER_SKILLS_DIR_NAME = "user"
 const SKILL_ICON_CANDIDATES = ["assets/icon.svg", "assets/icon.png", "assets/icon.webp"] as const
 const SUPPORTED_ICON_EXTENSIONS = new Set([".svg", ".png", ".jpg", ".jpeg", ".webp", ".gif"])
 
+// Claude Code plugin skill paths
+const CLAUDE_HOME_DIR_NAME = ".claude"
+const CLAUDE_PLUGINS_DIR_NAME = "plugins"
+const CLAUDE_PLUGINS_CACHE_DIR_NAME = "cache"
+const CLAUDE_PLUGINS_INSTALLED_FILE = "installed_plugins.json"
+const CLAUDE_SKILLS_DIR_NAME = "skills"
+
 type ParsedYamlValue = unknown
 
 type ParsedYamlObject = Record<string, ParsedYamlValue>
 
-export type SkillSource = "bundled" | "user"
+/** "bundled" = shipped with app, "user" = installed via UI, "claude" = from ~/.claude */
+export type SkillSource = "bundled" | "user" | "claude"
 
 interface SkillRoot {
   absolutePath: string
@@ -106,6 +114,71 @@ function getSkillRootBySource(
   return getSkillRoots(options).find(root => root.source === source) ?? null
 }
 
+// ---------------------------------------------------------------------------
+// Claude Code skill roots (~/.claude/skills/ and ~/.claude/plugins/cache/**/skills/)
+// ---------------------------------------------------------------------------
+
+interface InstalledPluginEntry {
+  scope?: string
+  installPath: string
+  version: string
+}
+
+interface InstalledPluginsJson {
+  version?: number
+  plugins?: Record<string, InstalledPluginEntry[]>
+}
+
+/**
+ * Collect all skill roots from Claude Code:
+ * 1. ~/.claude/skills/                          (global user-created skills)
+ * 2. ~/.claude/plugins/cache/{mkt}/{plugin}/{version}/skills/  (installed plugins)
+ */
+async function getClaudeSkillRoots(): Promise<SkillRoot[]> {
+  const claudeDir = resolve(homedir(), CLAUDE_HOME_DIR_NAME)
+  const roots: SkillRoot[] = []
+
+  // 1. ~/.claude/skills/
+  const globalSkillsDir = resolve(claudeDir, CLAUDE_SKILLS_DIR_NAME)
+  if (await pathExists(globalSkillsDir)) {
+    roots.push({
+      absolutePath: globalSkillsDir,
+      displayPrefix: toDisplayPath(globalSkillsDir),
+      source: "claude"
+    })
+  }
+
+  // 2. Plugin skill roots via installed_plugins.json
+  const installedPluginsPath = resolve(
+    claudeDir,
+    CLAUDE_PLUGINS_DIR_NAME,
+    CLAUDE_PLUGINS_INSTALLED_FILE
+  )
+
+  try {
+    const raw = await readFile(installedPluginsPath, "utf8")
+    const parsed = JSON.parse(raw) as InstalledPluginsJson
+
+    for (const entries of Object.values(parsed.plugins ?? {})) {
+      for (const entry of entries) {
+        if (!entry.installPath) continue
+        const skillsDir = resolve(entry.installPath, CLAUDE_SKILLS_DIR_NAME)
+        if (await pathExists(skillsDir)) {
+          roots.push({
+            absolutePath: skillsDir,
+            displayPrefix: toDisplayPath(skillsDir),
+            source: "claude"
+          })
+        }
+      }
+    }
+  } catch {
+    // File missing or malformed — silently skip
+  }
+
+  return roots
+}
+
 function isPathWithinRoot(rootPath: string, candidatePath: string): boolean {
   const relativePath = relative(rootPath, candidatePath)
   return relativePath !== "" && !relativePath.startsWith("..") && !isAbsolute(relativePath)
@@ -189,12 +262,12 @@ export function parseSkillId(skillId: string): { source: SkillSource; identifier
 
   const source = skillId.slice(0, separatorIndex)
   const identifier = skillId.slice(separatorIndex + 1).trim()
-  if ((source !== "bundled" && source !== "user") || !identifier) {
+  if ((source !== "bundled" && source !== "user" && source !== "claude") || !identifier) {
     return null
   }
 
   return {
-    source,
+    source: source as SkillSource,
     identifier
   }
 }
@@ -712,9 +785,12 @@ async function loadSkillFromFile(
   }
 }
 
+const SOURCE_ORDER: Record<SkillSource, number> = { bundled: 0, claude: 1, user: 2 }
+
 function compareSkillEntries(left: SkillCatalogEntry, right: SkillCatalogEntry): number {
-  if (left.source !== right.source) {
-    return left.source === "bundled" ? -1 : 1
+  const sourceOrder = SOURCE_ORDER[left.source] - SOURCE_ORDER[right.source]
+  if (sourceOrder !== 0) {
+    return sourceOrder
   }
 
   const byName = left.name.localeCompare(right.name)
@@ -728,7 +804,11 @@ function compareSkillEntries(left: SkillCatalogEntry, right: SkillCatalogEntry):
 export async function discoverSkills(options?: {
   appSupportDir?: string
 }): Promise<SkillCatalogEntry[]> {
-  const roots = getSkillRoots(options)
+  const [appRoots, claudeRoots] = await Promise.all([
+    Promise.resolve(getSkillRoots(options)),
+    getClaudeSkillRoots()
+  ])
+  const roots = [...appRoots, ...claudeRoots]
   const catalog = new Map<string, SkillCatalogEntry>()
 
   for (const root of roots) {

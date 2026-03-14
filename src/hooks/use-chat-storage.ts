@@ -1,13 +1,19 @@
 import type { UIMessage } from "ai"
 import { nanoid } from "nanoid"
 import { useCallback, useEffect, useState } from "react"
-import { storedMessageToUI, uiMessageToStored } from "@/lib/chat-utils"
-import { getDatabase } from "@/lib/database"
+import {
+  createChatEntry,
+  deleteChatEntry,
+  readChatMessages,
+  readIndex,
+  updateChatEntry,
+  writeChatMessages
+} from "@/lib/chat-fs"
 import { getSidecarUrl } from "@/lib/sidecar-client"
-import type { Chat, ChatId, ChatRow, MessageRow } from "@/types/chat"
+import type { Chat, ChatId } from "@/types/chat"
 
 /**
- * Hook for managing chat storage with Tauri SQLite backend
+ * Hook for managing chat storage with JSONL files via Tauri fs plugin.
  */
 export function useChatStorage() {
   const [chats, setChats] = useState<Chat[]>([])
@@ -16,13 +22,12 @@ export function useChatStorage() {
   const [error, setError] = useState<Error | null>(null)
 
   /**
-   * Load all chats from database
+   * Load all chats from index file
    */
   const loadChats = useCallback(async () => {
     try {
       console.log("[ChatStorage] Loading chats...")
-      const db = await getDatabase()
-      const result = await db.select<ChatRow[]>("SELECT * FROM chats ORDER BY created_at DESC")
+      const result = await readIndex()
       console.log("[ChatStorage] Loaded chats:", result.length)
       setChats(result)
       setError(null)
@@ -48,11 +53,7 @@ export function useChatStorage() {
           updated_at: now
         }
 
-        const db = await getDatabase()
-        await db.execute(
-          "INSERT INTO chats (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
-          [newChat.id, newChat.title, newChat.created_at, newChat.updated_at]
-        )
+        await createChatEntry(newChat)
 
         console.log("[ChatStorage] Chat created:", newChat.id)
         await loadChats()
@@ -77,14 +78,8 @@ export function useChatStorage() {
   const updateChatTitle = useCallback(
     async (chatId: string, title: string): Promise<void> => {
       try {
-        const db = await getDatabase()
         const now = Date.now()
-        await db.execute("UPDATE chats SET title = ?, updated_at = ? WHERE id = ?", [
-          title,
-          now,
-          chatId
-        ])
-
+        await updateChatEntry(chatId, { title, updated_at: now })
         await loadChats()
         setError(null)
       } catch (err) {
@@ -103,14 +98,7 @@ export function useChatStorage() {
   const deleteChat = useCallback(
     async (chatId: string): Promise<void> => {
       try {
-        const db = await getDatabase()
-
-        await db.execute("DELETE FROM messages WHERE chat_id = ?", [chatId])
-        await db.execute("DELETE FROM chats WHERE id = ?", [chatId])
-
-        // Clean up localStorage for stored message IDs
-        const storageKey = `stored-messages-${chatId}`
-        localStorage.removeItem(storageKey)
+        await deleteChatEntry(chatId)
 
         // Clean up bash execution workspace via sidecar
         try {
@@ -121,7 +109,6 @@ export function useChatStorage() {
             body: JSON.stringify({ chatId })
           })
         } catch (cleanupErr) {
-          // Log but don't fail the deletion if workspace cleanup fails
           console.warn("[ChatStorage] Failed to cleanup workspace:", cleanupErr)
         }
 
@@ -142,37 +129,14 @@ export function useChatStorage() {
   )
 
   /**
-   * Save messages for a chat
+   * Save all messages for a chat (replaces existing)
    */
   const saveChatAllMessages = useCallback(
     async (chatId: string, messages: UIMessage[], _isNewChat = false): Promise<void> => {
       try {
         console.log("[ChatStorage] Saving messages:", messages.length)
-        messages.forEach((msg, idx) => {
-          if (msg.role === "assistant" && msg.metadata) {
-            console.log(`[ChatStorage] Message ${idx} metadata before save:`, msg.metadata)
-          }
-        })
-        const db = await getDatabase()
-
-        await db.execute("DELETE FROM messages WHERE chat_id = ?", [chatId])
-
-        for (const message of messages) {
-          const storedMessage = uiMessageToStored(message, chatId)
-          await db.execute(
-            "INSERT INTO messages (id, chat_id, role, content_json, created_at) VALUES (?, ?, ?, ?, ?)",
-            [
-              storedMessage.id,
-              storedMessage.chat_id,
-              storedMessage.role,
-              storedMessage.content_json,
-              storedMessage.created_at
-            ]
-          )
-        }
-
-        await db.execute("UPDATE chats SET updated_at = ? WHERE id = ?", [Date.now(), chatId])
-
+        await writeChatMessages(chatId, messages)
+        await updateChatEntry(chatId, { updated_at: Date.now() })
         await loadChats()
         setError(null)
       } catch (err) {
@@ -186,8 +150,8 @@ export function useChatStorage() {
   )
 
   /**
-   * Insert only new messages for a chat (incremental save)
-   * This is more efficient than saveMessages as it only inserts new messages
+   * Insert only new messages for a chat (incremental save).
+   * For JSONL, we load existing, merge, then rewrite the file.
    */
   const insertChatNewMessages = useCallback(
     async (chatId: string, newMessages: UIMessage[], _totalMessageCount: number): Promise<void> => {
@@ -197,24 +161,15 @@ export function useChatStorage() {
         }
 
         console.log("[ChatStorage] Inserting new messages:", newMessages.length)
-        const db = await getDatabase()
+        const existing = await readChatMessages(chatId)
+        const existingIds = new Set(existing.map(m => m.id))
+        const toAppend = newMessages.filter(m => !existingIds.has(m.id))
 
-        for (const message of newMessages) {
-          const storedMessage = uiMessageToStored(message, chatId)
-          await db.execute(
-            "INSERT OR IGNORE INTO messages (id, chat_id, role, content_json, created_at) VALUES (?, ?, ?, ?, ?)",
-            [
-              storedMessage.id,
-              storedMessage.chat_id,
-              storedMessage.role,
-              storedMessage.content_json,
-              storedMessage.created_at
-            ]
-          )
+        if (toAppend.length > 0) {
+          await writeChatMessages(chatId, [...existing, ...toAppend])
         }
 
-        await db.execute("UPDATE chats SET updated_at = ? WHERE id = ?", [Date.now(), chatId])
-
+        await updateChatEntry(chatId, { updated_at: Date.now() })
         await loadChats()
         setError(null)
       } catch (err) {
@@ -232,15 +187,8 @@ export function useChatStorage() {
    */
   const loadMessages = useCallback(async (chatId: string): Promise<UIMessage[]> => {
     try {
-      const db = await getDatabase()
-      const result = await db.select<MessageRow[]>(
-        "SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at ASC",
-        [chatId]
-      )
-
-      const messages = result.map(row => storedMessageToUI(row))
-      console.log("[ChatStorage] Loaded messages:", chatId, messages.length, messages)
-
+      const messages = await readChatMessages(chatId)
+      console.log("[ChatStorage] Loaded messages:", chatId, messages.length)
       setError(null)
       return messages
     } catch (err) {

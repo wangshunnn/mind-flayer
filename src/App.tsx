@@ -5,7 +5,6 @@ import { z } from "zod"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { useLanguage } from "@/hooks/use-language"
-import { initDatabase } from "@/lib/database"
 import i18n from "@/lib/i18n"
 import { SettingsSection } from "@/lib/window-manager"
 import Home from "@/pages/Home"
@@ -37,13 +36,6 @@ const router = createRouter({ routeTree })
 function App() {
   // Initialize language detection
   useLanguage()
-
-  useEffect(() => {
-    // Initialize database on app mount
-    initDatabase().catch(err => {
-      console.error("Failed to initialize database:", err)
-    })
-  }, [])
 
   return (
     <ThemeProvider>

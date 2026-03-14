@@ -74,6 +74,9 @@
     "emptyBundled": "当前没有可用的内置技能。",
     "emptyUser": "当前还没有用户安装的技能。",
     "openFolder": "打开文件夹",
+    "openDetails": "打开 {{name}} 详情",
+    "moreActions": "{{name}} 的更多操作",
+    "enableDisable": "启用或禁用 {{name}}",
     "openFolderError": "打开文件夹失败。",
     "contentTitle": "技能内容",
     "uninstall": "卸载",
@@ -82,7 +85,8 @@
     "uninstallTitle": "卸载技能",
     "uninstallDescription": "确认从本机移除 {{skillName}} 吗？",
     "uninstallSuccess": "已卸载 {{skillName}}。",
-    "uninstallError": "卸载所选技能失败。"
+    "uninstallError": "卸载所选技能失败。",
+    "toggleError": "更新所选技能失败。"
   },
   "telegramWhitelist": {
     "title": "Telegram 加白请求",

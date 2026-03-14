@@ -21,6 +21,8 @@ export class ChannelRuntimeConfigService {
   update(
     nextConfig: Omit<ChannelRuntimeConfig, "disabledSkills"> & { disabledSkills?: string[] }
   ): void {
+    const disabledSkills = nextConfig.disabledSkills ?? this.config.disabledSkills ?? []
+
     this.config = {
       selectedModel: nextConfig.selectedModel
         ? {
@@ -41,11 +43,7 @@ export class ChannelRuntimeConfigService {
         }
       },
       disabledSkills: Array.from(
-        new Set(
-          (nextConfig.disabledSkills ?? [])
-            .map(value => value.trim())
-            .filter(value => value.length > 0)
-        )
+        new Set(disabledSkills.map(value => value.trim()).filter(value => value.length > 0))
       )
     }
   }

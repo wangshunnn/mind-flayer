@@ -27,7 +27,7 @@ Do **not** add any additional text, explanation, or formatting around the respon
 
 ## How It Works
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                    Skill Pipeline                       │
 │                                                         │

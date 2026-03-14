@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { afterEach, describe, expect, it, vi } from "vitest"
-import { discoverSkills, getSkillDetailById } from "../catalog"
+import { afterEach, describe, expect, it } from "vitest"
+import { discoverSkills, getSkillById, getSkillDetailById, uninstallUserSkill } from "../catalog"
 
 async function writeSkill(
   appSupportDir: string,
@@ -36,7 +36,7 @@ describe("skills catalog", () => {
     await writeSkill(
       appSupportDir,
       "builtin",
-      "shared",
+      "shared-skill",
       `---
 name: shared-skill
 description: bundled description
@@ -54,7 +54,7 @@ metadata:
     await writeSkill(
       appSupportDir,
       "builtin",
-      "env",
+      "env-skill",
       `---
 name: env-skill
 description: env gated
@@ -71,7 +71,7 @@ metadata:
     await writeSkill(
       appSupportDir,
       "user",
-      "shared",
+      "shared-skill",
       `---
 name: shared-skill
 description: user description
@@ -110,13 +110,13 @@ metadata:
       source: "bundled",
       canUninstall: false,
       description: "bundled description",
-      location: `${appSupportDir.replaceAll("\\", "/")}/skills/builtin/shared/SKILL.md`
+      location: `${appSupportDir.replaceAll("\\", "/")}/skills/builtin/shared-skill/SKILL.md`
     })
     expect(skills.find(skill => skill.id === "user:shared-skill")).toMatchObject({
       source: "user",
       canUninstall: true,
       description: "user description",
-      location: `${appSupportDir.replaceAll("\\", "/")}/skills/user/shared/SKILL.md`
+      location: `${appSupportDir.replaceAll("\\", "/")}/skills/user/shared-skill/SKILL.md`
     })
   })
 
@@ -131,10 +131,9 @@ metadata:
     expect(skills).toEqual([])
   })
 
-  it("resolves duplicate skill ids deterministically and logs the override", async () => {
+  it("assigns unique ids to same-source skills that share a display name", async () => {
     const appSupportDir = await mkdtemp(join(tmpdir(), "mind-flayer-skills-duplicates-"))
     tempDirs.push(appSupportDir)
-    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
 
     await writeSkill(
       appSupportDir,
@@ -166,14 +165,12 @@ description: omega description
       appSupportDir
     })
 
-    expect(skills).toHaveLength(1)
-    expect(skills[0]?.id).toBe("bundled:duplicate-skill")
-    expect(skills[0]?.description).toBe("omega description")
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Duplicate skill 'bundled:duplicate-skill'")
-    )
-
-    consoleWarnSpy.mockRestore()
+    expect(skills).toHaveLength(2)
+    expect(skills.map(skill => skill.id)).toEqual(["bundled:alpha", "bundled:omega"])
+    expect(skills.map(skill => skill.description)).toEqual([
+      "alpha description",
+      "omega description"
+    ])
   })
 
   it("returns detail markdown without frontmatter", async () => {
@@ -183,7 +180,7 @@ description: omega description
     await writeSkill(
       appSupportDir,
       "builtin",
-      "detail",
+      "detail-skill",
       `---
 name: detail-skill
 description: detail description
@@ -201,5 +198,33 @@ Body content
 
     expect(detail?.bodyMarkdown).toBe("# Detail\n\nBody content")
     expect(detail?.source).toBe("bundled")
+  })
+
+  it("refuses to uninstall the user skills root itself", async () => {
+    const appSupportDir = await mkdtemp(join(tmpdir(), "mind-flayer-user-root-skill-"))
+    tempDirs.push(appSupportDir)
+
+    await mkdir(join(appSupportDir, "skills", "user"), { recursive: true })
+    await writeFile(
+      join(appSupportDir, "skills", "user", "SKILL.md"),
+      `---
+name: root-skill
+description: root description
+---
+
+Root
+`,
+      "utf8"
+    )
+
+    const skill = await getSkillById("user:__root__", { appSupportDir })
+
+    expect(skill).not.toBeNull()
+    if (!skill) {
+      throw new Error("Expected the root skill to be discovered")
+    }
+    await expect(uninstallUserSkill(skill, { appSupportDir })).rejects.toThrow(
+      "Refusing to uninstall the user skills root itself"
+    )
   })
 })

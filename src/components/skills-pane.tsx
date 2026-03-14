@@ -9,7 +9,7 @@ import {
   WandSparklesIcon,
   XIcon
 } from "lucide-react"
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { MessageResponse } from "@/components/ai-elements/message"
@@ -123,6 +123,9 @@ interface SkillCardProps {
   skill: SkillListItem
   enabled: boolean
   uninstallLabel: string
+  openDetailsLabel: string
+  moreActionsLabel: string
+  toggleEnabledLabel: string
   onToggleEnabled: (skillId: string, enabled: boolean) => void
   onOpenDetail: (skillId: string) => void
   onRequestUninstall: (skill: SkillListItem) => void
@@ -132,6 +135,9 @@ function SkillCard({
   skill,
   enabled,
   uninstallLabel,
+  openDetailsLabel,
+  moreActionsLabel,
+  toggleEnabledLabel,
   onToggleEnabled,
   onOpenDetail,
   onRequestUninstall
@@ -146,7 +152,7 @@ function SkillCard({
     >
       <button
         type="button"
-        aria-label={skill.name}
+        aria-label={openDetailsLabel}
         className={cn(
           "absolute inset-0 rounded-xl",
           "focus-visible:outline-hidden focus-visible:ring-2",
@@ -173,7 +179,12 @@ function SkillCard({
               {skill.canUninstall && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button type="button" size="icon-sm" variant="ghost" aria-label={skill.name}>
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label={moreActionsLabel}
+                    >
                       <MoreHorizontalIcon className="size-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -190,6 +201,7 @@ function SkillCard({
               )}
 
               <Switch
+                aria-label={toggleEnabledLabel}
                 checked={enabled}
                 onCheckedChange={checked => onToggleEnabled(skill.id, checked)}
               />
@@ -216,8 +228,14 @@ export function SkillsPane({ disabledSkillIds, setDisabledSkillIds }: SkillsPane
   const [isBundledSectionOpen, setIsBundledSectionOpen] = useState(true)
   const [isUserSectionOpen, setIsUserSectionOpen] = useState(false)
   const [hasUserSectionBeenToggled, setHasUserSectionBeenToggled] = useState(false)
+  const disabledSkillIdsRef = useRef(disabledSkillIds)
+  const toggleQueueRef = useRef<Promise<void>>(Promise.resolve())
 
   const { bundledSkills, userSkills } = useMemo(() => splitSkillsBySource(skills), [skills])
+
+  useEffect(() => {
+    disabledSkillIdsRef.current = disabledSkillIds
+  }, [disabledSkillIds])
 
   const loadSkills = useCallback(
     async (manualRefresh = false) => {
@@ -296,14 +314,39 @@ export function SkillsPane({ disabledSkillIds, setDisabledSkillIds }: SkillsPane
   }, [selectedSkillId, t])
 
   const handleToggleEnabled = useCallback(
-    async (skillId: string, enabled: boolean) => {
-      const nextDisabledSkillIds = enabled
-        ? disabledSkillIds.filter(id => id !== skillId)
-        : Array.from(new Set([...disabledSkillIds, skillId]))
+    (skillId: string, enabled: boolean) => {
+      toggleQueueRef.current = toggleQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          const previousDisabledSkillIds = disabledSkillIdsRef.current
+          const nextDisabledSkillIds = enabled
+            ? previousDisabledSkillIds.filter(id => id !== skillId)
+            : Array.from(new Set([...previousDisabledSkillIds, skillId]))
 
-      await setDisabledSkillIds(nextDisabledSkillIds)
+          const hasChanged =
+            nextDisabledSkillIds.length !== previousDisabledSkillIds.length ||
+            nextDisabledSkillIds.some((id, index) => id !== previousDisabledSkillIds[index])
+
+          if (!hasChanged) {
+            return
+          }
+
+          disabledSkillIdsRef.current = nextDisabledSkillIds
+
+          try {
+            await setDisabledSkillIds(nextDisabledSkillIds)
+          } catch (error) {
+            disabledSkillIdsRef.current = previousDisabledSkillIds
+            try {
+              await setDisabledSkillIds(previousDisabledSkillIds)
+            } catch {}
+            toast.error(t("toast.error"), {
+              description: error instanceof Error ? error.message : t("skills.toggleError")
+            })
+          }
+        })
     },
-    [disabledSkillIds, setDisabledSkillIds]
+    [setDisabledSkillIds, t]
   )
 
   const handleConfirmUninstall = useCallback(async () => {
@@ -314,8 +357,12 @@ export function SkillsPane({ disabledSkillIds, setDisabledSkillIds }: SkillsPane
     setIsUninstalling(true)
     try {
       await deleteSkill(pendingUninstallSkill.id)
-      if (disabledSkillIds.includes(pendingUninstallSkill.id)) {
-        await setDisabledSkillIds(disabledSkillIds.filter(id => id !== pendingUninstallSkill.id))
+      if (disabledSkillIdsRef.current.includes(pendingUninstallSkill.id)) {
+        const nextDisabledSkillIds = disabledSkillIdsRef.current.filter(
+          id => id !== pendingUninstallSkill.id
+        )
+        disabledSkillIdsRef.current = nextDisabledSkillIds
+        await setDisabledSkillIds(nextDisabledSkillIds)
       }
 
       toast.success(t("skills.uninstallSuccess", { skillName: pendingUninstallSkill.name }))
@@ -332,7 +379,7 @@ export function SkillsPane({ disabledSkillIds, setDisabledSkillIds }: SkillsPane
     } finally {
       setIsUninstalling(false)
     }
-  }, [disabledSkillIds, loadSkills, pendingUninstallSkill, setDisabledSkillIds, t])
+  }, [loadSkills, pendingUninstallSkill, setDisabledSkillIds, t])
 
   const handleRevealSkillDirectory = useCallback(async () => {
     if (!selectedSkillDetail?.filePath) {
@@ -416,6 +463,9 @@ export function SkillsPane({ disabledSkillIds, setDisabledSkillIds }: SkillsPane
                     skill={skill}
                     enabled={!disabledSkillIds.includes(skill.id)}
                     uninstallLabel={t("skills.uninstall")}
+                    openDetailsLabel={t("skills.openDetails", { name: skill.name })}
+                    moreActionsLabel={t("skills.moreActions", { name: skill.name })}
+                    toggleEnabledLabel={t("skills.enableDisable", { name: skill.name })}
                     onToggleEnabled={handleToggleEnabled}
                     onOpenDetail={setSelectedSkillId}
                     onRequestUninstall={setPendingUninstallSkill}
@@ -452,6 +502,9 @@ export function SkillsPane({ disabledSkillIds, setDisabledSkillIds }: SkillsPane
                     skill={skill}
                     enabled={!disabledSkillIds.includes(skill.id)}
                     uninstallLabel={t("skills.uninstall")}
+                    openDetailsLabel={t("skills.openDetails", { name: skill.name })}
+                    moreActionsLabel={t("skills.moreActions", { name: skill.name })}
+                    toggleEnabledLabel={t("skills.enableDisable", { name: skill.name })}
                     onToggleEnabled={handleToggleEnabled}
                     onOpenDetail={setSelectedSkillId}
                     onRequestUninstall={setPendingUninstallSkill}

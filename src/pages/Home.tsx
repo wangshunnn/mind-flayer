@@ -68,6 +68,7 @@ export default function Page() {
   const activeChatIdRef = useRef(activeChatId)
   const newChatTokenRef = useRef(newChatToken)
   const telegramAllowedUserIdsRef = useRef(telegramAllowedUserIds)
+  const runtimeConfigSyncQueueRef = useRef<Promise<void>>(Promise.resolve())
   const selectedModel =
     availableModels.find(model => model.api_id === selectedModelApiId) ?? availableModels[0] ?? null
   const selectedModelProvider = selectedModel?.provider ?? null
@@ -91,33 +92,37 @@ export default function Page() {
 
   useEffect(() => {
     let cancelled = false
-
-    const pushRuntimeConfig = async () => {
-      try {
-        await syncRuntimeConfig({
-          selectedModel:
-            selectedModelProvider && selectedModelId
-              ? {
-                  provider: selectedModelProvider,
-                  modelId: selectedModelId
-                }
-              : null,
-          channels: {
-            telegram: {
-              enabled: enabledChannels.telegram ?? false,
-              allowedUserIds: telegramAllowedUserIds
+    const payload = {
+      selectedModel:
+        selectedModelProvider && selectedModelId
+          ? {
+              provider: selectedModelProvider,
+              modelId: selectedModelId
             }
-          },
-          disabledSkills
-        })
-      } catch (error) {
+          : null,
+      channels: {
+        telegram: {
+          enabled: enabledChannels.telegram ?? false,
+          allowedUserIds: telegramAllowedUserIds
+        }
+      },
+      disabledSkills
+    }
+
+    runtimeConfigSyncQueueRef.current = runtimeConfigSyncQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        if (cancelled) {
+          return
+        }
+
+        await syncRuntimeConfig(payload)
+      })
+      .catch(error => {
         if (!cancelled) {
           console.warn("[Home] Failed to sync runtime config:", error)
         }
-      }
-    }
-
-    void pushRuntimeConfig()
+      })
 
     return () => {
       cancelled = true

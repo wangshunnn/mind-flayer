@@ -74,6 +74,9 @@
     "emptyBundled": "No built-in skills are available.",
     "emptyUser": "No user-installed skills yet.",
     "openFolder": "Open Folder",
+    "openDetails": "Open details for {{name}}",
+    "moreActions": "More actions for {{name}}",
+    "enableDisable": "Enable or disable {{name}}",
     "openFolderError": "Failed to open the folder.",
     "contentTitle": "Skill Content",
     "uninstall": "Uninstall",
@@ -82,7 +85,8 @@
     "uninstallTitle": "Uninstall Skill",
     "uninstallDescription": "Remove {{skillName}} from this device?",
     "uninstallSuccess": "{{skillName}} was uninstalled.",
-    "uninstallError": "Failed to uninstall the selected skill."
+    "uninstallError": "Failed to uninstall the selected skill.",
+    "toggleError": "Failed to update the selected skill."
   },
   "telegramWhitelist": {
     "title": "Telegram Join Request",

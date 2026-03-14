@@ -142,7 +142,7 @@ describe("SkillsPane", () => {
     expect(setDisabledSkillIds).toHaveBeenCalledWith(["bundled:reader"])
 
     const card = container.querySelector(
-      'button[aria-label="Bundled Reader"]'
+      'button[aria-label="Open details for Bundled Reader"]'
     ) as HTMLButtonElement | null
 
     expect(card).not.toBeNull()
@@ -155,7 +155,19 @@ describe("SkillsPane", () => {
     expect(getSkillDetailMock).toHaveBeenCalledWith("bundled:reader")
     expect(document.body.textContent).toContain("Detailed content")
 
-    const uninstallMenuTrigger = container.querySelector('button[aria-label="User Writer"]')
+    const uninstallMenuTrigger = container.querySelector(
+      'button[aria-label="More actions for User Writer"]'
+    ) as HTMLButtonElement | null
+
     expect(uninstallMenuTrigger).not.toBeNull()
+
+    await act(async () => {
+      uninstallMenuTrigger?.dispatchEvent(
+        new MouseEvent("pointerdown", { bubbles: true, button: 0 })
+      )
+      await Promise.resolve()
+    })
+
+    expect(document.body.textContent).toContain("Uninstall")
   })
 })

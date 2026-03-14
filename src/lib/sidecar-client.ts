@@ -81,6 +81,20 @@ export interface SkillDetail extends SkillListItem {
   bodyMarkdown: string
 }
 
+async function readResponseError(response: Response, fallbackMessage: string): Promise<string> {
+  const raw = await response.text()
+  if (!raw) {
+    return fallbackMessage
+  }
+
+  try {
+    const data = JSON.parse(raw) as { error?: string }
+    return data.error || raw
+  } catch {
+    return raw
+  }
+}
+
 export async function listSkills(): Promise<SkillListItem[]> {
   const url = await getSidecarUrl("/api/skills")
   const response = await fetch(url, {
@@ -88,14 +102,7 @@ export async function listSkills(): Promise<SkillListItem[]> {
   })
 
   if (!response.ok) {
-    let details = ""
-    try {
-      const data = (await response.json()) as { error?: string }
-      details = data.error || ""
-    } catch {
-      details = await response.text()
-    }
-    throw new Error(details || `Skills request failed (${response.status})`)
+    throw new Error(await readResponseError(response, `Skills request failed (${response.status})`))
   }
 
   const payload = (await response.json()) as {
@@ -114,14 +121,9 @@ export async function getSkillDetail(skillId: string): Promise<SkillDetail> {
   })
 
   if (!response.ok) {
-    let details = ""
-    try {
-      const data = (await response.json()) as { error?: string }
-      details = data.error || ""
-    } catch {
-      details = await response.text()
-    }
-    throw new Error(details || `Skill detail request failed (${response.status})`)
+    throw new Error(
+      await readResponseError(response, `Skill detail request failed (${response.status})`)
+    )
   }
 
   const payload = (await response.json()) as {
@@ -140,14 +142,7 @@ export async function deleteSkill(skillId: string): Promise<void> {
   })
 
   if (!response.ok) {
-    let details = ""
-    try {
-      const data = (await response.json()) as { error?: string }
-      details = data.error || ""
-    } catch {
-      details = await response.text()
-    }
-    throw new Error(details || `Skill delete failed (${response.status})`)
+    throw new Error(await readResponseError(response, `Skill delete failed (${response.status})`))
   }
 }
 

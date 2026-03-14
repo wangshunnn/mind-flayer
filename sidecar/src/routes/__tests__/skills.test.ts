@@ -39,7 +39,7 @@ describe("skills routes", () => {
     await writeSkill(
       appSupportDir,
       "builtin",
-      "smoke",
+      "skill-smoke-test",
       `---
 name: skill-smoke-test
 description: smoke description
@@ -77,7 +77,7 @@ Smoke
     await writeSkill(
       appSupportDir,
       "builtin",
-      "detail",
+      "detail-skill",
       `---
 name: detail-skill
 description: detail description
@@ -106,6 +106,10 @@ Body
   })
 
   it("returns 404 when the skill detail is missing", async () => {
+    const appSupportDir = await mkdtemp(join(tmpdir(), "mind-flayer-skills-route-missing-"))
+    tempDirs.push(appSupportDir)
+    process.env.MINDFLAYER_APP_SUPPORT_DIR = appSupportDir
+
     const app = new Hono()
     app.get("/api/skills/:skillId", handleGetSkillDetail)
 
@@ -121,7 +125,7 @@ Body
     await writeSkill(
       appSupportDir,
       "user",
-      "custom",
+      "custom-skill",
       `---
 name: custom-skill
 description: custom description
@@ -139,7 +143,7 @@ Custom
     })
     expect(res.status).toBe(200)
 
-    await expect(stat(join(appSupportDir, "skills", "user", "custom"))).rejects.toBeDefined()
+    await expect(stat(join(appSupportDir, "skills", "user", "custom-skill"))).rejects.toBeDefined()
   })
 
   it("rejects deleting a built-in skill", async () => {

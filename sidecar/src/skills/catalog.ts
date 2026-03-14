@@ -104,28 +104,36 @@ function getSkillRootBySource(
 
 function isPathWithinRoot(rootPath: string, candidatePath: string): boolean {
   const relativePath = relative(rootPath, candidatePath)
-  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath))
+  return relativePath !== "" && !relativePath.startsWith("..") && !isAbsolute(relativePath)
 }
 
-export function getSkillId(source: SkillSource, name: string): string {
-  return `${source}:${name}`
+function normalizeSkillIdentifier(relativeSkillDir: string): string {
+  const normalized = relativeSkillDir
+    .replaceAll("\\", "/")
+    .replace(/^\/+|\/+$/g, "")
+    .trim()
+  return normalized || "__root__"
 }
 
-export function parseSkillId(skillId: string): { source: SkillSource; name: string } | null {
+export function getSkillId(source: SkillSource, identifier: string): string {
+  return `${source}:${normalizeSkillIdentifier(identifier)}`
+}
+
+export function parseSkillId(skillId: string): { source: SkillSource; identifier: string } | null {
   const separatorIndex = skillId.indexOf(":")
   if (separatorIndex <= 0 || separatorIndex >= skillId.length - 1) {
     return null
   }
 
   const source = skillId.slice(0, separatorIndex)
-  const name = skillId.slice(separatorIndex + 1).trim()
-  if ((source !== "bundled" && source !== "user") || !name) {
+  const identifier = skillId.slice(separatorIndex + 1).trim()
+  if ((source !== "bundled" && source !== "user") || !identifier) {
     return null
   }
 
   return {
     source,
-    name
+    identifier
   }
 }
 
@@ -618,9 +626,10 @@ async function loadSkillFromFile(
     }
 
     const relativePath = skillFilePath.slice(root.absolutePath.length + 1).replaceAll("\\", "/")
+    const relativeSkillDir = relativePath.split("/").slice(0, -1).join("/")
 
     return {
-      id: getSkillId(root.source, name),
+      id: getSkillId(root.source, relativeSkillDir),
       name,
       description,
       metadata,
@@ -668,8 +677,9 @@ export async function discoverSkills(options?: {
       const existing = catalog.get(skill.id)
       if (existing) {
         console.warn(
-          `[Skills] Duplicate skill '${skill.id}' found at '${skill.filePath}'. Overriding previously loaded skill from '${existing.filePath}'.`
+          `[Skills] Duplicate skill id '${skill.id}' found at '${skill.filePath}'. Skipping it because '${existing.filePath}' was already loaded.`
         )
+        continue
       }
 
       catalog.set(skill.id, skill)
@@ -738,6 +748,10 @@ export async function uninstallUserSkill(
         error instanceof Error ? error.message : String(error)
       }`
     )
+  }
+
+  if (resolvedSkillDir === resolvedUserRoot) {
+    throw new Error("Refusing to uninstall the user skills root itself")
   }
 
   if (!isPathWithinRoot(resolvedUserRoot, resolvedSkillDir)) {

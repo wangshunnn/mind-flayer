@@ -1,10 +1,12 @@
+type HttpStatusCode = 400 | 401 | 403 | 404 | 500
+
 /**
  * Base class for HTTP errors with status codes.
  */
-export class HttpError extends Error {
+export class HttpError<TStatusCode extends HttpStatusCode = HttpStatusCode> extends Error {
   constructor(
     message: string,
-    public readonly statusCode: number,
+    public readonly statusCode: TStatusCode,
     public readonly code: string
   ) {
     super(message)
@@ -15,7 +17,7 @@ export class HttpError extends Error {
 /**
  * 401 Unauthorized - API key not configured or invalid
  */
-export class UnauthorizedError extends HttpError {
+export class UnauthorizedError extends HttpError<401> {
   constructor(message: string, code = "UNAUTHORIZED") {
     super(message, 401, code)
   }
@@ -24,7 +26,7 @@ export class UnauthorizedError extends HttpError {
 /**
  * 400 Bad Request - Invalid request parameters
  */
-export class BadRequestError extends HttpError {
+export class BadRequestError extends HttpError<400> {
   constructor(message: string, code = "BAD_REQUEST") {
     super(message, 400, code)
   }
@@ -33,7 +35,7 @@ export class BadRequestError extends HttpError {
 /**
  * 403 Forbidden - Request is understood but not allowed.
  */
-export class ForbiddenError extends HttpError {
+export class ForbiddenError extends HttpError<403> {
   constructor(message: string, code = "FORBIDDEN") {
     super(message, 403, code)
   }
@@ -42,7 +44,7 @@ export class ForbiddenError extends HttpError {
 /**
  * 404 Not Found - Requested resource does not exist.
  */
-export class NotFoundError extends HttpError {
+export class NotFoundError extends HttpError<404> {
   constructor(message: string, code = "NOT_FOUND") {
     super(message, 404, code)
   }
@@ -51,7 +53,7 @@ export class NotFoundError extends HttpError {
 /**
  * 500 Internal Server Error - Server-side error
  */
-export class InternalServerError extends HttpError {
+export class InternalServerError extends HttpError<500> {
   constructor(message: string, code = "INTERNAL_ERROR") {
     super(message, 500, code)
   }
@@ -64,12 +66,12 @@ export class InternalServerError extends HttpError {
  * @returns Object with status code and error response
  */
 export function mapErrorToResponse(error: unknown): {
-  statusCode: 400 | 401 | 403 | 404 | 500
+  statusCode: HttpStatusCode
   body: { error: string; code?: string }
 } {
   if (error instanceof HttpError) {
     return {
-      statusCode: error.statusCode as 400 | 401 | 403 | 404 | 500,
+      statusCode: error.statusCode,
       body: { error: error.message, code: error.code }
     }
   }

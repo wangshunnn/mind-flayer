@@ -17,7 +17,7 @@ const channelRuntimeConfigSchema = z.object({
       allowedUserIds: z.array(z.string().trim().regex(/^\d+$/))
     })
   }),
-  disabledSkills: z.array(z.string().trim().min(1))
+  disabledSkills: z.array(z.string().trim().min(1)).optional()
 })
 
 /**

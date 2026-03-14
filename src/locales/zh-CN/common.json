@@ -1,9 +1,9 @@
 {
   "nav": {
-    "newChat": "新建聊天",
+    "newChat": "新聊天",
     "skills": "技能",
-    "channelSessions": "渠道会话",
-    "recentChats": "最近聊天",
+    "channelSessions": "渠道",
+    "recentChats": "聊天",
     "noChatsYet": "暂无聊天，开始新聊天吧！",
     "showMore": "展示更多",
     "showLess": "展示更少",

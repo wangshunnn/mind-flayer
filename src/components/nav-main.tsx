@@ -26,7 +26,7 @@ export function NavMain({ onNewChat }: { onNewChat?: () => void }) {
             </div>
           </SidebarMenuButton>
 
-          <SidebarMenuBadge>
+          <SidebarMenuBadge className="opacity-0 transition-opacity group-hover/menu-item:opacity-100">
             <CommandShortcut className="text-muted-foreground/60">
               {shortcutKeys.join("")}
             </CommandShortcut>

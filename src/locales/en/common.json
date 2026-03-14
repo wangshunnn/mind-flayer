@@ -2,8 +2,8 @@
   "nav": {
     "newChat": "New Chat",
     "skills": "Skills",
-    "channelSessions": "Channel Sessions",
-    "recentChats": "Recent Chats",
+    "channelSessions": "Channels",
+    "recentChats": "Chats",
     "noChatsYet": "No chats yet. Start a new chat!",
     "showMore": "Show more",
     "showLess": "Show less",

@@ -96,8 +96,8 @@ function resolveContentType(filePath: string): string {
   return contentType
 }
 
-function isNotFoundError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error && error.code === "ENOENT"
+function isNotFoundError(error: unknown): boolean {
+  return error instanceof Error && "code" in error && (error as { code: unknown }).code === "ENOENT"
 }
 
 export async function handleLocalImage(c: Context) {

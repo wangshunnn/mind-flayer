@@ -3,12 +3,12 @@
  * Aborts active requests and closes server with timeout.
  *
  * @param globalAbortController - Controller for aborting active requests
- * @param server - HTTP server instance
+ * @param server - Bun HTTP server instance
  * @param preShutdown - Optional best-effort callback before abort/close
  */
 export function createShutdownHandler(
   globalAbortController: AbortController,
-  server: { close: (callback: () => void) => void },
+  server: { stop: (closeActiveConnections?: boolean) => void },
   preShutdown?: () => Promise<void> | void
 ) {
   let shutdownStarted = false
@@ -34,16 +34,17 @@ export function createShutdownHandler(
       globalAbortController.abort()
       console.info("[sidecar] All active requests cancelled")
 
-      server.close(() => {
-        console.log("Server closed, port released")
-        process.exit(0)
-      })
+      // Stop the Bun server
+      server.stop(true)
+      console.log("Server closed, port released")
 
-      // Force exit if server doesn't close within 5 seconds
+      // Force exit if something hangs
       setTimeout(() => {
         console.error("Forced shutdown")
         process.exit(1)
       }, 5000)
+
+      process.exit(0)
     })()
   }
 }

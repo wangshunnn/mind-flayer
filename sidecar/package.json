@@ -4,32 +4,27 @@
   "version": "0.1.0",
   "type": "module",
   "description": "AI SDK sidecar for Mind Flayer",
-  "main": "dist/index.js",
   "scripts": {
     "clean:binaries": "rimraf ../src-tauri/binaries/*",
-    "dev": "npm run clean:binaries && NODE_ENV=development tsup && bash scripts/rename-binaries.sh",
-    "build": "npm run clean:binaries && NODE_ENV=production tsup && pkg dist/index.js -t node24-macos-arm64 -o ../src-tauri/binaries/mind-flayer-sidecar-aarch64-apple-darwin",
+    "dev": "bun run clean:binaries && bash scripts/rename-binaries.sh",
+    "build": "bun run clean:binaries && bun build --compile --target=bun-macos-arm64 src/index.ts --outfile ../src-tauri/binaries/mind-flayer-sidecar-aarch64-apple-darwin",
     "typecheck": "tsc --noEmit",
     "test": "vitest"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.47",
     "@ai-sdk/openai": "^3.0.33",
-    "@hono/node-server": "^1.19.9",
     "ai": "^6.0.99",
     "hono": "^4.12.2",
     "parallel-web": "^0.2.4",
-    "undici": "^7.22.0",
     "vercel-minimax-ai-provider": "^0.0.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/node": "^25.0.10",
     "@vitest/ui": "^4.0.18",
-    "@yao-pkg/pkg": "^6.12.0",
+    "bun-types": "^1.2.0",
     "dotenv": "^17.2.3",
     "rimraf": "^6.0.1",
-    "tsup": "^8.5.1",
     "typescript": "~5.9.3",
     "vitest": "^4.0.18"
   }

@@ -11,5 +11,5 @@ else
     PROJECT_ROOT="$SCRIPT_DIR/../.."
 fi
 
-NODE_BIN="${NODE_BIN:-$(which node)}"
-exec "$NODE_BIN" "$PROJECT_ROOT/sidecar/dist/index.js"
+BUN_BIN="${BUN_BIN:-$(which bun)}"
+exec "$BUN_BIN" run "$PROJECT_ROOT/sidecar/src/index.ts"

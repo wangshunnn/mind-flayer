@@ -1,6 +1,4 @@
-import { serve } from "@hono/node-server"
 import { Hono } from "hono"
-import { ProxyAgent, setGlobalDispatcher } from "undici"
 import { createCorsMiddleware } from "./middleware/cors"
 import { errorHandler } from "./middleware/error-handler"
 import { registerRoutes } from "./routes"
@@ -26,19 +24,15 @@ function setupGlobalProxyIfConfigured() {
     return
   }
 
-  try {
-    const dispatcher = new ProxyAgent(proxyUrl)
-    setGlobalDispatcher(dispatcher)
-    console.log(`[sidecar] Global HTTP proxy enabled: ${proxyUrl}`)
-  } catch (error) {
-    console.error("[sidecar] Failed to initialize proxy agent:", error)
-  }
+  // Ensure standard env vars are set so Bun's fetch picks them up
+  if (!process.env.HTTPS_PROXY) process.env.HTTPS_PROXY = proxyUrl
+  if (!process.env.HTTP_PROXY) process.env.HTTP_PROXY = proxyUrl
+  console.log(`[sidecar] Global HTTP proxy enabled: ${proxyUrl}`)
 }
 
 setupGlobalProxyIfConfigured()
 
 const app = new Hono()
-// Use the SIDECAR_PORT environment variable set by the Rust sidecar setup
 const PORT = process.env.SIDECAR_PORT
 const globalAbortController = new AbortController()
 const channelRuntimeConfigService = new ChannelRuntimeConfigService()
@@ -63,23 +57,20 @@ registerRoutes(
 )
 
 // Start server
-const server = serve(
-  {
-    fetch: app.fetch,
-    port: Number(PORT)
-  },
-  () => {
-    console.log(`Sidecar running on http://localhost:${PORT}`)
-    console.log(`API endpoint: http://localhost:${PORT}/api/chat`)
-  }
-)
-
-server.on("error", (error: NodeJS.ErrnoException) => {
-  const code = String(error.code ?? "UNKNOWN")
-  const message = normalizeErrorMessage(error.message || String(error))
+let server: ReturnType<typeof Bun.serve>
+try {
+  server = Bun.serve({
+    port: Number(PORT),
+    fetch: app.fetch
+  })
+  console.log(`Sidecar running on http://localhost:${server.port}`)
+  console.log(`API endpoint: http://localhost:${server.port}/api/chat`)
+} catch (error) {
+  const code = (error as { code?: string }).code ?? "UNKNOWN"
+  const message = normalizeErrorMessage((error as Error).message || String(error))
   console.error(`[sidecar] BIND_ERROR code=${code} message=${message}`)
   process.exit(1)
-})
+}
 
 // Setup stdin listener for config updates
 setupStdinListener((message: unknown) => {

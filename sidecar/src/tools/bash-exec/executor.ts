@@ -107,8 +107,8 @@ async function resolveCommandPath(command: string): Promise<string> {
   }
 }
 
-function buildExecutionEnv(workingDir: string): NodeJS.ProcessEnv {
-  const executionEnv: NodeJS.ProcessEnv = {
+function buildExecutionEnv(workingDir: string): Record<string, string | undefined> {
+  const executionEnv: Record<string, string | undefined> = {
     PATH: RESTRICTED_PATH,
     LANG: "en_US.UTF-8",
     HOME: USER_HOME,

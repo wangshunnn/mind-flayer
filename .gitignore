@@ -19,6 +19,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# Worktrees
+.worktrees
+
 # envars
 .env
 .env.*

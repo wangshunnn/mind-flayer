@@ -45,6 +45,7 @@ export async function openSettingsWindow(initialTab: SettingsSection = SettingsS
     url: `/settings?tab=${initialTab}`,
     width: 720,
     height: 680,
+    center: true,
     resizable: false,
     fullscreen: false,
     maximizable: false,

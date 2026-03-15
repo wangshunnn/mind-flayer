@@ -3,14 +3,30 @@ import { devOrigins, MODEL_PROVIDERS, prodOrigins } from "../constants"
 
 describe("constants", () => {
   describe("MODEL_PROVIDERS", () => {
-    it("should have minimax provider configured", () => {
+    it("should have model providers configured", () => {
       expect(MODEL_PROVIDERS).toHaveProperty("minimax")
+      expect(MODEL_PROVIDERS).toHaveProperty("openai")
+      expect(MODEL_PROVIDERS).toHaveProperty("anthropic")
       expect(MODEL_PROVIDERS.minimax).toHaveProperty("defaultBaseUrl")
+      expect(MODEL_PROVIDERS.openai).toHaveProperty("defaultBaseUrl")
+      expect(MODEL_PROVIDERS.anthropic).toHaveProperty("defaultBaseUrl")
     })
 
     it("should have valid minimax base URL", () => {
       const baseUrl = MODEL_PROVIDERS.minimax.defaultBaseUrl
       expect(baseUrl).toBe("https://api.minimaxi.com/anthropic/v1")
+      expect(baseUrl).toMatch(/^https?:\/\//)
+    })
+
+    it("should have valid openai base URL", () => {
+      const baseUrl = MODEL_PROVIDERS.openai.defaultBaseUrl
+      expect(baseUrl).toBe("https://api.openai.com/v1")
+      expect(baseUrl).toMatch(/^https?:\/\//)
+    })
+
+    it("should have valid anthropic base URL", () => {
+      const baseUrl = MODEL_PROVIDERS.anthropic.defaultBaseUrl
+      expect(baseUrl).toBe("https://api.anthropic.com/v1")
       expect(baseUrl).toMatch(/^https?:\/\//)
     })
   })

@@ -18,9 +18,8 @@ export function AppearanceThemePreview({
   const previewColors = getAppearanceThemePreviewColors(themeId, resolvedTheme)
 
   return (
-    <span className="flex w-full items-center justify-between gap-3">
-      <span>{label}</span>
-      <span aria-hidden className="flex items-center gap-1.5">
+    <span className="flex min-w-0 items-center gap-3">
+      <span aria-hidden className="flex shrink-0 items-center gap-1">
         {previewColors.map(color => (
           <span
             key={`${themeId}-${resolvedTheme}-${color}`}
@@ -29,6 +28,7 @@ export function AppearanceThemePreview({
           />
         ))}
       </span>
+      <span className="truncate">{label}</span>
     </span>
   )
 }

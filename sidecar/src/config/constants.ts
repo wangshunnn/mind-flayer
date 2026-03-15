@@ -4,6 +4,12 @@
 export const MODEL_PROVIDERS = {
   minimax: {
     defaultBaseUrl: "https://api.minimaxi.com/anthropic/v1"
+  },
+  openai: {
+    defaultBaseUrl: "https://api.openai.com/v1"
+  },
+  anthropic: {
+    defaultBaseUrl: "https://api.anthropic.com/v1"
   }
 } as const
 

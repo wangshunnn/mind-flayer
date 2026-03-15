@@ -407,5 +407,5 @@ export function getAppearanceThemePreviewColors(
 ) {
   const tokens = getAppearanceThemeTokens(themeId, mode)
 
-  return [tokens["--background"], tokens["--brand-green-color"], tokens["--sidebar"]] as const
+  return [tokens["--brand-green-color"], tokens["--background"], tokens["--sidebar"]] as const
 }

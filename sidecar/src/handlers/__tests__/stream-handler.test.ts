@@ -77,6 +77,8 @@ describe("createStreamResponse", () => {
       tools: {},
       toolChoice: "auto" as never,
       abortSignal: new AbortController().signal,
+      reasoningEnabled: true,
+      reasoningEffort: "default",
       disabledSkillIds: ["user:writer"]
     })
 
@@ -99,5 +101,49 @@ describe("createStreamResponse", () => {
     expect(consoleWarnSpy).not.toHaveBeenCalled()
 
     consoleWarnSpy.mockRestore()
+  })
+
+  it("passes providerOptions to streamText for supported anthropic models", async () => {
+    await createStreamResponse({
+      model: {} as never,
+      modelProvider: "anthropic",
+      modelId: "claude-sonnet-4-5-20251022",
+      messages: [{ role: "user", parts: [] }] as never,
+      tools: {},
+      toolChoice: "auto" as never,
+      abortSignal: new AbortController().signal,
+      reasoningEnabled: true,
+      reasoningEffort: "high"
+    })
+
+    expect(streamTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerOptions: {
+          anthropic: {
+            effort: "high"
+          }
+        }
+      })
+    )
+  })
+
+  it("omits providerOptions for unsupported models", async () => {
+    await createStreamResponse({
+      model: {} as never,
+      modelProvider: "openai",
+      modelId: "gpt-4",
+      messages: [{ role: "user", parts: [] }] as never,
+      tools: {},
+      toolChoice: "auto" as never,
+      abortSignal: new AbortController().signal,
+      reasoningEnabled: true,
+      reasoningEffort: "xhigh"
+    })
+
+    expect(streamTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerOptions: undefined
+      })
+    )
   })
 })

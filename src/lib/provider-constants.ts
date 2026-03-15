@@ -113,6 +113,33 @@ export const MODEL_PROVIDERS: Provider[] = [
         }
       }
     ]
+  },
+  {
+    id: "openai",
+    name: "OpenAI",
+    defaultBaseUrl: "https://api.openai.com/v1",
+    apiKeyUrl: "https://platform.openai.com/api-keys",
+    icon: Bot,
+    logo: OpenAIIcon,
+    models: [
+      { label: "GPT-5.4", api_id: "gpt-5.4" },
+      { label: "GPT-5.3-codex", api_id: "gpt-5.3-codex" },
+      { label: "GPT-5.2-pro", api_id: "gpt-5.2-pro" },
+      { label: "GPT-5.2", api_id: "gpt-5.2" }
+    ]
+  },
+  {
+    id: "anthropic",
+    name: "Anthropic",
+    defaultBaseUrl: "https://api.anthropic.com/v1",
+    apiKeyUrl: "https://console.anthropic.com/settings/keys",
+    icon: Bot,
+    logo: AnthropicIcon,
+    models: [
+      { label: "Claude Opus 4.6", api_id: "claude-opus-4.6" },
+      { label: "Claude Sonnet 4.6", api_id: "claude-sonnet-4.6" },
+      { label: "Claude Haiku 4.6", api_id: "claude-haiku-4.6" }
+    ]
   }
 ]
 
@@ -137,33 +164,6 @@ export const CHANNEL_PROVIDERS: Provider[] = [
 ]
 
 export const UPCOMING_PROVIDERS: Provider[] = [
-  {
-    id: "openai",
-    name: "OpenAI",
-    defaultBaseUrl: "https://api.openai.com/v1",
-    apiKeyUrl: "https://platform.openai.com/api-keys",
-    icon: Bot,
-    logo: OpenAIIcon,
-    disabled: true,
-    models: [
-      { label: "GPT-4", api_id: "gpt-4" },
-      { label: "GPT-4 Turbo", api_id: "gpt-4-turbo" },
-      { label: "GPT-3.5 Turbo", api_id: "gpt-3.5-turbo" }
-    ]
-  },
-  {
-    id: "anthropic",
-    name: "Anthropic",
-    defaultBaseUrl: "https://api.anthropic.com/v1",
-    apiKeyUrl: "https://console.anthropic.com/settings/keys",
-    icon: Bot,
-    logo: AnthropicIcon,
-    disabled: true,
-    models: [
-      { label: "Claude Sonnet 4.5", api_id: "claude-sonnet-4-5-20251022" },
-      { label: "Claude Opus 4.5", api_id: "claude-opus-4-5-20251101" }
-    ]
-  },
   {
     id: "gemini",
     name: "Gemini",

@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react"
-import { ChevronDownIcon, CircleIcon } from "lucide-react"
+import { BadgeInfoIcon, CheckIcon, ChevronDownIcon } from "lucide-react"
 import { useState } from "react"
 import {
   PromptInputButton,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useAutofocusSelectedDropdownItem } from "@/hooks/use-autofocus-selected-dropdown-item"
 import { useDropdownTooltip } from "@/hooks/use-dropdown-tooltip"
 import { cn } from "@/lib/utils"
 
@@ -59,6 +60,10 @@ type ToolButtonProps = {
    */
   modes?: ToolMode[]
   /**
+   * Optional helper text shown in the panel header info tooltip.
+   */
+  panelDescription?: string
+  /**
    * The currently selected mode value
    */
   selectedMode?: string
@@ -76,10 +81,21 @@ type ToolButtonProps = {
   variant?: PromptInputButtonProps["variant"]
 }
 
-/**
- * A reusable tool button component with dropdown menu for mode selection.
- * Designed to be used in the PromptInputTools area.
- */
+function InfoTooltipIcon({ content }: { content: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground">
+          <BadgeInfoIcon className="size-3" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-60">
+        {content}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 const ToolButton = ({
   icon: Icon,
   label,
@@ -88,6 +104,7 @@ const ToolButton = ({
   onEnabledChange,
   collapsed = false,
   modes,
+  panelDescription,
   selectedMode,
   onModeChange,
   className,
@@ -95,10 +112,9 @@ const ToolButton = ({
 }: ToolButtonProps) => {
   const [open, setOpen] = useState(false)
   const [openTooltip] = useDropdownTooltip(open)
-  const hasDropdown = modes && modes.length > 0 && onModeChange
+  const { scopeId: autofocusScope } = useAutofocusSelectedDropdownItem(open, selectedMode)
 
-  if (!hasDropdown) {
-    // Simple button without dropdown
+  if (!modes?.length || !onModeChange) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -121,9 +137,8 @@ const ToolButton = ({
     )
   }
 
-  // Button with dropdown
   const selectedModeLabel =
-    enabled && selectedMode ? modes?.find(m => m.value === selectedMode)?.label : undefined
+    enabled && selectedMode ? modes.find(m => m.value === selectedMode)?.label : undefined
   const displayLabel = selectedModeLabel || label
 
   return (
@@ -154,35 +169,40 @@ const ToolButton = ({
       </Tooltip>
 
       <DropdownMenuContent align="start" sideOffset={6} className="min-w-60">
-        {/* Header with title and switch */}
         <div className="flex items-center justify-between px-2 py-2">
-          <span className="text-sm font-medium">{label}</span>
+          <div className="flex min-w-0 items-center gap-1.5 pr-3">
+            <div className="text-sm font-medium text-muted-foreground">{label}</div>
+            {panelDescription && <InfoTooltipIcon content={panelDescription} />}
+          </div>
           <Switch checked={enabled} onCheckedChange={onEnabledChange} />
         </div>
 
-        {/* Mode options */}
         <DropdownMenuGroup>
           <DropdownMenuSeparator />
 
           {modes.map(mode => {
             const ModeIcon = mode.icon
+            const isSelected = selectedMode === mode.value
             return (
               <DropdownMenuItem
                 key={mode.value}
                 onClick={() => onModeChange(mode.value)}
-                className={cn("group flex flex-col items-start gap-1 px-2 py-2.5")}
+                className="group px-2 py-2.5"
+                data-autofocus-scope={autofocusScope}
+                data-item-value={mode.value}
               >
                 <div className="flex w-full items-center gap-2">
                   {ModeIcon && (
                     <ModeIcon className="size-4 shrink-0 group-hover:text-brand-green transition-colors" />
                   )}
-                  <span className="flex items-center flex-1 text-left font-medium">
+                  <span className="flex items-center flex-1 text-left font-medium gap-1.5">
                     {mode.label}
+                    {mode.description && <InfoTooltipIcon content={mode.description} />}
                     {mode.badge && (
                       <span
                         className={cn(
-                          "inline-flex items-center px-1.5 py-0.5 ml-2 text-[9px] font-normal",
-                          "italic rounded-md text-brand-green bg-brand-green-light"
+                          "inline-flex items-center px-1.5 py-0.5 text-[9px] font-normal",
+                          "rounded-md text-brand-green bg-brand-green-light"
                         )}
                       >
                         {mode.badge}
@@ -191,14 +211,9 @@ const ToolButton = ({
                   </span>
 
                   <span className="ml-2 w-4 shrink-0">
-                    {selectedMode === mode.value && (
-                      <CircleIcon className="size-2 fill-current text-brand-green" />
-                    )}
+                    {isSelected && <CheckIcon className="size-4 text-brand-green" />}
                   </span>
                 </div>
-                {mode.description && (
-                  <p className="text-[10px] text-muted-foreground pl-6">{mode.description}</p>
-                )}
               </DropdownMenuItem>
             )
           })}

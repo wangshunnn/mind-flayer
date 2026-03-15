@@ -9,7 +9,9 @@ import {
   type UIMessage
 } from "ai"
 import { discoverSkillsSafely, filterDisabledSkills } from "../skills/catalog"
+import type { ReasoningEffort } from "../type"
 import { processMessages } from "../utils/message-processor"
+import { buildProviderOptions } from "../utils/provider-options"
 import { buildSystemPrompt } from "../utils/system-prompt-builder"
 
 /**
@@ -23,6 +25,8 @@ export interface StreamHandlerOptions {
   tools: ToolSet
   toolChoice: ToolChoice<ToolSet>
   abortSignal: AbortSignal
+  reasoningEnabled: boolean
+  reasoningEffort: ReasoningEffort
   disabledSkillIds?: string[]
 }
 
@@ -34,7 +38,17 @@ export interface StreamHandlerOptions {
  * @returns Stream response for the client
  */
 export async function createStreamResponse(options: StreamHandlerOptions) {
-  const { model, modelProvider, modelId, messages, tools, toolChoice, abortSignal } = options
+  const {
+    model,
+    modelProvider,
+    modelId,
+    messages,
+    tools,
+    toolChoice,
+    abortSignal,
+    reasoningEnabled,
+    reasoningEffort
+  } = options
 
   const [skills, prunedMessages] = await Promise.all([
     discoverSkillsSafely("stream request"),
@@ -45,6 +59,13 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
   console.info("[sidecar] systemPrompt:", systemPrompt)
   console.dir({ prunedMessages }, { depth: null })
 
+  const providerOptions = buildProviderOptions({
+    modelProvider,
+    modelId,
+    reasoningEnabled,
+    reasoningEffort
+  })
+
   // Create streaming response
   const result = streamText({
     model,
@@ -53,7 +74,8 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
     tools,
     toolChoice,
     stopWhen: Object.keys(tools).length ? stepCountIs(20) : stepCountIs(1),
-    abortSignal
+    abortSignal,
+    providerOptions
   })
 
   return result.toUIMessageStreamResponse({

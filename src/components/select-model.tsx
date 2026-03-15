@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ProviderLogo } from "@/components/ui/provider-logo"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useAutofocusSelectedDropdownItem } from "@/hooks/use-autofocus-selected-dropdown-item"
 import { useAvailableModels } from "@/hooks/use-available-models"
 import { useDropdownTooltip } from "@/hooks/use-dropdown-tooltip"
 import type { ModelPricing } from "@/lib/provider-constants"
@@ -35,14 +36,12 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
   const { t } = useTranslation("chat")
   const [open, setOpen] = useState(false)
   const { availableModels, isLoading } = useAvailableModels()
-
-  // Use controlled state if provided, otherwise use internal state
   const [internalModel, setInternalModel] = useState({} as ModelOption)
   const selectedModel = value ?? internalModel
   const setSelectedModel = onChange ?? setInternalModel
   const [openTooltip] = useDropdownTooltip(open)
+  const { scopeId: autofocusScope } = useAutofocusSelectedDropdownItem(open, selectedModel.api_id)
 
-  // Group models by provider
   const groupedModels = useMemo(() => {
     const groups: Record<string, ModelOption[]> = {}
     availableModels.forEach(model => {
@@ -76,7 +75,7 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
         <TooltipContent>{t("model.switchModel")}</TooltipContent>
       </Tooltip>
 
-      <DropdownMenuContent align="start" sideOffset={4}>
+      <DropdownMenuContent align="start" sideOffset={4} className="w-max">
         <DropdownMenuGroup>
           {isLoading ? (
             <DropdownMenuItem disabled className="text-muted-foreground">
@@ -92,19 +91,27 @@ function SelectModel({ className, value, onChange, ...props }: SelectModelProps)
           ) : (
             groupedModels.map(([provider, models]) => (
               <Fragment key={provider}>
-                {models.map((model: ModelOption) => (
-                  <DropdownMenuItem
-                    key={model.api_id}
-                    onClick={() => setSelectedModel(model)}
-                    className={cn("flex items-center gap-2 pl-1 pr-3 font-medium")}
-                  >
-                    <ProviderLogo providerId={model.provider} className="size-4" />
-                    <span className="flex-1 text-left">{model.label}</span>
-                    <span className="ml-10 shrink-0">
-                      {selectedModel.api_id === model.api_id && <CheckIcon className="size-4" />}
-                    </span>
-                  </DropdownMenuItem>
-                ))}
+                {models.map((model: ModelOption) => {
+                  const isSelected = selectedModel.api_id === model.api_id
+
+                  return (
+                    <DropdownMenuItem
+                      key={model.api_id}
+                      onClick={() => setSelectedModel(model)}
+                      className="flex w-full items-center justify-between gap-10 px-2 py-1.5 font-medium"
+                      data-autofocus-scope={autofocusScope}
+                      data-item-value={model.api_id}
+                    >
+                      <span className="flex min-w-0 flex-1 items-center gap-3">
+                        <ProviderLogo providerId={model.provider} className="size-4" />
+                        <span className="text-left">{model.label}</span>
+                      </span>
+                      <span className="flex size-4 shrink-0 items-center justify-center">
+                        {isSelected && <CheckIcon className="size-4" />}
+                      </span>
+                    </DropdownMenuItem>
+                  )
+                })}
                 <DropdownMenuSeparator />
               </Fragment>
             ))

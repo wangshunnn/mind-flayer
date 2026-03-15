@@ -61,9 +61,33 @@
         }
       }
     },
-    "deepThink": {
-      "label": "DeepThink",
-      "tooltip": "Deep thinking"
+    "reasoning": {
+      "label": "Reasoning",
+      "tooltip": "Reasoning",
+      "description": "Only applies to models that support adjustable reasoning effort.",
+      "modes": {
+        "default": {
+          "label": "Default",
+          "badge": "Recommended",
+          "description": "Use the model's default thinking behavior"
+        },
+        "low": {
+          "label": "Low",
+          "description": "Favor faster replies with lighter reasoning"
+        },
+        "medium": {
+          "label": "Medium",
+          "description": "Balance reasoning depth and latency"
+        },
+        "high": {
+          "label": "High",
+          "description": "Spend more effort on difficult tasks"
+        },
+        "xhigh": {
+          "label": "Extra High",
+          "description": "Use the highest supported reasoning effort"
+        }
+      }
     }
   },
   "errors": {

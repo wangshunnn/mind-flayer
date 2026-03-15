@@ -59,9 +59,33 @@
         }
       }
     },
-    "deepThink": {
-      "label": "深度思考",
-      "tooltip": "深度思考"
+    "reasoning": {
+      "label": "推理",
+      "tooltip": "推理",
+      "description": "仅对支持调整思考程度的模型生效。",
+      "modes": {
+        "default": {
+          "label": "默认",
+          "badge": "推荐",
+          "description": "使用模型默认的思考行为"
+        },
+        "low": {
+          "label": "低",
+          "description": "更偏向更快回复与更轻量的思考"
+        },
+        "medium": {
+          "label": "中",
+          "description": "平衡思考深度与响应延迟"
+        },
+        "high": {
+          "label": "高",
+          "description": "在复杂任务上投入更多思考"
+        },
+        "xhigh": {
+          "label": "超高",
+          "description": "使用模型支持范围内最高的思考强度"
+        }
+      }
     }
   },
   "errors": {

@@ -35,7 +35,7 @@ export function GeneralSection() {
             value={theme}
             onValueChange={value => setTheme(value as "light" | "dark" | "system")}
           >
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-52">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -54,7 +54,7 @@ export function GeneralSection() {
             value={appearanceTheme}
             onValueChange={value => setAppearanceTheme(value as AppearanceThemeId)}
           >
-            <SelectTrigger className="w-56">
+            <SelectTrigger className="w-52">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -80,7 +80,7 @@ export function GeneralSection() {
             value={language}
             onValueChange={value => changeLanguage(value as "en" | "zh-CN" | "system")}
           >
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-52">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

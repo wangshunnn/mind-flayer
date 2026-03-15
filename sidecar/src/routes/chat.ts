@@ -25,6 +25,11 @@ export async function handleChat(
     const modelId = c.req.header("x-model-id") || body.model
     const useWebSearch = c.req.header("x-use-web-search") === "true" || body.useWebSearch
     const webSearchMode = (c.req.header("x-web-search-mode") as WebSearchMode) || "auto"
+    const reasoningEnabled =
+      c.req.header("x-reasoning-enabled") === "true" || body.reasoningEnabled === true
+    const reasoningEffort = (c.req.header("x-reasoning-effort") ||
+      body.reasoningEffort ||
+      "default") as "default" | "low" | "medium" | "high" | "xhigh"
     const chatId = c.req.header("x-chat-id") || body.chatId
     const messages = body?.messages as UIMessage[]
 
@@ -50,6 +55,8 @@ export async function handleChat(
       modelId,
       useWebSearch,
       webSearchMode,
+      reasoningEnabled,
+      reasoningEffort,
       chatId
     })
 
@@ -79,6 +86,8 @@ export async function handleChat(
       tools: requestTools,
       toolChoice,
       abortSignal,
+      reasoningEnabled,
+      reasoningEffort,
       disabledSkillIds: channelRuntimeConfigService.getDisabledSkillIds()
     })
   } catch (error) {

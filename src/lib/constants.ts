@@ -119,7 +119,7 @@ export function useTooltipConstants() {
       submit: t("actions:submit"),
       stop: t("actions:stop"),
       webSearch: t("tools:buttons.search.tooltip"),
-      deepThinking: t("tools:buttons.deepThink.tooltip"),
+      reasoning: t("tools:buttons.reasoning.tooltip"),
       selectModel: t("chat:model.selectModel")
     }),
     [t]
@@ -149,9 +149,38 @@ export function useToolButtonConstants() {
           }
         }
       },
-      deepThink: {
-        label: t("buttons.deepThink.label"),
-        tooltip: t("buttons.deepThink.tooltip")
+      reasoning: {
+        label: t("buttons.reasoning.label"),
+        tooltip: t("buttons.reasoning.tooltip"),
+        description: t("buttons.reasoning.description"),
+        modes: {
+          default: {
+            value: "default" as const,
+            label: t("buttons.reasoning.modes.default.label"),
+            badge: t("buttons.reasoning.modes.default.badge"),
+            description: t("buttons.reasoning.modes.default.description")
+          },
+          low: {
+            value: "low" as const,
+            label: t("buttons.reasoning.modes.low.label"),
+            description: t("buttons.reasoning.modes.low.description")
+          },
+          medium: {
+            value: "medium" as const,
+            label: t("buttons.reasoning.modes.medium.label"),
+            description: t("buttons.reasoning.modes.medium.description")
+          },
+          high: {
+            value: "high" as const,
+            label: t("buttons.reasoning.modes.high.label"),
+            description: t("buttons.reasoning.modes.high.description")
+          },
+          xhigh: {
+            value: "xhigh" as const,
+            label: t("buttons.reasoning.modes.xhigh.label"),
+            description: t("buttons.reasoning.modes.xhigh.description")
+          }
+        }
       }
     }),
     [t]

@@ -1,12 +1,13 @@
 import {
-  BrushCleaningIcon,
   LanguagesIcon,
   MonitorIcon,
   MoonStarIcon,
   PaletteIcon,
   Settings,
-  SunIcon
+  SunIcon,
+  SunMoonIcon
 } from "lucide-react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   AppearanceThemePreview,
@@ -29,6 +30,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
+import { useAutofocusSelectedDropdownItem } from "@/hooks/use-autofocus-selected-dropdown-item"
 import { useLanguage } from "@/hooks/use-language"
 import { useShortcutDisplay } from "@/hooks/use-shortcut-config"
 import { cn } from "@/lib/utils"
@@ -41,6 +43,17 @@ export function NavUser() {
   const { language, changeLanguage } = useLanguage()
   const shortcutKeys = useShortcutDisplay(ShortcutAction.OPEN_SETTINGS)
   const appearanceThemeOptions = useAppearanceThemeOptions()
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false)
+  const [appearanceThemeMenuOpen, setAppearanceThemeMenuOpen] = useState(false)
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false)
+  const { scopeId: themeAutofocusScope, focusSelectedItem: focusThemeMenuSelectedItem } =
+    useAutofocusSelectedDropdownItem(themeMenuOpen, theme)
+  const {
+    scopeId: appearanceThemeAutofocusScope,
+    focusSelectedItem: focusAppearanceThemeMenuSelectedItem
+  } = useAutofocusSelectedDropdownItem(appearanceThemeMenuOpen, appearanceTheme)
+  const { scopeId: languageAutofocusScope, focusSelectedItem: focusLanguageMenuSelectedItem } =
+    useAutofocusSelectedDropdownItem(languageMenuOpen, language)
 
   return (
     <SidebarMenu>
@@ -68,9 +81,15 @@ export function NavUser() {
             align="center"
             sideOffset={8}
           >
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <PaletteIcon />
+            <DropdownMenuSub open={themeMenuOpen} onOpenChange={setThemeMenuOpen}>
+              <DropdownMenuSubTrigger
+                onPointerMove={() => {
+                  if (themeMenuOpen) {
+                    focusThemeMenuSelectedItem()
+                  }
+                }}
+              >
+                <SunMoonIcon />
                 {t("theme.title")}
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
@@ -80,15 +99,27 @@ export function NavUser() {
                       value={theme}
                       onValueChange={setTheme as (value: string) => void}
                     >
-                      <DropdownMenuRadioItem value="light">
+                      <DropdownMenuRadioItem
+                        value="light"
+                        data-autofocus-scope={themeAutofocusScope}
+                        data-item-value="light"
+                      >
                         <SunIcon />
                         {t("theme.light")}
                       </DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="dark">
+                      <DropdownMenuRadioItem
+                        value="dark"
+                        data-autofocus-scope={themeAutofocusScope}
+                        data-item-value="dark"
+                      >
                         <MoonStarIcon />
                         {t("theme.dark")}
                       </DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="system">
+                      <DropdownMenuRadioItem
+                        value="system"
+                        data-autofocus-scope={themeAutofocusScope}
+                        data-item-value="system"
+                      >
                         <MonitorIcon />
                         {t("theme.system")}
                       </DropdownMenuRadioItem>
@@ -98,20 +129,34 @@ export function NavUser() {
               </DropdownMenuPortal>
             </DropdownMenuSub>
 
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <BrushCleaningIcon />
+            <DropdownMenuSub
+              open={appearanceThemeMenuOpen}
+              onOpenChange={setAppearanceThemeMenuOpen}
+            >
+              <DropdownMenuSubTrigger
+                onPointerMove={() => {
+                  if (appearanceThemeMenuOpen) {
+                    focusAppearanceThemeMenuSelectedItem()
+                  }
+                }}
+              >
+                <PaletteIcon />
                 {t("general.appearanceTheme", { ns: "settings" })}
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
-                <DropdownMenuSubContent sideOffset={4} alignOffset={-4} className="min-w-52">
+                <DropdownMenuSubContent sideOffset={4} alignOffset={-4}>
                   <DropdownMenuGroup>
                     <DropdownMenuRadioGroup
                       value={appearanceTheme}
                       onValueChange={value => void setAppearanceTheme(value as AppearanceThemeId)}
                     >
                       {appearanceThemeOptions.map(({ themeId, label }) => (
-                        <DropdownMenuRadioItem key={themeId} value={themeId}>
+                        <DropdownMenuRadioItem
+                          key={themeId}
+                          value={themeId}
+                          data-autofocus-scope={appearanceThemeAutofocusScope}
+                          data-item-value={themeId}
+                        >
                           <AppearanceThemePreview
                             themeId={themeId}
                             label={label}
@@ -126,8 +171,14 @@ export function NavUser() {
               </DropdownMenuPortal>
             </DropdownMenuSub>
 
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
+            <DropdownMenuSub open={languageMenuOpen} onOpenChange={setLanguageMenuOpen}>
+              <DropdownMenuSubTrigger
+                onPointerMove={() => {
+                  if (languageMenuOpen) {
+                    focusLanguageMenuSelectedItem()
+                  }
+                }}
+              >
                 <LanguagesIcon />
                 {t("general.language", { ns: "settings" })}
               </DropdownMenuSubTrigger>
@@ -138,13 +189,25 @@ export function NavUser() {
                       value={language}
                       onValueChange={changeLanguage as (value: string) => void}
                     >
-                      <DropdownMenuRadioItem value="zh-CN">
+                      <DropdownMenuRadioItem
+                        value="zh-CN"
+                        data-autofocus-scope={languageAutofocusScope}
+                        data-item-value="zh-CN"
+                      >
                         {t("general.languageChinese", { ns: "settings" })}
                       </DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="en">
+                      <DropdownMenuRadioItem
+                        value="en"
+                        data-autofocus-scope={languageAutofocusScope}
+                        data-item-value="en"
+                      >
                         {t("general.languageEnglish", { ns: "settings" })}
                       </DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="system">
+                      <DropdownMenuRadioItem
+                        value="system"
+                        data-autofocus-scope={languageAutofocusScope}
+                        data-item-value="system"
+                      >
                         {t("general.languageSystem", { ns: "settings" })}
                       </DropdownMenuRadioItem>
                     </DropdownMenuRadioGroup>

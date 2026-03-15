@@ -287,7 +287,7 @@ export default function Settings() {
       const result = await testTelegramConnection()
       setChannelTestStatus("success")
       toast.success(t("channels.testConnectionSuccess"), {
-        description: `${result.bot.firstName}${result.bot.username ? ` (@${result.bot.username})` : ""} · ${result.baseUrl}`
+        description: `${result.bot.firstName}${result.bot.username ? ` (@${result.bot.username})` : ""}`
       })
     } catch (err) {
       setChannelTestStatus("error")

@@ -3,6 +3,7 @@ export const APPEARANCE_THEME_IDS = ["forest", "sand", "workbench", "graphite"] 
 export type AppearanceThemeId = (typeof APPEARANCE_THEME_IDS)[number]
 export type Language = "en" | "zh-CN" | "system"
 export type WebSearchMode = "auto" | "always"
+export type ReasoningEffort = "default" | "low" | "medium" | "high" | "xhigh"
 
 /**
  * Shortcut scope - global (system-wide) or local (app-only)
@@ -58,7 +59,8 @@ export interface AppSettings {
   // Tool settings
   webSearchEnabled: boolean
   webSearchMode: WebSearchMode
-  deepThinkEnabled: boolean
+  reasoningEnabled: boolean
+  reasoningEffort: ReasoningEffort
 
   // App settings
   autoLaunch: boolean
@@ -73,6 +75,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   language: "system",
   enabledProviders: {
     minimax: false,
+    openai: false,
+    anthropic: false,
     parallel: false
   },
   enabledChannels: {
@@ -82,7 +86,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   disabledSkills: [],
   webSearchEnabled: true,
   webSearchMode: "auto",
-  deepThinkEnabled: true,
+  reasoningEnabled: true,
+  reasoningEffort: "default",
   autoLaunch: false,
   shortcuts: {
     [ShortcutAction.TOGGLE_WINDOW]: {

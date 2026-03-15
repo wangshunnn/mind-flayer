@@ -14,7 +14,7 @@ import {
   type ToolUIPart,
   type UIMessage
 } from "ai"
-import { AtomIcon, BrainIcon, CircleIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
+import { BrainIcon, CircleIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
 import { nanoid } from "nanoid"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -83,7 +83,6 @@ import {
   useTooltipConstants
 } from "@/lib/constants"
 import { findModelPricing } from "@/lib/provider-constants"
-import { resolveReasoningEffort } from "@/lib/reasoning"
 import { generateTitle, getSidecarUrl } from "@/lib/sidecar-client"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
@@ -201,15 +200,6 @@ const AppChatInner = ({
 
   const selectedModel =
     availableModels.find(m => m.api_id === selectedModelApiId) ?? availableModels[0] ?? null
-  const effectiveReasoningEffort = useMemo(
-    () =>
-      resolveReasoningEffort(
-        selectedModel?.provider,
-        selectedModel?.api_id,
-        preferredReasoningEffort
-      ),
-    [selectedModel?.api_id, selectedModel?.provider, preferredReasoningEffort]
-  )
 
   const [isCondensed, setIsCondensed] = useState(false)
   const [input, setInput] = useState("")
@@ -217,7 +207,7 @@ const AppChatInner = ({
   const useWebSearchRef = useLatest(useWebSearch)
   const webSearchModeRef = useLatest(webSearchMode)
   const reasoningEnabledRef = useLatest(reasoningEnabled)
-  const reasoningEffortRef = useLatest(effectiveReasoningEffort)
+  const reasoningEffortRef = useLatest(preferredReasoningEffort)
   const inputContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<PromptInputTextareaHandle>(null)
   const spacerElementRef = useRef<HTMLDivElement>(null)
@@ -1500,7 +1490,7 @@ const AppChatInner = ({
                   />
 
                   <ToolButton
-                    icon={AtomIcon}
+                    icon={BrainIcon}
                     label={toolButtonConstants.reasoning.label}
                     tooltip={toolButtonConstants.reasoning.tooltip}
                     panelDescription={toolButtonConstants.reasoning.description}
@@ -1514,7 +1504,7 @@ const AppChatInner = ({
                       { ...toolButtonConstants.reasoning.modes.high, icon: BrainIcon },
                       { ...toolButtonConstants.reasoning.modes.xhigh, icon: BrainIcon }
                     ]}
-                    selectedMode={effectiveReasoningEffort}
+                    selectedMode={preferredReasoningEffort}
                     onModeChange={mode => setPreferredReasoningEffort(mode as ReasoningEffort)}
                   />
                 </PromptInputTools>

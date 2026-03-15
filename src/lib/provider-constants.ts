@@ -122,10 +122,9 @@ export const MODEL_PROVIDERS: Provider[] = [
     icon: Bot,
     logo: OpenAIIcon,
     models: [
+      { label: "GPT-5.4-Pro", api_id: "gpt-5.4-pro" },
       { label: "GPT-5.4", api_id: "gpt-5.4" },
-      { label: "GPT-5.3-codex", api_id: "gpt-5.3-codex" },
-      { label: "GPT-5.2-pro", api_id: "gpt-5.2-pro" },
-      { label: "GPT-5.2", api_id: "gpt-5.2" }
+      { label: "GPT-5.3-Chat-Latest", api_id: "gpt-5.3-chat-latest" }
     ]
   },
   {
@@ -136,9 +135,8 @@ export const MODEL_PROVIDERS: Provider[] = [
     icon: Bot,
     logo: AnthropicIcon,
     models: [
-      { label: "Claude Opus 4.6", api_id: "claude-opus-4.6" },
-      { label: "Claude Sonnet 4.6", api_id: "claude-sonnet-4.6" },
-      { label: "Claude Haiku 4.6", api_id: "claude-haiku-4.6" }
+      { label: "Claude Opus 4.6", api_id: "claude-opus-4-6" },
+      { label: "Claude Sonnet 4.6", api_id: "claude-sonnet-4-6" }
     ]
   }
 ]

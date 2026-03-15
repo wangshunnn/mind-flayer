@@ -6,7 +6,7 @@ describe("buildProviderOptions", () => {
     expect(
       buildProviderOptions({
         modelProvider: "anthropic",
-        modelId: "claude-sonnet-4.6",
+        modelId: "claude-sonnet-4-6",
         reasoningEnabled: true,
         reasoningEffort: "xhigh"
       })
@@ -21,7 +21,7 @@ describe("buildProviderOptions", () => {
     expect(
       buildProviderOptions({
         modelProvider: "anthropic",
-        modelId: "claude-sonnet-4.6",
+        modelId: "claude-sonnet-4-6",
         reasoningEnabled: false,
         reasoningEffort: "high"
       })
@@ -77,7 +77,7 @@ describe("buildProviderOptions", () => {
     expect(
       buildProviderOptions({
         modelProvider: "anthropic",
-        modelId: "claude-sonnet-4.6",
+        modelId: "claude-sonnet-4-6",
         reasoningEnabled: true,
         reasoningEffort: "default"
       })

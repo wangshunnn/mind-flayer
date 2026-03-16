@@ -12,13 +12,17 @@
   <p>
     <img src="https://img.shields.io/badge/Tauri2.0-24C8DB?logo=tauri&logoColor=FFC131">
     <img src="https://img.shields.io/badge/Rust-c57c54?logo=rust&logoColor=E34F26">
+    <img src="https://img.shields.io/badge/Hono-E36002?logo=hono&logoColor=fff">
+    <img src="https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=fff">
     <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=fff">
     <img src="https://img.shields.io/badge/React%2019-2C4F7C?logo=react&logoColor=61DAFB">
+    <img src="https://img.shields.io/badge/TanStack%20Router-FF4154?logo=reactrouter&logoColor=fff">
+    <img src="https://img.shields.io/badge/i18next-26A69A?logo=i18next&logoColor=fff">
     <img src="https://img.shields.io/badge/Vercel%20AI%20SDK-000000?logo=vercel&logoColor=white">
     <img src="https://img.shields.io/badge/shadcn/ui-000000?logo=shadcnui&logoColor=fff">
     <img src="https://img.shields.io/badge/Tailwind%20CSS-%2338B2AC.svg?logo=tailwind-css&logoColor=white">
     <img src="https://img.shields.io/badge/Biome-60A5FA?logo=biome&logoColor=fff">
-    <img src="https://img.shields.io/badge/Vite7-646CFF?logo=vite&logoColor=fff">
+    <img src="https://img.shields.io/badge/Vite8-646CFF?logo=vite&logoColor=fff">
     <img src="https://img.shields.io/badge/Vitest4-6E9F18?logo=vitest&logoColor=fff">
     <img src="https://img.shields.io/badge/pnpm10-F69220?logo=pnpm&logoColor=fff">
     <img src="https://img.shields.io/badge/lefthook-E93d30?logo=lefthook&logoColor=fff">
@@ -64,14 +68,18 @@ pnpm build            # Build for production
 
 - **[React 19](https://react.dev/)** - JavaScript library for building user interfaces with latest concurrent features and optimizations
 - **[TypeScript](https://www.typescriptlang.org/)** - JavaScript superset with type safety and better developer experience
-- **[Vite 7](https://vitejs.dev/)** - Next-generation frontend build tool with blazing-fast dev server and optimized production builds
+- **[Vite 8](https://vitejs.dev/)** - Next-generation frontend build tool with blazing-fast dev server and optimized production builds
 - **[Tailwind CSS 4](https://tailwindcss.com/)** - Utility-first CSS framework for rapidly building modern UIs
 - **[shadcn/ui](https://ui.shadcn.com/)** - Beautifully designed components built with Radix UI and Tailwind CSS
+- **[TanStack Router](https://tanstack.com/router)** - Type-safe routing framework for React with built-in search params validation
+- **[i18next](https://www.i18next.com/)** - Internationalization framework supporting English and Simplified Chinese
 
 ### Backend
 
 - **[Tauri 2.0](https://tauri.app/)** - Build lightweight, secure, and cross-platform desktop applications with web technologies
 - **[Rust](https://www.rust-lang.org/)** - High-performance, memory-safe systems programming language powering Tauri's backend
+- **[Hono](https://hono.dev/)** - Ultrafast web framework for the sidecar server, handling API routing and middleware
+- **[SQLite](https://www.sqlite.org/)** - Lightweight embedded database for chat history and message persistence
 
 ### AI Integration
 

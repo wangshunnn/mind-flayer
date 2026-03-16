@@ -120,6 +120,9 @@ describe("createStreamResponse", () => {
       expect.objectContaining({
         providerOptions: {
           anthropic: {
+            thinking: {
+              type: "adaptive"
+            },
             effort: "high"
           }
         }

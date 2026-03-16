@@ -12,6 +12,9 @@ describe("buildProviderOptions", () => {
       })
     ).toEqual({
       anthropic: {
+        thinking: {
+          type: "adaptive"
+        },
         effort: "max"
       }
     })
@@ -64,7 +67,7 @@ describe("buildProviderOptions", () => {
     })
   })
 
-  it("falls back to undefined for unsupported models or default effort", () => {
+  it("falls back to undefined for unsupported models", () => {
     expect(
       buildProviderOptions({
         modelProvider: "openai",
@@ -73,7 +76,9 @@ describe("buildProviderOptions", () => {
         reasoningEffort: "xhigh"
       })
     ).toBeUndefined()
+  })
 
+  it("returns adaptive thinking for anthropic default effort", () => {
     expect(
       buildProviderOptions({
         modelProvider: "anthropic",
@@ -81,6 +86,12 @@ describe("buildProviderOptions", () => {
         reasoningEnabled: true,
         reasoningEffort: "default"
       })
-    ).toBeUndefined()
+    ).toEqual({
+      anthropic: {
+        thinking: {
+          type: "adaptive"
+        }
+      }
+    })
   })
 })

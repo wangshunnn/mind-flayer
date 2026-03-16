@@ -69,7 +69,9 @@ function mapAnthropicReasoningEffort(
   }
 
   if (reasoningEffort === "default") {
-    return {} satisfies AnthropicLanguageModelOptions
+    return {
+      thinking: { type: "adaptive" }
+    } satisfies AnthropicLanguageModelOptions
   }
 
   const effortMap: Record<
@@ -83,6 +85,7 @@ function mapAnthropicReasoningEffort(
   }
 
   return {
+    thinking: { type: "adaptive" },
     effort: effortMap[reasoningEffort]
   } satisfies AnthropicLanguageModelOptions
 }

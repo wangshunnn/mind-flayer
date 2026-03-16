@@ -1278,7 +1278,8 @@ const AppChatInner = ({
                   )
                 const lastStep = currentStep.at(-1)
                 const isThinkingComplete =
-                  lastStep && isReasoningUIPart(lastStep) && lastStep.state !== "streaming"
+                  !isThinkingStreaming ||
+                  (lastStep && isReasoningUIPart(lastStep) && lastStep.state !== "streaming")
                 const toolParts = message.parts.filter(isToolUIPart)
                 const messageToolDurations =
                   metadata?.toolDurations ?? toolDurations?.get(message.id)

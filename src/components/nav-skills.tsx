@@ -20,7 +20,7 @@ export function NavSkills({ isActive, onClick }: NavSkillsProps) {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton isActive={isActive} onClick={onClick}>
-            <WandSparklesIcon className="size-4! opacity-80" />
+            <WandSparklesIcon className="size-3.5!" />
             <span>{t("nav.skills")}</span>
           </SidebarMenuButton>
         </SidebarMenuItem>

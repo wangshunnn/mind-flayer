@@ -106,6 +106,12 @@ describe("formatCompactTokens", () => {
 
   it("formats values above 1000 with english K suffix", () => {
     expect(formatCompactTokens(88600)).toBe("88.6K")
-    expect(formatCompactTokens(1500000)).toBe("1,500K")
+    expect(formatCompactTokens(500000)).toBe("500K")
+  })
+
+  it("formats values at or above 1M with english M suffix", () => {
+    expect(formatCompactTokens(1000000)).toBe("1M")
+    expect(formatCompactTokens(1050000)).toBe("1.05M")
+    expect(formatCompactTokens(2500000)).toBe("2.5M")
   })
 })

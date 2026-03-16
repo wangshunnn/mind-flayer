@@ -153,4 +153,51 @@ describe("createStreamResponse", () => {
       })
     )
   })
+
+  it("includes provider and model labels in streamed message metadata", async () => {
+    const toUIMessageStreamResponseMock = vi.fn((_: unknown) => "stream-response")
+    streamTextMock.mockReturnValueOnce({
+      toUIMessageStreamResponse: toUIMessageStreamResponseMock
+    })
+
+    await createStreamResponse({
+      model: {} as never,
+      modelProvider: "minimax",
+      modelProviderLabel: "MiniMax",
+      modelId: "model-a",
+      modelLabel: "MiniMax-M2.5",
+      messages: [{ role: "user", parts: [] }] as never,
+      tools: {},
+      toolChoice: "auto" as never,
+      abortSignal: new AbortController().signal,
+      reasoningEnabled: true,
+      reasoningEffort: "default"
+    })
+
+    expect(toUIMessageStreamResponseMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageMetadata: expect.any(Function)
+      })
+    )
+
+    const streamResponseOptions = toUIMessageStreamResponseMock.mock.calls[0]?.[0]
+
+    expect(streamResponseOptions).toBeDefined()
+    if (!streamResponseOptions) {
+      return
+    }
+
+    const typedStreamResponseOptions = streamResponseOptions as unknown as {
+      messageMetadata: (value: {
+        part: { type: "start" | "finish"; totalUsage?: unknown }
+      }) => unknown
+    }
+
+    expect(typedStreamResponseOptions.messageMetadata({ part: { type: "start" } })).toMatchObject({
+      modelProvider: "minimax",
+      modelProviderLabel: "MiniMax",
+      modelId: "model-a",
+      modelLabel: "MiniMax-M2.5"
+    })
+  })
 })

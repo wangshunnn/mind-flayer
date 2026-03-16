@@ -180,14 +180,18 @@ export const UserMessageActionsBar = ({
 type TokenUsageDetailsProps = {
   usage: LanguageModelUsage
   modelProvider?: string
+  modelProviderLabel?: string
   modelId?: string
+  modelLabel?: string
   modelPricing?: ModelPricing
 }
 
 const TokenUsageDetails = ({
   usage,
   modelProvider,
+  modelProviderLabel,
   modelId,
+  modelLabel,
   modelPricing
 }: TokenUsageDetailsProps) => {
   const { t } = useTranslation("chat")
@@ -211,6 +215,10 @@ const TokenUsageDetails = ({
         (usageCost.costs.cachedWrite ?? 0)
   const hasModelMetadata = Boolean(modelProvider && modelId)
   const showCostUnavailable = !hasModelMetadata || !usageCost.hasAnyPricing
+  const displayProvider = modelProviderLabel ?? modelProvider
+  const displayModel = modelLabel ?? modelId
+  const displayModelName =
+    displayProvider && displayModel ? `${displayProvider}/${displayModel}` : null
 
   const tokenRows = [
     [t("tokens.inputTotal"), usageCost.tokens.input],
@@ -241,6 +249,13 @@ const TokenUsageDetails = ({
       </HoverCardTrigger>
       <HoverCardContent align="center" sideOffset={8} className="w-50 p-3">
         <div className="space-y-3">
+          {displayModelName && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium">{t("tokens.model")}</p>
+              <p className="text-xs break-all text-muted-foreground">{displayModelName}</p>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <p className="text-xs font-medium">{t("tokens.usageTitle")}</p>
             <dl className="grid grid-cols-[1fr_auto] gap-y-1 text-xs">
@@ -301,7 +316,9 @@ export type AssistantMessageActionsBarProps = ComponentProps<"div"> & {
   showRefresh?: boolean
   tokenInfo?: LanguageModelUsage
   modelProvider?: string
+  modelProviderLabel?: string
   modelId?: string
+  modelLabel?: string
   modelPricing?: ModelPricing
 }
 
@@ -314,7 +331,9 @@ export const AssistantMessageActionsBar = ({
   showRefresh = true,
   tokenInfo,
   modelProvider,
+  modelProviderLabel,
   modelId,
+  modelLabel,
   modelPricing,
   className,
   ...props
@@ -387,7 +406,9 @@ export const AssistantMessageActionsBar = ({
         <TokenUsageDetails
           usage={tokenInfo}
           modelProvider={modelProvider}
+          modelProviderLabel={modelProviderLabel}
           modelId={modelId}
+          modelLabel={modelLabel}
           modelPricing={modelPricing}
         />
       )}

@@ -18,6 +18,11 @@ const englishKiloFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1
 })
 
+const englishMegaFormatter = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2
+})
+
 const normalizeTokenCount = (value: number | undefined): number | undefined => {
   if (typeof value !== "number" || Number.isNaN(value)) {
     return undefined
@@ -81,6 +86,11 @@ export function formatCompactTokens(value: number): string {
 
   if (safeValue < 1000) {
     return englishIntegerFormatter.format(safeValue)
+  }
+
+  if (safeValue >= 1_000_000) {
+    const valueInMega = Math.round((safeValue / 1_000_000) * 100) / 100
+    return `${englishMegaFormatter.format(valueInMega)}M`
   }
 
   const valueInKilo = Math.round((safeValue / 1000) * 10) / 10

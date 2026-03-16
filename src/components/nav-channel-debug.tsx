@@ -20,7 +20,7 @@ export function NavChannelDebug({ isActive, onClick }: NavChannelDebugProps) {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton isActive={isActive} onClick={onClick}>
-            <CableIcon className="size-4! opacity-80" />
+            <CableIcon className="size-3.5!" />
             <span>{t("nav.channelSessions")}</span>
           </SidebarMenuButton>
         </SidebarMenuItem>

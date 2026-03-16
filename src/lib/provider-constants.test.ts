@@ -35,13 +35,6 @@ const expectedMinimaxPricing = {
     output: 16.8,
     cachedRead: 0.21,
     cachedWrite: 2.625
-  },
-  "MiniMax-M2": {
-    currency: "CNY",
-    input: 2.1,
-    output: 8.4,
-    cachedRead: 0.21,
-    cachedWrite: 2.625
   }
 } as const
 

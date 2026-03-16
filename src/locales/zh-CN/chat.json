@@ -25,6 +25,7 @@
     "output": "{{count}} 输出",
     "tokens": "token",
     "openDetails": "查看 token 与费用详情",
+    "model": "模型",
     "usageTitle": "Token 用量",
     "costTitle": "费用（{{currency}}）",
     "inputTotal": "输入",

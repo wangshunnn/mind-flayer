@@ -122,7 +122,9 @@ type SaveMessageOptions = {
 type AssistantMessageMetadata = {
   totalUsage?: LanguageModelUsage
   modelProvider?: string
+  modelProviderLabel?: string
   modelId?: string
+  modelLabel?: string
   thinkingDuration?: number
   toolDurations?: Record<string, number>
 }
@@ -1381,7 +1383,9 @@ const AppChatInner = ({
                               messageText={messageText}
                               tokenInfo={metadata?.totalUsage}
                               modelProvider={metadata?.modelProvider}
+                              modelProviderLabel={metadata?.modelProviderLabel}
                               modelId={metadata?.modelId}
+                              modelLabel={metadata?.modelLabel}
                               modelPricing={messageModelPricing}
                               onLike={() => {
                                 /** noop */

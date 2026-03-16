@@ -26,6 +26,7 @@
     "output": "{{count}} output",
     "tokens": "tokens",
     "openDetails": "View token and cost details",
+    "model": "Model",
     "usageTitle": "Token Usage",
     "costTitle": "Cost ({{currency}})",
     "inputTotal": "Input",

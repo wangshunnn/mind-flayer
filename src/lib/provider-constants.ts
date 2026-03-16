@@ -55,7 +55,7 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "MiniMax-M2.5",
         api_id: "MiniMax-M2.5",
-        contextWindow: 204800,
+        contextWindow: 204_800,
         pricing: {
           currency: "CNY",
           input: 2.1,
@@ -67,7 +67,7 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "MiniMax-M2.5-highspeed",
         api_id: "MiniMax-M2.5-highspeed",
-        contextWindow: 204800,
+        contextWindow: 204_800,
         pricing: {
           currency: "CNY",
           input: 4.2,
@@ -79,7 +79,7 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "MiniMax-M2.1",
         api_id: "MiniMax-M2.1",
-        contextWindow: 204800,
+        contextWindow: 204_800,
         pricing: {
           currency: "CNY",
           input: 2.1,
@@ -91,23 +91,11 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "MiniMax-M2.1-highspeed",
         api_id: "MiniMax-M2.1-highspeed",
-        contextWindow: 204800,
+        contextWindow: 204_800,
         pricing: {
           currency: "CNY",
           input: 4.2,
           output: 16.8,
-          cachedRead: 0.21,
-          cachedWrite: 2.625
-        }
-      },
-      {
-        label: "MiniMax-M2",
-        api_id: "MiniMax-M2",
-        contextWindow: 204800,
-        pricing: {
-          currency: "CNY",
-          input: 2.1,
-          output: 8.4,
           cachedRead: 0.21,
           cachedWrite: 2.625
         }
@@ -122,9 +110,42 @@ export const MODEL_PROVIDERS: Provider[] = [
     icon: Bot,
     logo: OpenAIIcon,
     models: [
-      { label: "GPT-5.4-Pro", api_id: "gpt-5.4-pro" },
-      { label: "GPT-5.4", api_id: "gpt-5.4" },
-      { label: "GPT-5.3-Chat-Latest", api_id: "gpt-5.3-chat-latest" }
+      {
+        label: "GPT-5.4-Pro",
+        api_id: "gpt-5.4-pro",
+        contextWindow: 1050000,
+        pricing: {
+          currency: "USD",
+          input: 30,
+          output: 180,
+          cachedRead: null,
+          cachedWrite: null
+        }
+      },
+      {
+        label: "GPT-5.4",
+        api_id: "gpt-5.4",
+        contextWindow: 1050000,
+        pricing: {
+          currency: "USD",
+          input: 2.5,
+          output: 15,
+          cachedRead: 0.25,
+          cachedWrite: null
+        }
+      },
+      {
+        label: "GPT-5.3-Chat-Latest",
+        api_id: "gpt-5.3-chat-latest",
+        contextWindow: 128000,
+        pricing: {
+          currency: "USD",
+          input: 1.75,
+          output: 14,
+          cachedRead: 0.175,
+          cachedWrite: null
+        }
+      }
     ]
   },
   {
@@ -135,8 +156,30 @@ export const MODEL_PROVIDERS: Provider[] = [
     icon: Bot,
     logo: AnthropicIcon,
     models: [
-      { label: "Claude Opus 4.6", api_id: "claude-opus-4-6" },
-      { label: "Claude Sonnet 4.6", api_id: "claude-sonnet-4-6" }
+      {
+        label: "Claude Opus 4.6",
+        api_id: "claude-opus-4-6",
+        contextWindow: 1000000,
+        pricing: {
+          currency: "USD",
+          input: 5,
+          output: 25,
+          cachedRead: 0.5,
+          cachedWrite: 6.25
+        }
+      },
+      {
+        label: "Claude Sonnet 4.6",
+        api_id: "claude-sonnet-4-6",
+        contextWindow: 1000000,
+        pricing: {
+          currency: "USD",
+          input: 3,
+          output: 15,
+          cachedRead: 0.3,
+          cachedWrite: 3.75
+        }
+      }
     ]
   }
 ]

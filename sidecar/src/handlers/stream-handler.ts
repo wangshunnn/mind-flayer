@@ -95,14 +95,18 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
         return {
           createdAt: Date.now(),
           modelProvider,
-          modelId
+          modelProviderLabel,
+          modelId,
+          modelLabel
         }
       }
       if (part.type === "finish") {
         return {
           totalUsage: part.totalUsage,
           modelProvider,
-          modelId
+          modelProviderLabel,
+          modelId,
+          modelLabel
         }
       }
     },

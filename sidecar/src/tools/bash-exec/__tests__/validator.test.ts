@@ -1,17 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { BLOCKED_COMMANDS, SAFE_COMMANDS, validateCommand } from "../validator"
+import { BLOCKED_COMMANDS, DANGEROUS_COMMANDS, validateCommand } from "../validator"
 
 describe("Command Validator", () => {
   describe("validateCommand", () => {
-    it("should allow safe commands", () => {
-      for (const command of SAFE_COMMANDS) {
-        const result = validateCommand(command)
-        expect(result.isAllowed).toBe(true)
-        expect(result.requiresApproval).toBe(false)
-        expect(result.reason).toBeUndefined()
-      }
-    })
-
     it("should reject blocked commands", () => {
       for (const command of BLOCKED_COMMANDS) {
         const result = validateCommand(command)
@@ -21,18 +12,42 @@ describe("Command Validator", () => {
       }
     })
 
-    it("should require approval for commands outside safe and blocked lists (desktop)", () => {
-      const result = validateCommand("kubectl")
-      expect(result.isAllowed).toBe(true)
-      expect(result.requiresApproval).toBe(true)
-      expect(result.reason).toBeUndefined()
+    it("should require approval for dangerous commands on desktop", () => {
+      for (const command of DANGEROUS_COMMANDS) {
+        const result = validateCommand(command)
+        expect(result.isAllowed).toBe(true)
+        expect(result.requiresApproval).toBe(true)
+        expect(result.reason).toBeUndefined()
+      }
     })
 
-    it("should auto-allow commands outside safe and blocked lists for channel source", () => {
-      const result = validateCommand("kubectl", [], "channel")
-      expect(result.isAllowed).toBe(true)
-      expect(result.requiresApproval).toBe(false)
-      expect(result.reason).toBeUndefined()
+    it("should auto-allow dangerous commands for channel source", () => {
+      for (const command of DANGEROUS_COMMANDS) {
+        const result = validateCommand(command, [], "channel")
+        expect(result.isAllowed).toBe(true)
+        expect(result.requiresApproval).toBe(false)
+      }
+    })
+
+    it("should auto-allow commands not in blocked or dangerous lists", () => {
+      const normalCommands = [
+        "ls",
+        "cat",
+        "grep",
+        "python3",
+        "node",
+        "git",
+        "curl",
+        "kubectl",
+        "cargo",
+        "npm"
+      ]
+      for (const command of normalCommands) {
+        const result = validateCommand(command)
+        expect(result.isAllowed).toBe(true)
+        expect(result.requiresApproval).toBe(false)
+        expect(result.reason).toBeUndefined()
+      }
     })
 
     it("should extract bare command from path", () => {
@@ -47,16 +62,16 @@ describe("Command Validator", () => {
       expect(result.requiresApproval).toBe(false)
     })
 
-    it("should require approval for non-safe command extracted from path (desktop)", () => {
+    it("should auto-allow non-dangerous command extracted from path", () => {
       const result = validateCommand("/usr/bin/python3")
       expect(result.isAllowed).toBe(true)
-      expect(result.requiresApproval).toBe(true)
+      expect(result.requiresApproval).toBe(false)
     })
 
-    it("should auto-allow non-safe command extracted from path for channel source", () => {
-      const result = validateCommand("/usr/bin/python3", [], "channel")
+    it("should require approval for dangerous command extracted from path (desktop)", () => {
+      const result = validateCommand("/usr/bin/rm", ["-rf", "./tmp"])
       expect(result.isAllowed).toBe(true)
-      expect(result.requiresApproval).toBe(false)
+      expect(result.requiresApproval).toBe(true)
     })
 
     it("should block rm with critical root target", () => {

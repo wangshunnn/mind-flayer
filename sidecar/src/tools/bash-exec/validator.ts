@@ -1,74 +1,14 @@
 /**
  * Command validator for bash execution tool
- * Provides allowlist/blocklist validation with parameter-level safety checks
+ * Uses a blocklist + dangerous-commands approach:
+ * - BLOCKED_COMMANDS: always denied (system-level destructive)
+ * - DANGEROUS_COMMANDS: require user approval on desktop (potentially destructive to user data)
+ * - Everything else: auto-allowed without approval
  */
-
-/**
- * Safe commands that can be executed without user approval
- * These are read-only or informational commands
- */
-export const SAFE_COMMANDS = [
-  "agent-browser",
-  "arch",
-  "basename",
-  "cal",
-  "cat",
-  "claude",
-  "cmp",
-  "codex",
-  "comm",
-  "cut",
-  "date",
-  "df",
-  "diff",
-  "dirname",
-  "du",
-  "echo",
-  "env",
-  "file",
-  "find",
-  "grep",
-  "groups",
-  "head",
-  "hexdump",
-  "hostname",
-  "id",
-  "jq",
-  "ls",
-  "md5",
-  "md5sum",
-  "nl",
-  "od",
-  "open", // macOS-specific safe command for opening files/URLs
-  "printenv",
-  "ps",
-  "pwd",
-  "readlink",
-  "realpath",
-  "screencapture", // macOS-specific safe command for taking screenshots
-  "sha1sum",
-  "sha256sum",
-  "shasum",
-  "sort",
-  "stat",
-  "strings",
-  "tail",
-  "tee",
-  "touch",
-  "tr",
-  "tree",
-  "uname",
-  "uniq",
-  "uptime",
-  "vm_stat",
-  "wc",
-  "which",
-  "who",
-  "whoami"
-] as const
 
 /**
  * Commands that are always denied regardless of user approval
+ * These are system-level destructive operations
  */
 export const BLOCKED_COMMANDS = [
   "chroot",
@@ -97,6 +37,24 @@ export const BLOCKED_COMMANDS = [
   "telinit",
   "umount",
   "visudo"
+] as const
+
+/**
+ * Commands that require user approval on desktop before execution
+ * These can be destructive to user data or system state
+ */
+export const DANGEROUS_COMMANDS = [
+  "rm",
+  "rmdir",
+  "kill",
+  "killall",
+  "pkill",
+  "dd",
+  "chmod",
+  "chown",
+  "chgrp",
+  "crontab",
+  "shred"
 ] as const
 
 const CRITICAL_PATH_PREFIXES = [
@@ -167,10 +125,10 @@ export interface ValidationResult {
 }
 
 /**
- * Validates a command against safe and blocked lists with additional argument checks
+ * Validates a command against blocked and dangerous lists with additional argument checks
  * @param command - The command to validate (should be bare name like 'ls', not path)
  * @param args - Command arguments used for parameter-level blocking checks
- * @param source - Where the command originates: "channel" (e.g. Telegram) auto-allows, "desktop" requires approval
+ * @param source - Where the command originates: "channel" (e.g. Telegram) auto-allows, "desktop" may require approval
  * @returns Validation result with approval requirement
  */
 export function validateCommand(
@@ -180,14 +138,6 @@ export function validateCommand(
 ): ValidationResult {
   // Remove any path component to get bare command name
   const bareCommand = command.split("/").pop() || command
-
-  // Check if command is in safe list
-  if ((SAFE_COMMANDS as readonly string[]).includes(bareCommand)) {
-    return {
-      isAllowed: true,
-      requiresApproval: false
-    }
-  }
 
   // Check if command is blocked regardless of approval
   if ((BLOCKED_COMMANDS as readonly string[]).includes(bareCommand)) {
@@ -208,9 +158,17 @@ export function validateCommand(
     }
   }
 
-  // Channel sources (e.g. Telegram) auto-allow; desktop requires user approval
+  // Dangerous commands require user approval on desktop
+  if ((DANGEROUS_COMMANDS as readonly string[]).includes(bareCommand)) {
+    return {
+      isAllowed: true,
+      requiresApproval: source === "desktop"
+    }
+  }
+
+  // All other commands are auto-allowed without approval
   return {
     isAllowed: true,
-    requiresApproval: source === "desktop"
+    requiresApproval: false
   }
 }

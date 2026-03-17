@@ -1354,7 +1354,7 @@ const AppChatInner = ({
                         )}
 
                         {isAssistantMessage && hasTools && isThinkingComplete && (
-                          <ToolCallsSummary toolCount={toolParts.length} />
+                          <ToolCallsSummary toolParts={toolParts} />
                         )}
 
                         <MessageContent>

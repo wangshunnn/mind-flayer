@@ -15,8 +15,7 @@ export function useToolConstants() {
       names: {
         webSearch: t("names.webSearch"),
         bashExecution: t("names.bashExecution"),
-        read: t("names.read"),
-        skillRead: t("names.skillRead")
+        read: t("names.read")
       },
       states: {
         running: t("states.running"),

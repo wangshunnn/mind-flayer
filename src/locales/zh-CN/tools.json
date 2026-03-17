@@ -1,11 +1,14 @@
 {
   "usedTools": "使用了 {{count}} 个工具",
   "results": "{{count}} 条结果",
+  "summary": {
+    "toolsLabel": "{{count}} 个工具",
+    "skillsLabel": "{{count}} 个技能"
+  },
   "names": {
     "webSearch": "联网搜索",
     "bashExecution": "执行 Shell 命令",
-    "read": "读取文件",
-    "skillRead": "读取技能"
+    "read": "读取文件"
   },
   "states": {
     "running": "运行中...",

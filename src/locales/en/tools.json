@@ -3,11 +3,16 @@
   "usedTools_other": "Used {{count}} tools",
   "results_one": "{{count}} result",
   "results_other": "{{count}} results",
+  "summary": {
+    "toolsLabel_one": "{{count}} tool",
+    "toolsLabel_other": "{{count}} tools",
+    "skillsLabel_one": "{{count}} skill",
+    "skillsLabel_other": "{{count}} skills"
+  },
   "names": {
     "webSearch": "Web search",
     "bashExecution": "Bash execution",
-    "read": "Read file",
-    "skillRead": "Read skill"
+    "read": "Read file"
   },
   "states": {
     "running": "Running...",

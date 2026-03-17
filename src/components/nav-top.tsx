@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { CommandShortcut } from "@/components/ui/command"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
+import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useShortcutDisplay } from "@/hooks/use-shortcut-config"
 import { cn } from "@/lib/utils"
@@ -12,6 +13,12 @@ import { ShortcutAction } from "@/types/settings"
 function NewChatTrigger({ className, ...props }: React.ComponentProps<typeof Button>) {
   const { t } = useTranslation("common")
   const shortcutKeys = useShortcutDisplay(ShortcutAction.NEW_CHAT)
+  const { open, isCompact } = useSidebar()
+
+  // Only show when sidebar is not visible (collapsed or compact mode)
+  if (!isCompact && open) {
+    return null
+  }
 
   return (
     <Tooltip disableHoverableContent={true}>

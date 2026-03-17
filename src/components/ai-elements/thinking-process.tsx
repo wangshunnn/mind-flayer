@@ -313,6 +313,7 @@ export const ReasoningPartContent = memo(
     <div className={cn("text-muted-foreground pr-4 text-sm", className)} {...props}>
       <Streamdown
         controls={{ table: false }}
+        linkSafety={{ enabled: false }}
         className="streamdown-thinking-process space-y-2.5"
         components={THINKING_STREAMDOWN_COMPONENTS}
       >

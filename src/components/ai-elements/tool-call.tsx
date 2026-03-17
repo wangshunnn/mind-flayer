@@ -546,6 +546,7 @@ export const ToolCallWebSearchResults = memo(({ results }: ToolCallWebSearchResu
         </a>
         <Streamdown
           mode="static"
+          linkSafety={{ enabled: false }}
           className="streamdown-tool-call text-xs! font-light text-muted-foreground line-clamp-1"
           components={{
             a: ({ children }) => <span>{children}</span>

@@ -315,13 +315,14 @@ export const MessageResponse = memo(
 
     return (
       <Streamdown
-        plugins={{ math }}
         className={cn(
           "app-chat",
           "size-full space-y-2.5",
           "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
           className
         )}
+        plugins={{ math }}
+        linkSafety={{ enabled: false }}
         controls={{
           table: true,
           code: true,

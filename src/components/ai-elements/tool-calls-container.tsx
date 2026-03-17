@@ -8,7 +8,6 @@ import {
 import {
   ChevronRightIcon,
   LibraryBigIcon,
-  PencilRulerIcon,
   TerminalIcon,
   WandSparklesIcon,
   WrenchIcon
@@ -33,8 +32,10 @@ import {
   ToolCallWebSearchResults
 } from "@/components/ai-elements/tool-call"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { ReadToolDisplayContext, ReadToolInput, ReadToolOutput } from "@/lib/tool-helpers"
 import { cn } from "@/lib/utils"
+import { Separator } from "../ui/separator"
 
 type ToolCallsContainerContextValue = {
   isOpen: boolean
@@ -355,12 +356,10 @@ const ToolCallRead = ({
   const inputFilePath = input?.filePath || t("read.emptyFile")
   const outputFilePath = output?.filePath || t("read.emptyFile")
   const skillContext = output?.displayContext?.kind === "skill" ? output.displayContext : null
-  const toolDisplayName = skillContext ? "skillRead" : "read"
-
   return (
     <ToolCall
       key={toolCallId}
-      toolName={toolDisplayName}
+      toolName="read"
       state={part.state}
       duration={duration}
       defaultOpen={false}
@@ -535,24 +534,120 @@ export const ToolCallTimelineItem = memo(
   }
 )
 
+export type ToolCallsSummaryData = {
+  toolNames: string[]
+  skillNames: string[]
+}
+
+const TOOL_CALLS_SUMMARY_BADGE_STYLES = {
+  tools: "text-brand-green/90",
+  skills: "text-brand-green/90"
+} as const
+
+const getToolSummarySkillContext = (
+  part: ToolUIPart | DynamicToolUIPart
+): Extract<ReadToolDisplayContext, { kind: "skill" }> | null => {
+  const output = part.output as ReadToolOutput | undefined
+  return output?.displayContext?.kind === "skill" ? output.displayContext : null
+}
+
+export function collectToolCallsSummary(
+  toolParts: (ToolUIPart | DynamicToolUIPart)[]
+): ToolCallsSummaryData {
+  const toolNames: string[] = []
+  const skillNames: string[] = []
+  const seenToolNames = new Set<string>()
+  const seenSkillNames = new Set<string>()
+
+  for (const part of toolParts) {
+    const skillContext = getToolSummarySkillContext(part)
+    const toolName = getToolName(part)
+
+    if (!seenToolNames.has(toolName)) {
+      seenToolNames.add(toolName)
+      toolNames.push(toolName)
+    }
+
+    if (skillContext?.skillName && !seenSkillNames.has(skillContext.skillName)) {
+      seenSkillNames.add(skillContext.skillName)
+      skillNames.push(skillContext.skillName)
+    }
+  }
+
+  return { toolNames, skillNames }
+}
+
+type ToolCallsSummaryBadgeProps = {
+  badgeType: keyof typeof TOOL_CALLS_SUMMARY_BADGE_STYLES
+  icon: ReactNode
+  label: string
+  names: string[]
+}
+
+const ToolCallsSummaryBadge = ({ badgeType, icon, label, names }: ToolCallsSummaryBadgeProps) => (
+  <Tooltip disableHoverableContent={true}>
+    <TooltipTrigger asChild>
+      <button
+        aria-label={label}
+        className={cn(
+          "inline-flex cursor-default items-center gap-1 rounded-full",
+          "text-xs whitespace-nowrap outline-none transition-colors",
+          "focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2",
+          TOOL_CALLS_SUMMARY_BADGE_STYLES[badgeType]
+        )}
+        data-summary-badge={badgeType}
+        type="button"
+      >
+        {icon}
+        <span>{label}</span>
+      </button>
+    </TooltipTrigger>
+    <TooltipContent className="max-w-72 px-3 py-2" data-summary-tooltip={badgeType} side="top">
+      <div className="flex flex-col gap-1">
+        {names.map(name => (
+          <p className="leading-5" key={`${badgeType}-${name}`}>
+            {name}
+          </p>
+        ))}
+      </div>
+    </TooltipContent>
+  </Tooltip>
+)
+
 export type ToolCallsSummaryProps = ComponentProps<"div"> & {
-  toolCount: number
+  toolParts: (ToolUIPart | DynamicToolUIPart)[]
 }
 
 export const ToolCallsSummary = memo(
-  ({ className, toolCount, ...props }: ToolCallsSummaryProps) => {
+  ({ className, toolParts, ...props }: ToolCallsSummaryProps) => {
     const { t } = useTranslation("tools")
+    const summary = collectToolCallsSummary(toolParts)
+    const translatedToolNames = summary.toolNames.map(toolName =>
+      t(`names.${toolName}`, { defaultValue: toolName })
+    )
 
     return (
       <div
-        className={cn(
-          "flex w-full items-center gap-2 text-muted-foreground text-sm pb-1",
-          className
-        )}
+        className={cn("flex w-full flex-wrap items-center gap-2.5 pb-1 text-xs", className)}
         {...props}
       >
-        <PencilRulerIcon className="size-4" />
-        <span>{t("usedTools", { count: toolCount })}</span>
+        {translatedToolNames.length > 0 && (
+          <ToolCallsSummaryBadge
+            badgeType="tools"
+            icon={<WrenchIcon className="size-3" />}
+            label={t("summary.toolsLabel", { count: translatedToolNames.length })}
+            names={translatedToolNames}
+          />
+        )}
+        <Separator orientation="vertical" className="h-3!" />
+        {summary.skillNames.length > 0 && (
+          <ToolCallsSummaryBadge
+            badgeType="skills"
+            icon={<WandSparklesIcon className="size-3" />}
+            label={t("summary.skillsLabel", { count: summary.skillNames.length })}
+            names={summary.skillNames}
+          />
+        )}
       </div>
     )
   }

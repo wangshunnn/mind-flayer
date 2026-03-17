@@ -1,7 +1,6 @@
 import type { ReactNode } from "react"
 import { useSidebar } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
-import { Separator } from "./ui/separator"
 
 interface TopFloatingHeaderProps {
   children: ReactNode
@@ -38,8 +37,6 @@ export function TopFloatingHeader({
           contentClassName
         )}
       >
-        {isFullWidth && <Separator orientation="vertical" className="h-4! mr-5" />}
-
         {children}
       </div>
 

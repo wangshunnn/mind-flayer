@@ -30,6 +30,7 @@
 /* Custom link appearance */
 [data-streamdown="link"] {
   text-decoration: none;
+  padding-bottom: 1px;
   border-bottom: 1px dotted oklch(from var(--color-brand-green) l c h / 0.5);
 }
 [data-streamdown="link"]:hover {

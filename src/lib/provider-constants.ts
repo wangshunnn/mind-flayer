@@ -53,6 +53,30 @@ export const MODEL_PROVIDERS: Provider[] = [
     logo: MinimaxIcon,
     models: [
       {
+        label: "MiniMax-M2.7",
+        api_id: "MiniMax-M2.7",
+        contextWindow: 204_800,
+        pricing: {
+          currency: "CNY",
+          input: 2.1,
+          output: 8.4,
+          cachedRead: 0.42,
+          cachedWrite: 2.625
+        }
+      },
+      {
+        label: "MiniMax-M2.7-highspeed",
+        api_id: "MiniMax-M2.7-highspeed",
+        contextWindow: 204_800,
+        pricing: {
+          currency: "CNY",
+          input: 4.2,
+          output: 16.8,
+          cachedRead: 0.42,
+          cachedWrite: 2.625
+        }
+      },
+      {
         label: "MiniMax-M2.5",
         api_id: "MiniMax-M2.5",
         contextWindow: 204_800,

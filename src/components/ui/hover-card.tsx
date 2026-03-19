@@ -24,7 +24,7 @@ function HoverCardContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          "z-50 w-64 rounded-md border p-4 shadow-md outline-hidden",
+          "z-50 w-64 max-h-(--radix-hover-card-content-available-height) overflow-x-hidden overflow-y-auto rounded-md border p-4 shadow-md outline-hidden",
           "bg-popover text-popover-foreground",
           "origin-(--radix-hover-card-content-transform-origin)",
           "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",

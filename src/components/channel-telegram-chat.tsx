@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { computeContextWindowUsage, formatCompactTokens } from "@/lib/context-window-usage"
+import { computeContextWindowUsage, formatContextWindowTokens } from "@/lib/context-window-usage"
 import { findModelContextWindow, findModelPricing } from "@/lib/provider-constants"
 import {
   getTelegramChannelSessionMessages,
@@ -38,6 +38,9 @@ const TELEGRAM_POLL_INTERVAL_MS = 2_000
 const CONTEXT_PERCENT_MAX_FRACTION_DIGITS = 1
 
 interface AssistantMessageMetadata {
+  createdAt?: number
+  firstTokenAt?: number
+  lastTokenAt?: number
   totalUsage?: LanguageModelUsage
   modelProvider?: string
   modelProviderLabel?: string
@@ -265,10 +268,10 @@ export function ChannelTelegramChat() {
       return null
     }
 
-    return new Intl.NumberFormat(i18n.language, {
+    return new Intl.NumberFormat("en-US", {
       maximumFractionDigits: CONTEXT_PERCENT_MAX_FRACTION_DIGITS
     }).format(selectedSessionUsageView.percent)
-  }, [i18n.language, selectedSessionUsageView])
+  }, [selectedSessionUsageView])
 
   const selectedSessionUsageSummaryText = useMemo(() => {
     if (!selectedSessionUsageView) {
@@ -276,8 +279,8 @@ export function ChannelTelegramChat() {
     }
 
     return tChat("contextWindowUsage.summary", {
-      used: formatCompactTokens(selectedSessionUsageView.usedTokens),
-      limit: formatCompactTokens(selectedSessionUsageView.limitTokens),
+      used: formatContextWindowTokens(selectedSessionUsageView.usedTokens),
+      limit: formatContextWindowTokens(selectedSessionUsageView.limitTokens),
       percent: selectedSessionPercentText ?? "0"
     })
   }, [selectedSessionPercentText, selectedSessionUsageView, tChat])
@@ -486,6 +489,9 @@ export function ChannelTelegramChat() {
                             <div className="flex items-center gap-0.5 text-muted-foreground">
                               <TokenUsageDetails
                                 usage={metadata.totalUsage}
+                                createdAt={metadata.createdAt}
+                                firstTokenAt={metadata.firstTokenAt}
+                                lastTokenAt={metadata.lastTokenAt}
                                 modelProvider={metadata.modelProvider}
                                 modelProviderLabel={metadata.modelProviderLabel}
                                 modelId={metadata.modelId}

@@ -130,6 +130,9 @@ export type AssistantMessageActionsBarProps = ComponentProps<"div"> & {
   onRefresh?: () => void
   showRefresh?: boolean
   tokenInfo?: LanguageModelUsage
+  createdAt?: number
+  firstTokenAt?: number
+  lastTokenAt?: number
   modelProvider?: string
   modelProviderLabel?: string
   modelId?: string
@@ -145,6 +148,9 @@ export const AssistantMessageActionsBar = ({
   onRefresh,
   showRefresh = true,
   tokenInfo,
+  createdAt,
+  firstTokenAt,
+  lastTokenAt,
   modelProvider,
   modelProviderLabel,
   modelId,
@@ -220,6 +226,9 @@ export const AssistantMessageActionsBar = ({
       {tokenInfo && (
         <TokenUsageDetails
           usage={tokenInfo}
+          createdAt={createdAt}
+          firstTokenAt={firstTokenAt}
+          lastTokenAt={lastTokenAt}
           modelProvider={modelProvider}
           modelProviderLabel={modelProviderLabel}
           modelId={modelId}

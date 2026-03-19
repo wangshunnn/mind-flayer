@@ -167,6 +167,9 @@ describe("ChannelTelegramChat", () => {
               role: "assistant",
               parts: [{ type: "text", text: "latest answer" }],
               metadata: {
+                createdAt: 1_710_000_100_000,
+                firstTokenAt: 1_710_000_100_400,
+                lastTokenAt: 1_710_000_102_400,
                 totalUsage: {
                   inputTokens: 32_000,
                   outputTokens: 400,
@@ -278,14 +281,24 @@ describe("ChannelTelegramChat", () => {
       container.querySelector('[data-testid="selected-thread-started-at"]')?.textContent
     ).toContain(latestStartedAtText)
     expect(container.textContent).toContain("25%")
-    expect(container.querySelector('button[aria-label^="Context window usage:"]')).not.toBeNull()
+    const contextWindowButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label^="Context window usage:"]'
+    )
+    expect(contextWindowButton).not.toBeNull()
+    expect(contextWindowButton?.getAttribute("aria-label")).toContain(
+      "32,000 / 128,000 tokens · 25%"
+    )
     expect(
       container.querySelector<HTMLButtonElement>('[data-testid="thread-context-usage-trigger"]')
         ?.dataset.variant
     ).toBe("ghost")
-    expect(
-      container.querySelector('button[aria-label="View token and cost details"]')
-    ).not.toBeNull()
+    const tokenDetailsButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label^="View token, cost, and speed details"]'
+    )
+    expect(tokenDetailsButton).not.toBeNull()
+    expect(tokenDetailsButton?.getAttribute("aria-label")).toContain("TTFT 400ms")
+    expect(tokenDetailsButton?.getAttribute("aria-label")).toContain("TTLT 2.40s")
+    expect(tokenDetailsButton?.getAttribute("aria-label")).toContain("TPS 200.00")
 
     await act(async () => {
       sessionButtons[1]?.click()
@@ -328,6 +341,8 @@ describe("ChannelTelegramChat", () => {
     })
 
     expect(container.textContent).toContain("older answer")
-    expect(container.querySelector('button[aria-label="View token and cost details"]')).toBeNull()
+    expect(
+      container.querySelector('button[aria-label^="View token, cost, and speed details"]')
+    ).toBeNull()
   })
 })

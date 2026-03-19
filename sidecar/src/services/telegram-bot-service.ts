@@ -141,6 +141,8 @@ type LogValue = string | number | boolean | null | undefined
 
 interface AssistantMessageMetadata {
   createdAt?: number
+  firstTokenAt?: number
+  lastTokenAt?: number
   totalUsage?: LanguageModelUsage
   modelProvider?: string
   modelProviderLabel?: string
@@ -698,7 +700,12 @@ export class TelegramBotService {
         inputMessage: this.toTextPreview(incomingText)
       })
 
-      let assistantMetadata = this.createAssistantMessageMetadata(selectedModel)
+      const requestStartedAt = Date.now()
+      let firstTokenAt: number | undefined
+      let lastTokenAt: number | undefined
+      let assistantMetadata = this.createAssistantMessageMetadata(selectedModel, {
+        createdAt: requestStartedAt
+      })
 
       const result = streamText({
         model,
@@ -714,11 +721,25 @@ export class TelegramBotService {
         tools,
         toolChoice,
         stopWhen: Object.keys(tools).length > 0 ? stepCountIs(20) : stepCountIs(1),
-        onFinish: event => {
-          assistantMetadata = {
-            ...assistantMetadata,
-            ...(event.totalUsage ? { totalUsage: event.totalUsage } : {})
+        onChunk: ({ chunk }) => {
+          const chunkType = (chunk as { type: string }).type
+          if (chunkType !== "text" && chunkType !== "text-delta") {
+            return
           }
+
+          const now = Date.now()
+          if (firstTokenAt === undefined) {
+            firstTokenAt = now
+          }
+          lastTokenAt = now
+        },
+        onFinish: event => {
+          assistantMetadata = this.createAssistantMessageMetadata(selectedModel, {
+            createdAt: requestStartedAt,
+            firstTokenAt,
+            lastTokenAt,
+            totalUsage: event.totalUsage
+          })
         }
       })
 
@@ -1298,11 +1319,18 @@ export class TelegramBotService {
       modelId: string
       modelLabel?: string
     },
-    totalUsage?: LanguageModelUsage
+    options?: {
+      createdAt?: number
+      firstTokenAt?: number
+      lastTokenAt?: number
+      totalUsage?: LanguageModelUsage
+    }
   ): AssistantMessageMetadata {
     return {
-      createdAt: Date.now(),
-      ...(totalUsage ? { totalUsage } : {}),
+      createdAt: options?.createdAt ?? Date.now(),
+      ...(options?.firstTokenAt !== undefined ? { firstTokenAt: options.firstTokenAt } : {}),
+      ...(options?.lastTokenAt !== undefined ? { lastTokenAt: options.lastTokenAt } : {}),
+      ...(options?.totalUsage ? { totalUsage: options.totalUsage } : {}),
       modelProvider: selectedModel.provider,
       ...(selectedModel.providerLabel ? { modelProviderLabel: selectedModel.providerLabel } : {}),
       modelId: selectedModel.modelId,

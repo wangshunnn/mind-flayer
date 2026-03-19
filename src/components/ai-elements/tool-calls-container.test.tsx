@@ -131,6 +131,7 @@ describe("ToolCallsSummary", () => {
 
     expect(container.textContent).toContain("2 tools")
     expect(container.textContent).toContain("1 skill")
+    expect(container.querySelectorAll('[data-slot="separator"]')).toHaveLength(1)
 
     const toolBadge = container.querySelector('[data-summary-badge="tools"]')
     expect(toolBadge).not.toBeNull()
@@ -152,5 +153,34 @@ describe("ToolCallsSummary", () => {
     })
 
     expect(document.body.textContent).toContain("Postgres Expert")
+  })
+
+  it("does not render a separator when only a tools badge is shown", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en")
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ToolCallsSummary toolParts={[createWebSearchPart("tool-1")]} />
+        </I18nextProvider>
+      )
+    })
+
+    expect(container.textContent).toContain("1 tool")
+    expect(container.querySelectorAll('[data-slot="separator"]')).toHaveLength(0)
+  })
+
+  it("does not render a separator when no summary badges are shown", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en")
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ToolCallsSummary toolParts={[]} />
+        </I18nextProvider>
+      )
+    })
+
+    expect(container.querySelector('[data-summary-badge="tools"]')).toBeNull()
+    expect(container.querySelector('[data-summary-badge="skills"]')).toBeNull()
+    expect(container.querySelectorAll('[data-slot="separator"]')).toHaveLength(0)
   })
 })

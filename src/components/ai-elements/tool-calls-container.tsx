@@ -625,13 +625,16 @@ export const ToolCallsSummary = memo(
     const translatedToolNames = summary.toolNames.map(toolName =>
       t(`names.${toolName}`, { defaultValue: toolName })
     )
+    const hasToolBadge = translatedToolNames.length > 0
+    const hasSkillBadge = summary.skillNames.length > 0
+    const shouldShowSeparator = hasToolBadge && hasSkillBadge
 
     return (
       <div
         className={cn("flex w-full flex-wrap items-center gap-2.5 pb-1 text-xs", className)}
         {...props}
       >
-        {translatedToolNames.length > 0 && (
+        {hasToolBadge && (
           <ToolCallsSummaryBadge
             badgeType="tools"
             icon={<WrenchIcon className="size-3" />}
@@ -639,8 +642,8 @@ export const ToolCallsSummary = memo(
             names={translatedToolNames}
           />
         )}
-        <Separator orientation="vertical" className="h-3!" />
-        {summary.skillNames.length > 0 && (
+        {shouldShowSeparator && <Separator orientation="vertical" className="h-3!" />}
+        {hasSkillBadge && (
           <ToolCallsSummaryBadge
             badgeType="skills"
             icon={<WandSparklesIcon className="size-3" />}

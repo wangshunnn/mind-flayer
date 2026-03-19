@@ -2,7 +2,7 @@ import type { LanguageModelUsage } from "ai"
 import { describe, expect, it } from "vitest"
 import {
   computeContextWindowUsage,
-  formatCompactTokens,
+  formatContextWindowTokens,
   getUsageLevel,
   resolveUsedTokens
 } from "@/lib/context-window-usage"
@@ -99,19 +99,13 @@ describe("computeContextWindowUsage", () => {
   })
 })
 
-describe("formatCompactTokens", () => {
-  it("formats values below 1000 as plain english integers", () => {
-    expect(formatCompactTokens(999)).toBe("999")
-  })
-
-  it("formats values above 1000 with english K suffix", () => {
-    expect(formatCompactTokens(88600)).toBe("88.6K")
-    expect(formatCompactTokens(500000)).toBe("500K")
-  })
-
-  it("formats values at or above 1M with english M suffix", () => {
-    expect(formatCompactTokens(1000000)).toBe("1M")
-    expect(formatCompactTokens(1050000)).toBe("1.05M")
-    expect(formatCompactTokens(2500000)).toBe("2.5M")
+describe("formatContextWindowTokens", () => {
+  it("formats values using full english digit grouping", () => {
+    expect(formatContextWindowTokens(999)).toBe("999")
+    expect(formatContextWindowTokens(88600)).toBe("88,600")
+    expect(formatContextWindowTokens(500000)).toBe("500,000")
+    expect(formatContextWindowTokens(1000000)).toBe("1,000,000")
+    expect(formatContextWindowTokens(1050000)).toBe("1,050,000")
+    expect(formatContextWindowTokens(2500000)).toBe("2,500,000")
   })
 })

@@ -61,6 +61,7 @@
   --setting-background: oklch(0.97315 0 271.152);
   --setting-sidebar: oklch(0.94611 0 271.152);
   --setting-background-highlight: oklch(1 0 0);
+  --scrollbar-thumb: oklch(0 0 0 / 12%);
 }
 
 .dark {
@@ -114,6 +115,7 @@
   --setting-background: oklch(0.23075 0 271.152);
   --setting-sidebar: oklch(0.26448 0 271.152);
   --setting-background-highlight: oklch(0.30919 0 271.152);
+  --scrollbar-thumb: oklch(1 0 0 / 12%);
 }
 
 @theme {
@@ -184,6 +186,8 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
   html {

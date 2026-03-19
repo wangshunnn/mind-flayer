@@ -29,6 +29,7 @@
 - Follow the existing design system (Radix UI + Tailwind)
 - Use `clsx` or `cn` utility for conditional classes
 - When a `className` string is long, use `cn()` to split classes into multiple lines grouped by concern (layout, spacing, typography, color, overflow, etc.)
+- Use the `Separator` component (`@/components/ui/separator`) for divider lines instead of implementing them with CSS `border`
 - Keep component-specific styles in the component file
 
 ### State Management

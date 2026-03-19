@@ -1,14 +1,23 @@
 import type { LanguageModelUsage } from "ai"
-import { GaugeIcon } from "lucide-react"
+import { BadgeInfoIcon, GaugeIcon } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  computeMessagePerformanceMetrics,
+  formatMessageLatency,
+  formatMessageTokensPerSecond
+} from "@/lib/message-performance-metrics"
 import { computeMessageUsageCost } from "@/lib/message-usage-cost"
 import type { ModelPricing, PricingCurrency } from "@/lib/provider-constants"
 
 export interface TokenUsageDetailsProps {
   usage: LanguageModelUsage
+  createdAt?: number
+  firstTokenAt?: number
+  lastTokenAt?: number
   modelProvider?: string
   modelProviderLabel?: string
   modelId?: string
@@ -71,6 +80,9 @@ const formatCost = (
 
 export function TokenUsageDetails({
   usage,
+  createdAt,
+  firstTokenAt,
+  lastTokenAt,
   modelProvider,
   modelProviderLabel,
   modelId,
@@ -88,6 +100,10 @@ export function TokenUsageDetails({
     () => computeMessageUsageCost(usage, modelPricing),
     [usage, modelPricing]
   )
+  const performanceMetrics = useMemo(
+    () => computeMessagePerformanceMetrics(usage, { createdAt, firstTokenAt, lastTokenAt }),
+    [usage, createdAt, firstTokenAt, lastTokenAt]
+  )
   const aggregatedInputCost =
     usageCost.costs.input === null &&
     usageCost.costs.cachedRead === null &&
@@ -102,6 +118,15 @@ export function TokenUsageDetails({
   const displayModel = modelLabel ?? modelId
   const displayModelName =
     displayProvider && displayModel ? `${displayProvider}/${displayModel}` : null
+  const notAvailableLabel = t("tokens.notAvailable")
+  const ttftLabel = formatMessageLatency(performanceMetrics.ttftMs, notAvailableLabel)
+  const ttltLabel = formatMessageLatency(performanceMetrics.ttltMs, notAvailableLabel)
+  const tpsLabel = formatMessageTokensPerSecond(performanceMetrics.tps, notAvailableLabel)
+  const detailTriggerLabel = t("tokens.openDetailsWithMetrics", {
+    ttft: ttftLabel,
+    ttlt: ttltLabel,
+    tps: tpsLabel
+  })
 
   const tokenRows = [
     [t("tokens.inputTotal"), usageCost.tokens.input],
@@ -116,12 +141,17 @@ export function TokenUsageDetails({
     [t("tokens.costOutput"), usageCost.costs.output],
     [t("tokens.costTotal"), usageCost.costs.total]
   ] as const
+  const performanceRows = [
+    ["TTFT", t("tokens.ttftName"), ttftLabel, t("tokens.ttftDescription")],
+    ["TTLT", t("tokens.ttltName"), ttltLabel, t("tokens.ttltDescription")],
+    ["TPS", t("tokens.tpsName"), tpsLabel, t("tokens.tpsDescription")]
+  ] as const
 
   return (
     <HoverCard closeDelay={100} openDelay={100}>
       <HoverCardTrigger asChild>
         <Button
-          aria-label={t("tokens.openDetails")}
+          aria-label={detailTriggerLabel}
           size="icon-xs"
           type="button"
           variant="ghost"
@@ -131,7 +161,7 @@ export function TokenUsageDetails({
           <span className="sr-only">{t("tokens.openDetails")}</span>
         </Button>
       </HoverCardTrigger>
-      <HoverCardContent align="center" sideOffset={8} className="w-50 p-3">
+      <HoverCardContent align="center" sideOffset={8} className="w-56 p-3">
         <div className="space-y-3">
           {displayModelName && (
             <div className="space-y-1.5">
@@ -140,7 +170,44 @@ export function TokenUsageDetails({
             </div>
           )}
 
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 border-t pt-2" data-testid="token-performance-summary">
+            <p className="text-xs font-medium">{t("tokens.performanceTitle")}</p>
+            <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-xs">
+              {performanceRows.map(([label, name, value, description]) => (
+                <div className="contents" key={label}>
+                  <dt className="flex items-center gap-1.5 text-muted-foreground">
+                    <span>{label}</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          aria-label={t("tokens.performanceInfo", { metric: label })}
+                          className="size-4 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+                          data-testid={`token-performance-info-${label.toLowerCase()}`}
+                          size="icon-xs"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <BadgeInfoIcon className="size-3" />
+                          <span className="sr-only">
+                            {t("tokens.performanceInfo", { metric: label })}
+                          </span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-54">
+                        <div className="space-y-1 text-xs">
+                          <p className="font-medium">{`${label}（${name}）`}</p>
+                          <p>{description}</p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </dt>
+                  <dd className="text-right tabular-nums">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          <div className="space-y-1.5 border-t pt-2">
             <p className="text-xs font-medium">{t("tokens.usageTitle")}</p>
             <dl className="grid grid-cols-[1fr_auto] gap-y-1 text-xs">
               {tokenRows.map(([label, value]) => (
@@ -172,12 +239,7 @@ export function TokenUsageDetails({
                   <div className="contents" key={label}>
                     <dt className="text-muted-foreground">{label}</dt>
                     <dd className="text-right tabular-nums">
-                      {formatCost(
-                        value,
-                        costCurrency,
-                        t("tokens.notAvailable"),
-                        belowMinimumCostLabel
-                      )}
+                      {formatCost(value, costCurrency, notAvailableLabel, belowMinimumCostLabel)}
                     </dd>
                   </div>
                 ))}

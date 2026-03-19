@@ -720,6 +720,8 @@ describe("TelegramBotService", () => {
   })
 
   it("stores assistant usage metadata on messages and session summaries", async () => {
+    let currentTime = 1_000
+    const dateNowSpy = vi.spyOn(Date, "now").mockImplementation(() => currentTime)
     const fetchMock = vi.fn((url: string) => {
       if (url.includes("/sendMessageDraft")) {
         return Promise.resolve(new Response("method not found", { status: 404 }))
@@ -735,7 +737,14 @@ describe("TelegramBotService", () => {
     }
 
     streamTextMock.mockImplementation(
-      (options: { onFinish?: (event: { totalUsage: unknown }) => void }) => {
+      (options: {
+        onChunk?: (event: { chunk: { type: string } }) => void | Promise<void>
+        onFinish?: (event: { totalUsage: unknown }) => void
+      }) => {
+        currentTime = 1_350
+        void options.onChunk?.({ chunk: { type: "text-delta" } })
+        currentTime = 2_100
+        void options.onChunk?.({ chunk: { type: "text-delta" } })
         options.onFinish?.({ totalUsage: usage })
         return {
           textStream: createTextStream("Assistant reply")
@@ -814,6 +823,9 @@ describe("TelegramBotService", () => {
 
     const storedMessages = service.getSessionMessages(String(session?.sessionKey))
     expect(storedMessages?.[1]?.metadata).toMatchObject({
+      createdAt: 1_000,
+      firstTokenAt: 1_350,
+      lastTokenAt: 2_100,
       totalUsage: usage,
       modelProvider: "minimax",
       modelProviderLabel: "MiniMax",
@@ -823,6 +835,8 @@ describe("TelegramBotService", () => {
     expect(
       (storedMessages?.[1]?.metadata as { createdAt?: number } | undefined)?.createdAt
     ).toBeGreaterThan(0)
+
+    dateNowSpy.mockRestore()
   })
 
   it("syncs Telegram commands when the runtime starts", async () => {

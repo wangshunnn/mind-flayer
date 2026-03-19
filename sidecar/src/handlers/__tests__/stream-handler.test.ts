@@ -194,10 +194,116 @@ describe("createStreamResponse", () => {
     }
 
     expect(typedStreamResponseOptions.messageMetadata({ part: { type: "start" } })).toMatchObject({
+      createdAt: expect.any(Number),
       modelProvider: "minimax",
       modelProviderLabel: "MiniMax",
       modelId: "model-a",
       modelLabel: "MiniMax-M2.5"
     })
+  })
+
+  it("records first and last timing-relevant chunk timestamps in finish metadata", async () => {
+    let currentTime = 1_000
+    const dateNowSpy = vi.spyOn(Date, "now").mockImplementation(() => currentTime)
+    const toUIMessageStreamResponseMock = vi.fn((_: unknown) => "stream-response")
+    streamTextMock.mockReturnValueOnce({
+      toUIMessageStreamResponse: toUIMessageStreamResponseMock
+    })
+
+    await createStreamResponse({
+      model: {} as never,
+      modelProvider: "openai",
+      modelId: "gpt-5",
+      messages: [{ role: "user", parts: [] }] as never,
+      tools: {},
+      toolChoice: "auto" as never,
+      abortSignal: new AbortController().signal,
+      reasoningEnabled: false,
+      reasoningEffort: "default"
+    })
+
+    const streamTextOptions = streamTextMock.mock.calls[0]?.[0] as {
+      onChunk?: (event: { chunk: { type: string } }) => void | Promise<void>
+    }
+    const streamResponseOptions = toUIMessageStreamResponseMock.mock.calls[0]?.[0] as {
+      messageMetadata: (value: {
+        part: { type: "start" | "finish"; totalUsage?: unknown }
+      }) => Record<string, unknown>
+    }
+
+    currentTime = 1_250
+    await streamTextOptions.onChunk?.({ chunk: { type: "reasoning-delta" } })
+    currentTime = 1_400
+    await streamTextOptions.onChunk?.({ chunk: { type: "text-delta" } })
+    currentTime = 2_300
+    await streamTextOptions.onChunk?.({ chunk: { type: "text-delta" } })
+
+    expect(streamResponseOptions.messageMetadata({ part: { type: "start" } })).toMatchObject({
+      createdAt: 1_000
+    })
+    expect(
+      streamResponseOptions.messageMetadata({
+        part: {
+          type: "finish",
+          totalUsage: { outputTokens: 42 }
+        }
+      })
+    ).toMatchObject({
+      firstTokenAt: 1_250,
+      lastTokenAt: 2_300,
+      totalUsage: { outputTokens: 42 }
+    })
+
+    dateNowSpy.mockRestore()
+  })
+
+  it("keeps finish timing metadata empty when no timing-relevant chunk arrives", async () => {
+    let currentTime = 5_000
+    const dateNowSpy = vi.spyOn(Date, "now").mockImplementation(() => currentTime)
+    const toUIMessageStreamResponseMock = vi.fn((_: unknown) => "stream-response")
+    streamTextMock.mockReturnValueOnce({
+      toUIMessageStreamResponse: toUIMessageStreamResponseMock
+    })
+
+    await createStreamResponse({
+      model: {} as never,
+      modelProvider: "openai",
+      modelId: "gpt-5",
+      messages: [{ role: "user", parts: [] }] as never,
+      tools: {},
+      toolChoice: "auto" as never,
+      abortSignal: new AbortController().signal,
+      reasoningEnabled: false,
+      reasoningEffort: "default"
+    })
+
+    const streamTextOptions = streamTextMock.mock.calls[0]?.[0] as {
+      onChunk?: (event: { chunk: { type: string } }) => void | Promise<void>
+    }
+    const streamResponseOptions = toUIMessageStreamResponseMock.mock.calls[0]?.[0] as {
+      messageMetadata: (value: {
+        part: { type: "start" | "finish"; totalUsage?: unknown }
+      }) => Record<string, unknown>
+    }
+
+    currentTime = 5_500
+    await streamTextOptions.onChunk?.({ chunk: { type: "source" } })
+
+    expect(
+      streamResponseOptions.messageMetadata({
+        part: {
+          type: "finish",
+          totalUsage: { outputTokens: 0 }
+        }
+      })
+    ).toEqual({
+      totalUsage: { outputTokens: 0 },
+      modelProvider: "openai",
+      modelId: "gpt-5",
+      modelProviderLabel: undefined,
+      modelLabel: undefined
+    })
+
+    dateNowSpy.mockRestore()
   })
 })

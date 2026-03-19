@@ -75,6 +75,9 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
     reasoningEnabled,
     reasoningEffort
   })
+  const requestStartedAt = Date.now()
+  let firstTokenAt: number | undefined
+  let lastTokenAt: number | undefined
 
   // Create streaming response
   const result = streamText({
@@ -85,7 +88,19 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
     toolChoice,
     stopWhen: Object.keys(tools).length ? stepCountIs(20) : stepCountIs(1),
     abortSignal,
-    providerOptions
+    providerOptions,
+    onChunk: ({ chunk }) => {
+      const chunkType = chunk.type
+      if (chunkType === "source" || chunkType === "raw") {
+        return
+      }
+
+      const now = Date.now()
+      if (firstTokenAt === undefined) {
+        firstTokenAt = now
+      }
+      lastTokenAt = now
+    }
   })
 
   return result.toUIMessageStreamResponse({
@@ -93,7 +108,7 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
     messageMetadata: ({ part }) => {
       if (part.type === "start") {
         return {
-          createdAt: Date.now(),
+          createdAt: requestStartedAt,
           modelProvider,
           modelProviderLabel,
           modelId,
@@ -103,6 +118,8 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
       if (part.type === "finish") {
         return {
           totalUsage: part.totalUsage,
+          ...(firstTokenAt !== undefined ? { firstTokenAt } : {}),
+          ...(lastTokenAt !== undefined ? { lastTokenAt } : {}),
           modelProvider,
           modelProviderLabel,
           modelId,

@@ -120,6 +120,9 @@ type SaveMessageOptions = {
 }
 
 type AssistantMessageMetadata = {
+  createdAt?: number
+  firstTokenAt?: number
+  lastTokenAt?: number
   totalUsage?: LanguageModelUsage
   modelProvider?: string
   modelProviderLabel?: string
@@ -1382,6 +1385,9 @@ const AppChatInner = ({
                             <AssistantMessageActionsBar
                               messageText={messageText}
                               tokenInfo={metadata?.totalUsage}
+                              createdAt={metadata?.createdAt}
+                              firstTokenAt={metadata?.firstTokenAt}
+                              lastTokenAt={metadata?.lastTokenAt}
                               modelProvider={metadata?.modelProvider}
                               modelProviderLabel={metadata?.modelProviderLabel}
                               modelId={metadata?.modelId}

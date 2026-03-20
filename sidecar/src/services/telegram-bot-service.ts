@@ -2,7 +2,7 @@ import { randomInt, randomUUID } from "node:crypto"
 import type { LanguageModel, LanguageModelUsage } from "ai"
 import { stepCountIs, streamText, type UIMessage } from "ai"
 import { discoverSkillsSafely, filterDisabledSkills } from "../skills/catalog"
-import { processMessages } from "../utils/message-processor"
+import { compactMessages } from "../utils/message-compaction"
 import { buildSystemPrompt } from "../utils/system-prompt-builder"
 import {
   type TelegramMediaUpload,
@@ -687,7 +687,7 @@ export class TelegramBotService {
       })
       const [skills, modelMessages] = await Promise.all([
         discoverSkillsSafely("Telegram request"),
-        processMessages(messagesWithLatestInput, tools)
+        compactMessages(messagesWithLatestInput, tools)
       ])
       const enabledSkills = filterDisabledSkills(
         skills,

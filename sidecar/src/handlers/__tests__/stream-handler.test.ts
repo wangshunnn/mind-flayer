@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const streamTextMock = vi.fn()
-const processMessagesMock = vi.fn()
+const compactMessagesMock = vi.fn()
 const discoverSkillsSafelyMock = vi.fn()
 const buildSystemPromptMock = vi.fn()
 
@@ -16,8 +16,8 @@ vi.mock("ai", () => ({
   streamText: (...args: unknown[]) => streamTextMock(...args)
 }))
 
-vi.mock("../../utils/message-processor", () => ({
-  processMessages: (...args: unknown[]) => processMessagesMock(...args)
+vi.mock("../../utils/message-compaction", () => ({
+  compactMessages: (...args: unknown[]) => compactMessagesMock(...args)
 }))
 
 vi.mock("../../skills/catalog", async importOriginal => {
@@ -43,7 +43,7 @@ describe("createStreamResponse", () => {
     vi.clearAllMocks()
 
     discoverSkillsSafelyMock.mockResolvedValue([])
-    processMessagesMock.mockResolvedValue([{ role: "user", parts: [] }])
+    compactMessagesMock.mockResolvedValue([{ role: "user", parts: [] }])
     buildSystemPromptMock.mockReturnValue("system prompt")
     streamTextMock.mockReturnValue({
       toUIMessageStreamResponse: vi.fn(() => "stream-response")

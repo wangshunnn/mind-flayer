@@ -10,7 +10,7 @@ import {
 } from "ai"
 import { discoverSkillsSafely, filterDisabledSkills } from "../skills/catalog"
 import type { ReasoningEffort } from "../type"
-import { processMessages } from "../utils/message-processor"
+import { compactMessages } from "../utils/message-compaction"
 import { buildProviderOptions } from "../utils/provider-options"
 import { buildSystemPrompt } from "../utils/system-prompt-builder"
 
@@ -54,9 +54,9 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
     reasoningEffort
   } = options
 
-  const [skills, prunedMessages] = await Promise.all([
+  const [skills, compactedMessages] = await Promise.all([
     discoverSkillsSafely("stream request"),
-    processMessages(messages, tools)
+    compactMessages(messages, tools)
   ])
   const enabledSkills = filterDisabledSkills(skills, options.disabledSkillIds ?? [])
   const systemPrompt = buildSystemPrompt({
@@ -67,7 +67,7 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
     skills: enabledSkills
   })
   console.info("[sidecar] systemPrompt:", systemPrompt)
-  console.dir({ prunedMessages }, { depth: null })
+  console.dir({ compactedMessages }, { depth: null })
 
   const providerOptions = buildProviderOptions({
     modelProvider,
@@ -83,7 +83,7 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
   const result = streamText({
     model,
     system: systemPrompt,
-    messages: prunedMessages,
+    messages: compactedMessages,
     tools,
     toolChoice,
     stopWhen: Object.keys(tools).length ? stepCountIs(20) : stepCountIs(1),

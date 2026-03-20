@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const streamTextMock = vi.fn()
-const processMessagesMock = vi.fn()
+const compactMessagesMock = vi.fn()
 const buildSystemPromptMock = vi.fn()
 const discoverSkillsSafelyMock = vi.fn()
 const buildToolChoiceMock = vi.fn()
@@ -11,8 +11,8 @@ vi.mock("ai", () => ({
   streamText: (...args: unknown[]) => streamTextMock(...args)
 }))
 
-vi.mock("../../utils/message-processor", () => ({
-  processMessages: (...args: unknown[]) => processMessagesMock(...args)
+vi.mock("../../utils/message-compaction", () => ({
+  compactMessages: (...args: unknown[]) => compactMessagesMock(...args)
 }))
 
 vi.mock("../../utils/system-prompt-builder", async importOriginal => {
@@ -117,7 +117,7 @@ describe("TelegramBotService", () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
-    processMessagesMock.mockImplementation(async (messages: unknown) => messages)
+    compactMessagesMock.mockImplementation(async (messages: unknown) => messages)
     buildSystemPromptMock.mockReturnValue("system prompt")
     discoverSkillsSafelyMock.mockResolvedValue([])
     buildToolChoiceMock.mockReturnValue("auto")

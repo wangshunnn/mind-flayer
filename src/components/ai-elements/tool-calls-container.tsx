@@ -304,10 +304,7 @@ const ToolCallBashExec = ({
         trailingContent={
           part.state === "output-available" && output?.exitCode !== undefined ? (
             <span
-              className={cn(
-                "ml-0",
-                getToolCallStatusBadgeClass(output.exitCode === 0 ? "success" : "error")
-              )}
+              className={getToolCallStatusBadgeClass(output.exitCode === 0 ? "success" : "error")}
             >
               {t("bashExecution.exitCode", { code: output.exitCode })}
             </span>

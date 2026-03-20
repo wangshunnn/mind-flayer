@@ -336,7 +336,7 @@ export function ChannelTelegramChat() {
                   </span>
                 </Button>
               </HoverCardTrigger>
-              <HoverCardContent align="end" sideOffset={8} className="w-auto p-3">
+              <HoverCardContent align="end" className="w-auto p-3">
                 <ContextWindowUsageDetails
                   contextWindow={selectedSessionUsageView.limitTokens}
                   usage={selectedSession.latestAssistantUsage}

@@ -118,7 +118,7 @@ export function ContextWindowUsageDetails({
   const progressColor = usageView ? RING_COLOR_BY_LEVEL[usageView.level] : null
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5 w-58">
       <p className="text-xs font-medium">{t("contextWindowUsage.title")}</p>
       {usageView && detailSummary && percentText ? (
         <div className="space-y-2" data-testid="context-window-usage-details">
@@ -224,7 +224,7 @@ export function ContextWindowUsageIndicator({
           {showPercent && usageView && percentText && <span>{percentText}%</span>}
         </Button>
       </HoverCardTrigger>
-      <HoverCardContent align="end" className="w-56 p-3">
+      <HoverCardContent align="end" className="w-auto p-3">
         <ContextWindowUsageDetails usage={usage} contextWindow={contextWindow} />
       </HoverCardContent>
     </HoverCard>

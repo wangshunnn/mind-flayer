@@ -198,44 +198,41 @@ const defaultGetToolMessage = (toolName: string, state: ToolCallState, resultCou
   if (!isCompleted) {
     return <Shimmer duration={1}>{displayName}</Shimmer>
   }
+
+  let label = displayName
+  let badge: ReactNode = null
+
   if (state === "output-error") {
-    return (
-      <span>
-        {displayName}
-        <span className={getToolCallStatusBadgeClass("error")}>
-          {toolConstants.states.failed.toLowerCase()}
-        </span>
+    badge = (
+      <span className={getToolCallStatusBadgeClass("error")}>
+        {toolConstants.states.failed.toLowerCase()}
       </span>
     )
-  }
-  if (state === "output-denied") {
-    return (
-      <span>
-        {displayName}
-        <span className={getToolCallStatusBadgeClass("error")}>
-          {toolConstants.states.cancelled.toLowerCase()}
-        </span>
+  } else if (state === "output-denied") {
+    badge = (
+      <span className={getToolCallStatusBadgeClass("error")}>
+        {toolConstants.states.cancelled.toLowerCase()}
       </span>
     )
-  }
-  if (state === "output-available") {
-    const parts: string[] = [displayName]
-    const shouldShowDoneBadge = toolName.toLowerCase() !== "bashexecution"
+  } else if (state === "output-available") {
     if (resultCount !== undefined) {
-      parts.push(t("results", { count: resultCount }))
+      label = `${displayName} - ${t("results", { count: resultCount })}`
     }
-    return (
-      <span>
-        {parts.join(" - ")}
-        {shouldShowDoneBadge && (
-          <span className={getToolCallStatusBadgeClass("success")}>
-            {toolConstants.states.done.toLowerCase()}
-          </span>
-        )}
-      </span>
-    )
+    if (toolName.toLowerCase() !== "bashexecution") {
+      badge = (
+        <span className={getToolCallStatusBadgeClass("success")}>
+          {toolConstants.states.done.toLowerCase()}
+        </span>
+      )
+    }
   }
-  return <span>{displayName}</span>
+
+  return (
+    <span className="flex items-center gap-2">
+      {label}
+      {badge}
+    </span>
+  )
 }
 
 export const ToolCallTrigger = memo(

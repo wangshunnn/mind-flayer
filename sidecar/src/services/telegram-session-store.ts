@@ -9,7 +9,21 @@ const CHANNELS_DIR_NAME = "channels"
 const TELEGRAM_SESSIONS_FILE_NAME = "telegram-sessions.json"
 const TELEGRAM_SESSION_STORE_VERSION = 1
 
-const persistedMessageSchema = z.object({}).passthrough()
+const persistedTextPartSchema = z
+  .object({
+    type: z.literal("text"),
+    text: z.string()
+  })
+  .passthrough()
+
+const persistedMessageSchema = z
+  .object({
+    id: z.string().min(1),
+    role: z.enum(["user", "assistant"]),
+    parts: z.array(persistedTextPartSchema).min(1),
+    metadata: z.object({}).passthrough().optional()
+  })
+  .passthrough()
 
 const persistedTelegramSessionSchema = z.object({
   sessionKey: z.string().min(1),

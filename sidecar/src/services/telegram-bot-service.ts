@@ -300,11 +300,11 @@ export class TelegramBotService {
       throw new ConflictError("Active Telegram sessions cannot be deleted")
     }
 
-    this.sessionMessages.delete(sessionKey)
-    this.sessionStartedAt.delete(sessionKey)
-    this.sessionUpdatedAt.delete(sessionKey)
-
-    await this.persistSessions()
+    await this.withPersistedSessionMutation(() => {
+      this.sessionMessages.delete(sessionKey)
+      this.sessionStartedAt.delete(sessionKey)
+      this.sessionUpdatedAt.delete(sessionKey)
+    })
   }
 
   listWhitelistRequests(): TelegramWhitelistRequest[] {
@@ -1321,13 +1321,14 @@ export class TelegramBotService {
     const sessionId = randomUUID()
     const sessionKey = this.buildSessionKey(chatId, sessionId)
 
-    this.activeSessionKeyByChatId.set(chatId, sessionKey)
-    this.sessionStartedAt.set(sessionKey, startedAt)
-    this.sessionMessages.set(sessionKey, [])
-    this.sessionUpdatedAt.set(sessionKey, startedAt)
+    return this.withPersistedSessionMutation(() => {
+      this.activeSessionKeyByChatId.set(chatId, sessionKey)
+      this.sessionStartedAt.set(sessionKey, startedAt)
+      this.sessionMessages.set(sessionKey, [])
+      this.sessionUpdatedAt.set(sessionKey, startedAt)
 
-    await this.persistSessions()
-    return sessionKey
+      return sessionKey
+    })
   }
 
   private async getOrCreateActiveSessionKey(chatId: string): Promise<string> {
@@ -1397,14 +1398,14 @@ export class TelegramBotService {
   }
 
   private async setSessionMessages(sessionKey: string, messages: UIMessage[]): Promise<void> {
-    this.sessionMessages.set(sessionKey, messages)
-    const updatedAt = Date.now()
-    this.sessionUpdatedAt.set(sessionKey, updatedAt)
-    if (!this.sessionStartedAt.has(sessionKey)) {
-      this.sessionStartedAt.set(sessionKey, updatedAt)
-    }
-
-    await this.persistSessions()
+    await this.withPersistedSessionMutation(() => {
+      this.sessionMessages.set(sessionKey, messages)
+      const updatedAt = Date.now()
+      this.sessionUpdatedAt.set(sessionKey, updatedAt)
+      if (!this.sessionStartedAt.has(sessionKey)) {
+        this.sessionStartedAt.set(sessionKey, updatedAt)
+      }
+    })
   }
 
   private hydrateSessions(snapshot: TelegramSessionStoreSnapshot): void {
@@ -1453,6 +1454,19 @@ export class TelegramBotService {
     }
 
     await this.sessionStore.save(this.createSessionSnapshot())
+  }
+
+  private async withPersistedSessionMutation<T>(mutate: () => T): Promise<T> {
+    const previousSnapshot = this.createSessionSnapshot()
+
+    try {
+      const result = mutate()
+      await this.persistSessions()
+      return result
+    } catch (error) {
+      this.hydrateSessions(previousSnapshot)
+      throw error
+    }
   }
 
   private extractChatIdFromSessionKey(sessionKey: string): string {

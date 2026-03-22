@@ -68,4 +68,38 @@ describe("FileTelegramSessionStore", () => {
       activeSessionKeyByChatId: {}
     })
   })
+
+  it("falls back to an empty snapshot when persisted messages have an invalid shape", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "mind-flayer-telegram-store-"))
+    tempDirs.push(tempDir)
+
+    const filePath = join(tempDir, "telegram-sessions.json")
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        version: 1,
+        sessions: [
+          {
+            sessionKey: "telegram:1001:session-a",
+            chatId: "1001",
+            startedAt: 10,
+            updatedAt: 20,
+            messages: [{}]
+          }
+        ],
+        activeSessionKeyByChatId: {
+          "1001": "telegram:1001:session-a"
+        }
+      }),
+      "utf8"
+    )
+
+    const store = new FileTelegramSessionStore(filePath)
+    const loaded = await store.load()
+
+    expect(loaded).toEqual({
+      sessions: [],
+      activeSessionKeyByChatId: {}
+    })
+  })
 })

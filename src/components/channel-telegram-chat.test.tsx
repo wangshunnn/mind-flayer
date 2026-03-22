@@ -491,4 +491,117 @@ describe("ChannelTelegramChat", () => {
     expect(container.textContent).not.toContain("older answer")
     expect(container.textContent).toContain("another answer")
   })
+
+  it("disables all archived delete actions while a deletion is in flight", async () => {
+    let resolveDelete: (() => void) | null = null
+    let currentSessions = [
+      {
+        sessionKey: "telegram:1001:session-a",
+        sessionId: "session-a",
+        chatId: "1001",
+        startedAt: 1_710_000_000_000,
+        updatedAt: 1_710_000_050_000,
+        isActive: false,
+        messageCount: 2,
+        firstMessagePreview: "older hello",
+        lastMessageRole: "assistant",
+        lastMessagePreview: "older answer"
+      },
+      {
+        sessionKey: "telegram:2002:session-d",
+        sessionId: "session-d",
+        chatId: "2002",
+        startedAt: 1_710_000_300_000,
+        updatedAt: 1_710_000_350_000,
+        isActive: false,
+        messageCount: 2,
+        firstMessagePreview: "another archived thread",
+        lastMessageRole: "assistant",
+        lastMessagePreview: "another archived answer"
+      }
+    ]
+
+    getTelegramChannelSessionsMock.mockImplementation(() =>
+      Promise.resolve({
+        sessions: currentSessions
+      })
+    )
+    deleteTelegramChannelSessionMock.mockImplementation(
+      () =>
+        new Promise<void>(resolve => {
+          resolveDelete = () => {
+            currentSessions = currentSessions.filter(
+              session => session.sessionKey !== "telegram:1001:session-a"
+            )
+            resolve()
+          }
+        })
+    )
+
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <SidebarProvider>
+            <ChannelTelegramChat />
+          </SidebarProvider>
+        </I18nextProvider>
+      )
+    })
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const firstDeleteTrigger = container.querySelector<HTMLButtonElement>(
+      '[data-session-delete-trigger="telegram:1001:session-a"]'
+    )
+    const secondDeleteTrigger = container.querySelector<HTMLButtonElement>(
+      '[data-session-delete-trigger="telegram:2002:session-d"]'
+    )
+
+    expect(firstDeleteTrigger?.disabled).toBe(false)
+    expect(secondDeleteTrigger?.disabled).toBe(false)
+
+    await act(async () => {
+      firstDeleteTrigger?.dispatchEvent(
+        new MouseEvent("pointerdown", {
+          bubbles: true,
+          button: 0
+        })
+      )
+      firstDeleteTrigger?.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const firstDeleteAction = document.body.querySelector<HTMLElement>(
+      '[data-session-delete-action="telegram:1001:session-a"]'
+    )
+    expect(firstDeleteAction).not.toBeNull()
+
+    await act(async () => {
+      firstDeleteAction?.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(
+      container.querySelector<HTMLButtonElement>(
+        '[data-session-delete-trigger="telegram:1001:session-a"]'
+      )?.disabled
+    ).toBe(true)
+    expect(
+      container.querySelector<HTMLButtonElement>(
+        '[data-session-delete-trigger="telegram:2002:session-d"]'
+      )?.disabled
+    ).toBe(true)
+
+    await act(async () => {
+      resolveDelete?.()
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+  })
 })

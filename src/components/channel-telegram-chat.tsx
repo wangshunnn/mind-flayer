@@ -509,7 +509,7 @@ export function ChannelTelegramChat() {
                                         variant="ghost"
                                         size="icon-xs"
                                         data-session-delete-trigger={session.sessionKey}
-                                        disabled={deletingSessionKey === session.sessionKey}
+                                        disabled={deletingSessionKey !== null}
                                         onClick={event => {
                                           event.stopPropagation()
                                         }}
@@ -524,7 +524,7 @@ export function ChannelTelegramChat() {
                                     <DropdownMenuContent align="end" side="bottom" className="w-44">
                                       <DropdownMenuItem
                                         data-session-delete-action={session.sessionKey}
-                                        disabled={deletingSessionKey === session.sessionKey}
+                                        disabled={deletingSessionKey !== null}
                                         onClick={event => {
                                           event.stopPropagation()
                                           void handleDeleteSession(session.sessionKey)

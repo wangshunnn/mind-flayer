@@ -995,6 +995,104 @@ describe("TelegramBotService", () => {
     expect(sessionsAfterDelete[0]?.isActive).toBe(true)
   })
 
+  it("rolls back in-memory session mutations when persistence fails", async () => {
+    const providerService = {
+      hasConfig: vi.fn(() => true),
+      createModel: vi.fn(() => ({})),
+      getConfig: vi.fn((provider: string) => {
+        if (provider === "telegram") {
+          return { apiKey: "tg-token", baseUrl: "https://api.telegram.org" }
+        }
+        return { apiKey: "model-key" }
+      })
+    }
+    const toolService = {
+      getRequestTools: vi.fn(() => ({}))
+    }
+
+    const runtimeConfigService = new ChannelRuntimeConfigService()
+    runtimeConfigService.update({
+      selectedModel: {
+        provider: "minimax",
+        providerLabel: "MiniMax",
+        modelId: "model-a",
+        modelLabel: "MiniMax-M2.5"
+      },
+      channels: {
+        telegram: {
+          enabled: true,
+          allowedUserIds: ["7001"]
+        }
+      }
+    })
+
+    const initialSessionKey = "telegram:7001:session-a"
+    const initialMessages = [
+      {
+        id: "message-1",
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: "hello" }]
+      }
+    ]
+    const sessionStore = {
+      load: vi.fn().mockResolvedValue({
+        sessions: [
+          {
+            sessionKey: initialSessionKey,
+            chatId: "7001",
+            startedAt: 10,
+            updatedAt: 20,
+            messages: initialMessages
+          }
+        ],
+        activeSessionKeyByChatId: {}
+      }),
+      save: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("delete failed"))
+        .mockRejectedValueOnce(new Error("update failed"))
+        .mockRejectedValueOnce(new Error("create failed"))
+    }
+
+    const service = new TelegramBotService(
+      providerService as never,
+      toolService as never,
+      runtimeConfigService,
+      sessionStore as never
+    )
+    await service.initialize()
+
+    await expect(service.deleteSession(initialSessionKey)).rejects.toThrow("delete failed")
+    expect(service.listSessions()).toHaveLength(1)
+    expect(service.getSessionMessages(initialSessionKey)).toEqual(initialMessages)
+
+    await expect(
+      (
+        service as unknown as {
+          setSessionMessages: (
+            sessionKey: string,
+            messages: typeof initialMessages
+          ) => Promise<void>
+        }
+      ).setSessionMessages(initialSessionKey, [
+        {
+          id: "message-2",
+          role: "user",
+          parts: [{ type: "text", text: "changed" }]
+        }
+      ])
+    ).rejects.toThrow("update failed")
+    expect(service.getSessionMessages(initialSessionKey)).toEqual(initialMessages)
+
+    await expect(
+      (service as unknown as { createSession: (chatId: string) => Promise<string> }).createSession(
+        "7002"
+      )
+    ).rejects.toThrow("create failed")
+    expect(service.listSessions()).toHaveLength(1)
+    expect(findSessionSummaryByChatId(service, "7002")).toBeUndefined()
+  })
+
   it("stores assistant usage metadata on messages and session summaries", async () => {
     let currentTime = 1_000
     const dateNowSpy = vi.spyOn(Date, "now").mockImplementation(() => currentTime)

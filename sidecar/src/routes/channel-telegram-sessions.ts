@@ -45,3 +45,26 @@ export async function handleTelegramChannelSessionMessages(
     return c.json(errorResponse.body, errorResponse.statusCode)
   }
 }
+
+export async function handleDeleteTelegramChannelSession(
+  c: Context,
+  telegramBotService: TelegramBotService
+) {
+  try {
+    const sessionKey = c.req.query("sessionKey")?.trim() ?? ""
+    if (!sessionKey) {
+      throw new BadRequestError("Query parameter 'sessionKey' is required")
+    }
+
+    await telegramBotService.deleteSession(sessionKey)
+
+    return c.json({
+      success: true,
+      deletedSessionKey: sessionKey
+    })
+  } catch (error) {
+    console.error("[sidecar] Telegram delete session error:", error)
+    const errorResponse = mapErrorToResponse(error)
+    return c.json(errorResponse.body, errorResponse.statusCode)
+  }
+}

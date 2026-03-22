@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const streamTextMock = vi.fn()
 const compactMessagesMock = vi.fn()
@@ -35,10 +38,12 @@ vi.mock("../../utils/tool-choice", () => ({
   buildToolChoice: (...args: unknown[]) => buildToolChoiceMock(...args)
 }))
 
+import { ConflictError } from "../../utils/http-errors"
 import * as telegramMediaMessageModule from "../../utils/telegram-media-message"
 import { toTelegramHtml } from "../../utils/telegram-rich-text"
 import { ChannelRuntimeConfigService } from "../channel-runtime-config-service"
 import { TelegramBotService } from "../telegram-bot-service"
+import { FileTelegramSessionStore } from "../telegram-session-store"
 
 function createTextStream(text: string): AsyncIterable<string> {
   return (async function* () {
@@ -114,6 +119,8 @@ function findSessionSummaryByChatId(service: TelegramBotService, chatId: string)
 }
 
 describe("TelegramBotService", () => {
+  const tempDirs: string[] = []
+
   beforeEach(() => {
     vi.clearAllMocks()
 
@@ -121,6 +128,17 @@ describe("TelegramBotService", () => {
     buildSystemPromptMock.mockReturnValue("system prompt")
     discoverSkillsSafelyMock.mockResolvedValue([])
     buildToolChoiceMock.mockReturnValue("auto")
+  })
+
+  afterEach(async () => {
+    while (tempDirs.length > 0) {
+      const tempDir = tempDirs.pop()
+      if (!tempDir) {
+        continue
+      }
+
+      await rm(tempDir, { recursive: true, force: true })
+    }
   })
 
   it("queues whitelist request from callback and supports decision", async () => {
@@ -717,6 +735,264 @@ describe("TelegramBotService", () => {
         message.parts.some(part => "text" in part && part.text.includes("/new"))
       )
     ).toBe(false)
+  })
+
+  it("persists full session history without truncation and restores it on startup", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "mind-flayer-telegram-store-"))
+    tempDirs.push(tempDir)
+
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes("/sendMessageDraft")) {
+        return Promise.resolve(new Response("method not found", { status: 404 }))
+      }
+      return telegramApiSuccess({ message_id: 71 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    let streamCallCount = 0
+    streamTextMock.mockImplementation(() => {
+      streamCallCount += 1
+      return {
+        textStream: createTextStream(`Assistant reply ${streamCallCount}`)
+      }
+    })
+
+    const providerService = {
+      hasConfig: vi.fn(() => true),
+      createModel: vi.fn(() => ({})),
+      getConfig: vi.fn((provider: string) => {
+        if (provider === "telegram") {
+          return { apiKey: "tg-token", baseUrl: "https://api.telegram.org" }
+        }
+        return { apiKey: "model-key" }
+      })
+    }
+    const toolService = {
+      getRequestTools: vi.fn(() => ({}))
+    }
+
+    const runtimeConfigService = new ChannelRuntimeConfigService()
+    runtimeConfigService.update({
+      selectedModel: {
+        provider: "minimax",
+        providerLabel: "MiniMax",
+        modelId: "model-a",
+        modelLabel: "MiniMax-M2.5"
+      },
+      channels: {
+        telegram: {
+          enabled: true,
+          allowedUserIds: ["5001"]
+        }
+      }
+    })
+
+    const sessionStore = new FileTelegramSessionStore(join(tempDir, "telegram-sessions.json"))
+    const service = new TelegramBotService(
+      providerService as never,
+      toolService as never,
+      runtimeConfigService,
+      sessionStore
+    )
+    await service.initialize()
+
+    const handleIncomingMessage = service as unknown as {
+      handleIncomingMessage: (
+        botToken: string,
+        apiBaseUrl: string,
+        message: unknown
+      ) => Promise<void>
+    }
+
+    for (let index = 1; index <= 21; index += 1) {
+      await handleIncomingMessage.handleIncomingMessage("token", "https://api.telegram.org", {
+        message_id: index,
+        chat: {
+          id: 5001,
+          type: "private"
+        },
+        from: {
+          id: 5001,
+          is_bot: false
+        },
+        text: `hello ${index}`
+      })
+    }
+
+    const sessions = service.listSessions()
+    expect(sessions).toHaveLength(1)
+    expect(sessions[0]?.messageCount).toBe(42)
+
+    const storedMessages = service.getSessionMessages(String(sessions[0]?.sessionKey))
+    expect(storedMessages).toHaveLength(42)
+    expect(storedMessages?.[0]?.parts[0]).toMatchObject({ type: "text", text: "hello 1" })
+    expect(storedMessages?.[41]?.parts[0]).toMatchObject({
+      type: "text",
+      text: "Assistant reply 21"
+    })
+
+    const restoredService = new TelegramBotService(
+      providerService as never,
+      toolService as never,
+      runtimeConfigService,
+      sessionStore
+    )
+    await restoredService.initialize()
+
+    const restoredSessions = restoredService.listSessions()
+    expect(restoredSessions).toHaveLength(1)
+    expect(restoredSessions[0]?.messageCount).toBe(42)
+
+    const restoredMessages = restoredService.getSessionMessages(
+      String(restoredSessions[0]?.sessionKey)
+    )
+    expect(restoredMessages).toHaveLength(42)
+    expect(restoredMessages?.[0]?.parts[0]).toMatchObject({ type: "text", text: "hello 1" })
+    expect(restoredMessages?.[41]?.parts[0]).toMatchObject({
+      type: "text",
+      text: "Assistant reply 21"
+    })
+  })
+
+  it("restores archived and active sessions and persists archived session deletion", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "mind-flayer-telegram-store-"))
+    tempDirs.push(tempDir)
+
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes("/sendMessageDraft")) {
+        return Promise.resolve(new Response("method not found", { status: 404 }))
+      }
+      return telegramApiSuccess({ message_id: 91 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    let streamCallCount = 0
+    streamTextMock.mockImplementation(() => {
+      streamCallCount += 1
+      return {
+        textStream: createTextStream(`Assistant reply ${streamCallCount}`)
+      }
+    })
+
+    const providerService = {
+      hasConfig: vi.fn(() => true),
+      createModel: vi.fn(() => ({})),
+      getConfig: vi.fn((provider: string) => {
+        if (provider === "telegram") {
+          return { apiKey: "tg-token", baseUrl: "https://api.telegram.org" }
+        }
+        return { apiKey: "model-key" }
+      })
+    }
+    const toolService = {
+      getRequestTools: vi.fn(() => ({}))
+    }
+
+    const runtimeConfigService = new ChannelRuntimeConfigService()
+    runtimeConfigService.update({
+      selectedModel: {
+        provider: "minimax",
+        providerLabel: "MiniMax",
+        modelId: "model-a",
+        modelLabel: "MiniMax-M2.5"
+      },
+      channels: {
+        telegram: {
+          enabled: true,
+          allowedUserIds: ["6001"]
+        }
+      }
+    })
+
+    const sessionStore = new FileTelegramSessionStore(join(tempDir, "telegram-sessions.json"))
+    const service = new TelegramBotService(
+      providerService as never,
+      toolService as never,
+      runtimeConfigService,
+      sessionStore
+    )
+    await service.initialize()
+
+    const handleIncomingMessage = service as unknown as {
+      handleIncomingMessage: (
+        botToken: string,
+        apiBaseUrl: string,
+        message: unknown
+      ) => Promise<void>
+    }
+
+    await handleIncomingMessage.handleIncomingMessage("token", "https://api.telegram.org", {
+      message_id: 301,
+      chat: {
+        id: 6001,
+        type: "private"
+      },
+      from: {
+        id: 6001,
+        is_bot: false
+      },
+      text: "hello"
+    })
+    await handleIncomingMessage.handleIncomingMessage("token", "https://api.telegram.org", {
+      message_id: 302,
+      chat: {
+        id: 6001,
+        type: "private"
+      },
+      from: {
+        id: 6001,
+        is_bot: false
+      },
+      text: "/new"
+    })
+    await handleIncomingMessage.handleIncomingMessage("token", "https://api.telegram.org", {
+      message_id: 303,
+      chat: {
+        id: 6001,
+        type: "private"
+      },
+      from: {
+        id: 6001,
+        is_bot: false
+      },
+      text: "hello again"
+    })
+
+    const restoredService = new TelegramBotService(
+      providerService as never,
+      toolService as never,
+      runtimeConfigService,
+      sessionStore
+    )
+    await restoredService.initialize()
+
+    const restoredSessions = restoredService.listSessions()
+    expect(restoredSessions).toHaveLength(2)
+
+    const activeSession = restoredSessions.find(session => session.isActive)
+    const archivedSession = restoredSessions.find(session => !session.isActive)
+
+    expect(activeSession?.firstMessagePreview).toBe("hello again")
+    expect(archivedSession?.firstMessagePreview).toBe("hello")
+
+    await expect(
+      restoredService.deleteSession(String(activeSession?.sessionKey))
+    ).rejects.toBeInstanceOf(ConflictError)
+
+    await restoredService.deleteSession(String(archivedSession?.sessionKey))
+
+    const afterDeleteService = new TelegramBotService(
+      providerService as never,
+      toolService as never,
+      runtimeConfigService,
+      sessionStore
+    )
+    await afterDeleteService.initialize()
+
+    const sessionsAfterDelete = afterDeleteService.listSessions()
+    expect(sessionsAfterDelete).toHaveLength(1)
+    expect(sessionsAfterDelete[0]?.sessionKey).toBe(activeSession?.sessionKey)
+    expect(sessionsAfterDelete[0]?.isActive).toBe(true)
   })
 
   it("stores assistant usage metadata on messages and session summaries", async () => {

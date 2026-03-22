@@ -27,6 +27,8 @@
   "toast": {
     "chatDeleted": "Chat deleted",
     "failedToDeleteChat": "Failed to delete chat",
+    "channelThreadDeleted": "Telegram thread deleted",
+    "failedToDeleteChannelThread": "Failed to delete Telegram thread",
     "error": "Error",
     "filesAttached": "Files attached",
     "filesAttachedDescription": "{{count}} file(s) attached to message",

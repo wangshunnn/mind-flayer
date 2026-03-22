@@ -7,6 +7,7 @@ import { registerRoutes } from "./routes"
 import { ChannelRuntimeConfigService } from "./services/channel-runtime-config-service"
 import { providerService } from "./services/provider-service"
 import { TelegramBotService } from "./services/telegram-bot-service"
+import { createTelegramSessionStoreFromEnv } from "./services/telegram-session-store"
 import { toolService } from "./services/tool-service"
 import { cleanupTransientWorkspaces } from "./tools/bash-exec/workspace"
 import type { ConfigUpdateMessage } from "./type"
@@ -42,12 +43,16 @@ const app = new Hono()
 const PORT = process.env.SIDECAR_PORT
 const globalAbortController = new AbortController()
 const channelRuntimeConfigService = new ChannelRuntimeConfigService()
+const telegramSessionStore = createTelegramSessionStoreFromEnv()
 const telegramBotService = new TelegramBotService(
   providerService,
   toolService,
-  channelRuntimeConfigService
+  channelRuntimeConfigService,
+  telegramSessionStore
 )
 const normalizeErrorMessage = (message: string): string => message.replace(/\s+/g, " ").trim()
+
+await telegramBotService.initialize()
 
 // Register middleware
 app.use(createCorsMiddleware())

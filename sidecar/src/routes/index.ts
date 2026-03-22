@@ -4,6 +4,7 @@ import type { ProviderService } from "../services/provider-service"
 import type { TelegramBotService } from "../services/telegram-bot-service"
 import { handleChannelRuntimeConfig } from "./channel-runtime-config"
 import {
+  handleDeleteTelegramChannelSession,
   handleTelegramChannelSessionMessages,
   handleTelegramChannelSessions
 } from "./channel-telegram-sessions"
@@ -66,6 +67,9 @@ export function registerRoutes(
   )
   app.get("/api/channels/telegram/session-messages", c =>
     handleTelegramChannelSessionMessages(c, telegramBotService)
+  )
+  app.delete("/api/channels/telegram/sessions", c =>
+    handleDeleteTelegramChannelSession(c, telegramBotService)
   )
 
   // Telegram whitelist approval endpoints

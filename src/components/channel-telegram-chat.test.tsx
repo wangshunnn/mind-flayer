@@ -6,21 +6,32 @@ import { ChannelTelegramChat } from "@/components/channel-telegram-chat"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import i18n from "@/lib/i18n"
 
-const { getTelegramChannelSessionMessagesMock, getTelegramChannelSessionsMock } = vi.hoisted(
-  () => ({
-    getTelegramChannelSessionsMock: vi.fn(),
-    getTelegramChannelSessionMessagesMock: vi.fn()
-  })
-)
+const {
+  deleteTelegramChannelSessionMock,
+  getTelegramChannelSessionMessagesMock,
+  getTelegramChannelSessionsMock
+} = vi.hoisted(() => ({
+  getTelegramChannelSessionsMock: vi.fn(),
+  getTelegramChannelSessionMessagesMock: vi.fn(),
+  deleteTelegramChannelSessionMock: vi.fn()
+}))
 
 vi.mock("@/lib/sidecar-client", () => ({
   getTelegramChannelSessions: (...args: unknown[]) => getTelegramChannelSessionsMock(...args),
   getTelegramChannelSessionMessages: (...args: unknown[]) =>
-    getTelegramChannelSessionMessagesMock(...args)
+    getTelegramChannelSessionMessagesMock(...args),
+  deleteTelegramChannelSession: (...args: unknown[]) => deleteTelegramChannelSessionMock(...args)
 }))
 
 vi.mock("@/hooks/use-local-shortcut", () => ({
   useLocalShortcut: vi.fn()
+}))
+
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn()
+  }
 }))
 
 const formatStartedAt = (value: number) =>
@@ -151,6 +162,7 @@ describe("ChannelTelegramChat", () => {
         }
       ]
     })
+    deleteTelegramChannelSessionMock.mockResolvedValue(undefined)
 
     getTelegramChannelSessionMessagesMock.mockImplementation((sessionKey: string) => {
       if (sessionKey === "telegram:1001:session-b") {
@@ -180,6 +192,24 @@ describe("ChannelTelegramChat", () => {
                 modelId: "gpt-5.3-chat-latest",
                 modelLabel: "GPT-5.3-Chat-Latest"
               }
+            }
+          ]
+        })
+      }
+
+      if (sessionKey === "telegram:2002:session-c") {
+        return Promise.resolve({
+          sessionKey,
+          messages: [
+            {
+              id: "user-3",
+              role: "user",
+              parts: [{ type: "text", text: "another thread" }]
+            },
+            {
+              id: "assistant-3",
+              role: "assistant",
+              parts: [{ type: "text", text: "another answer" }]
             }
           ]
         })
@@ -246,19 +276,18 @@ describe("ChannelTelegramChat", () => {
       await Promise.resolve()
     })
 
-    const sessionButtons = Array.from(
-      container.querySelectorAll<HTMLButtonElement>("[data-session-key]")
-    )
+    const sessionButtons = Array.from(container.querySelectorAll<HTMLElement>("[data-session-key]"))
+    const sessionItems = sessionButtons.map(button => button.closest("li")?.textContent ?? "")
     expect(sessionButtons).toHaveLength(3)
     expect(container.textContent).toContain("Thread 1001")
     expect(container.textContent).toContain("Thread 2002")
     expect(sessionButtons[0]?.textContent).toContain("hello")
     expect(sessionButtons[1]?.textContent).toContain("older hello")
     expect(sessionButtons[2]?.textContent).toContain("another thread")
-    expect(sessionButtons[0]?.textContent).toContain(latestCompactStartedAtText)
-    expect(sessionButtons[1]?.textContent).toContain(olderCompactStartedAtText)
-    expect(sessionButtons[0]?.textContent).not.toContain("Started")
-    expect(sessionButtons[1]?.textContent).not.toContain("Archived")
+    expect(sessionItems[0]).toContain(latestCompactStartedAtText)
+    expect(sessionItems[1]).toContain(olderCompactStartedAtText)
+    expect(sessionItems[0]).not.toContain("Started")
+    expect(sessionItems[1]).not.toContain("Archived")
     expect(
       container
         .querySelector('[data-session-status="active"] svg')
@@ -273,10 +302,10 @@ describe("ChannelTelegramChat", () => {
         ?.getAttribute("aria-label")
         ?.includes("cannot continue chatting")
     ).toBe(true)
-    expect(sessionButtons[0]?.textContent).not.toEqual(sessionButtons[1]?.textContent)
-    expect(sessionButtons[0]?.textContent).not.toContain("latest answer")
-    expect(sessionButtons[1]?.textContent).not.toContain("older answer")
-    expect(sessionButtons[0]?.textContent).not.toContain("25%")
+    expect(sessionItems[0]).not.toEqual(sessionItems[1])
+    expect(sessionItems[0]).not.toContain("latest answer")
+    expect(sessionItems[1]).not.toContain("older answer")
+    expect(sessionItems[0]).not.toContain("25%")
     expect(
       container.querySelector('[data-testid="selected-thread-started-at"]')?.textContent
     ).toContain(latestStartedAtText)
@@ -331,9 +360,7 @@ describe("ChannelTelegramChat", () => {
       await Promise.resolve()
     })
 
-    const sessionButtons = Array.from(
-      container.querySelectorAll<HTMLButtonElement>("[data-session-key]")
-    )
+    const sessionButtons = Array.from(container.querySelectorAll<HTMLElement>("[data-session-key]"))
 
     await act(async () => {
       sessionButtons[1]?.click()
@@ -344,5 +371,124 @@ describe("ChannelTelegramChat", () => {
     expect(
       container.querySelector('button[aria-label^="View token, cost, and speed details"]')
     ).toBeNull()
+  })
+
+  it("shows delete only for archived threads and refreshes selection after deletion", async () => {
+    let currentSessions = [
+      {
+        sessionKey: "telegram:1001:session-b",
+        sessionId: "session-b",
+        chatId: "1001",
+        startedAt: 1_710_000_100_000,
+        updatedAt: 1_710_000_200_000,
+        isActive: true,
+        messageCount: 2,
+        firstMessagePreview: "hello",
+        lastMessageRole: "assistant",
+        lastMessagePreview: "latest answer"
+      },
+      {
+        sessionKey: "telegram:1001:session-a",
+        sessionId: "session-a",
+        chatId: "1001",
+        startedAt: 1_710_000_000_000,
+        updatedAt: 1_710_000_050_000,
+        isActive: false,
+        messageCount: 2,
+        firstMessagePreview: "older hello",
+        lastMessageRole: "assistant",
+        lastMessagePreview: "older answer"
+      },
+      {
+        sessionKey: "telegram:2002:session-c",
+        sessionId: "session-c",
+        chatId: "2002",
+        startedAt: 1_710_000_300_000,
+        updatedAt: 1_710_000_350_000,
+        isActive: true,
+        messageCount: 2,
+        firstMessagePreview: "another thread",
+        lastMessageRole: "assistant",
+        lastMessagePreview: "another answer"
+      }
+    ]
+
+    getTelegramChannelSessionsMock.mockImplementation(() =>
+      Promise.resolve({
+        sessions: currentSessions
+      })
+    )
+    deleteTelegramChannelSessionMock.mockImplementation(async (sessionKey: string) => {
+      currentSessions = currentSessions.filter(session => session.sessionKey !== sessionKey)
+    })
+
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <SidebarProvider>
+            <ChannelTelegramChat />
+          </SidebarProvider>
+        </I18nextProvider>
+      )
+    })
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(
+      container.querySelector('[data-session-delete-trigger="telegram:1001:session-a"]')
+    ).not.toBeNull()
+    expect(
+      container.querySelector('[data-session-delete-trigger="telegram:1001:session-b"]')
+    ).toBeNull()
+    expect(
+      container.querySelector('[data-session-delete-trigger="telegram:2002:session-c"]')
+    ).toBeNull()
+
+    const sessionButtons = Array.from(container.querySelectorAll<HTMLElement>("[data-session-key]"))
+
+    await act(async () => {
+      sessionButtons[1]?.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(container.textContent).toContain("older answer")
+
+    const deleteTrigger = container.querySelector<HTMLButtonElement>(
+      '[data-session-delete-trigger="telegram:1001:session-a"]'
+    )
+    expect(deleteTrigger).not.toBeNull()
+
+    await act(async () => {
+      deleteTrigger?.dispatchEvent(
+        new MouseEvent("pointerdown", {
+          bubbles: true,
+          button: 0
+        })
+      )
+      deleteTrigger?.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const deleteAction = document.body.querySelector<HTMLElement>(
+      '[data-session-delete-action="telegram:1001:session-a"]'
+    )
+    expect(deleteAction).not.toBeNull()
+
+    await act(async () => {
+      deleteAction?.click()
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(deleteTelegramChannelSessionMock).toHaveBeenCalledWith("telegram:1001:session-a")
+    expect(container.textContent).not.toContain("older hello")
+    expect(container.textContent).not.toContain("older answer")
+    expect(container.textContent).toContain("another answer")
   })
 })

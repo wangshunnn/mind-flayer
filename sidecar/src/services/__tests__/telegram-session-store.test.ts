@@ -102,4 +102,13 @@ describe("FileTelegramSessionStore", () => {
       activeSessionKeyByChatId: {}
     })
   })
+
+  it("rethrows unexpected read errors instead of silently starting empty", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "mind-flayer-telegram-store-"))
+    tempDirs.push(tempDir)
+
+    const store = new FileTelegramSessionStore(tempDir)
+
+    await expect(store.load()).rejects.toBeInstanceOf(Error)
+  })
 })

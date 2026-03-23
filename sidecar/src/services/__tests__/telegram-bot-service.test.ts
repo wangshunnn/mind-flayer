@@ -1093,6 +1093,132 @@ describe("TelegramBotService", () => {
     expect(findSessionSummaryByChatId(service, "7002")).toBeUndefined()
   })
 
+  it("serializes persisted session mutations so a failed earlier save cannot clobber a later update", async () => {
+    const providerService = {
+      hasConfig: vi.fn(() => true),
+      createModel: vi.fn(() => ({})),
+      getConfig: vi.fn((provider: string) => {
+        if (provider === "telegram") {
+          return { apiKey: "tg-token", baseUrl: "https://api.telegram.org" }
+        }
+        return { apiKey: "model-key" }
+      })
+    }
+    const toolService = {
+      getRequestTools: vi.fn(() => ({}))
+    }
+
+    const runtimeConfigService = new ChannelRuntimeConfigService()
+    runtimeConfigService.update({
+      selectedModel: {
+        provider: "minimax",
+        providerLabel: "MiniMax",
+        modelId: "model-a",
+        modelLabel: "MiniMax-M2.5"
+      },
+      channels: {
+        telegram: {
+          enabled: true,
+          allowedUserIds: ["7001"]
+        }
+      }
+    })
+
+    const initialSessionKey = "telegram:7001:session-a"
+    const initialMessages = [
+      {
+        id: "message-1",
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: "hello" }]
+      }
+    ]
+    const changedMessagesOne = [
+      {
+        id: "message-2",
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: "first change" }]
+      }
+    ]
+    const changedMessagesTwo = [
+      {
+        id: "message-3",
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: "second change" }]
+      }
+    ]
+
+    let rejectFirstSave: ((error: Error) => void) | null = null
+    const sessionStore = {
+      load: vi.fn().mockResolvedValue({
+        sessions: [
+          {
+            sessionKey: initialSessionKey,
+            chatId: "7001",
+            startedAt: 10,
+            updatedAt: 20,
+            messages: initialMessages
+          }
+        ],
+        activeSessionKeyByChatId: {
+          "7001": initialSessionKey
+        }
+      }),
+      save: vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise<void>((_, reject) => {
+              rejectFirstSave = error => reject(error)
+            })
+        )
+        .mockResolvedValueOnce(undefined)
+    }
+
+    const service = new TelegramBotService(
+      providerService as never,
+      toolService as never,
+      runtimeConfigService,
+      sessionStore as never
+    )
+    await service.initialize()
+
+    const firstUpdatePromise = (
+      service as unknown as {
+        setSessionMessages: (
+          sessionKey: string,
+          messages: typeof changedMessagesOne
+        ) => Promise<void>
+      }
+    ).setSessionMessages(initialSessionKey, changedMessagesOne)
+
+    const secondUpdatePromise = (
+      service as unknown as {
+        setSessionMessages: (
+          sessionKey: string,
+          messages: typeof changedMessagesTwo
+        ) => Promise<void>
+      }
+    ).setSessionMessages(initialSessionKey, changedMessagesTwo)
+
+    for (let index = 0; index < 5 && !rejectFirstSave; index += 1) {
+      await Promise.resolve()
+    }
+
+    const rejectPendingSave = rejectFirstSave
+
+    if (typeof rejectPendingSave !== "function") {
+      throw new Error("Expected first save to be pending")
+    }
+
+    ;(rejectPendingSave as (error: Error) => void)(new Error("first failed"))
+
+    await expect(firstUpdatePromise).rejects.toThrow("first failed")
+    await expect(secondUpdatePromise).resolves.toBeUndefined()
+
+    expect(sessionStore.save).toHaveBeenCalledTimes(2)
+    expect(service.getSessionMessages(initialSessionKey)).toEqual(changedMessagesTwo)
+  })
+
   it("stores assistant usage metadata on messages and session summaries", async () => {
     let currentTime = 1_000
     const dateNowSpy = vi.spyOn(Date, "now").mockImplementation(() => currentTime)

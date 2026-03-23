@@ -192,6 +192,7 @@ export class TelegramBotService {
   private pollingTask: Promise<void> | null = null
   private runtimeSignature: string | null = null
   private refreshChain: Promise<void> = Promise.resolve()
+  private sessionMutationChain: Promise<void> = Promise.resolve()
   private sessionMessages = new Map<string, UIMessage[]>()
   private sessionStartedAt = new Map<string, number>()
   private sessionUpdatedAt = new Map<string, number>()
@@ -1456,17 +1457,26 @@ export class TelegramBotService {
     await this.sessionStore.save(this.createSessionSnapshot())
   }
 
-  private async withPersistedSessionMutation<T>(mutate: () => T): Promise<T> {
-    const previousSnapshot = this.createSessionSnapshot()
+  private async withPersistedSessionMutation<T>(mutate: () => Promise<T> | T): Promise<T> {
+    const mutationTask = this.sessionMutationChain.then(async () => {
+      const previousSnapshot = this.createSessionSnapshot()
 
-    try {
-      const result = mutate()
-      await this.persistSessions()
-      return result
-    } catch (error) {
-      this.hydrateSessions(previousSnapshot)
-      throw error
-    }
+      try {
+        const result = await mutate()
+        await this.persistSessions()
+        return result
+      } catch (error) {
+        this.hydrateSessions(previousSnapshot)
+        throw error
+      }
+    })
+
+    this.sessionMutationChain = mutationTask.then(
+      () => undefined,
+      () => undefined
+    )
+
+    return mutationTask
   }
 
   private extractChatIdFromSessionKey(sessionKey: string): string {

@@ -121,12 +121,19 @@ export class FileTelegramSessionStore implements TelegramSessionStore {
         return cloneSnapshot(EMPTY_SNAPSHOT)
       }
 
-      console.warn(
-        `[TelegramSessionStore] Failed to load persisted state from '${this.filePath}', starting with an empty store: ${
+      if (error instanceof SyntaxError) {
+        console.warn(
+          `[TelegramSessionStore] Failed to parse persisted state from '${this.filePath}', starting with an empty store.`
+        )
+        return cloneSnapshot(EMPTY_SNAPSHOT)
+      }
+
+      console.error(
+        `[TelegramSessionStore] Failed to load persisted state from '${this.filePath}': ${
           error instanceof Error ? error.message : String(error)
         }`
       )
-      return cloneSnapshot(EMPTY_SNAPSHOT)
+      throw error
     }
   }
 

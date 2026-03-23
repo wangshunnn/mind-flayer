@@ -604,4 +604,165 @@ describe("ChannelTelegramChat", () => {
       await Promise.resolve()
     })
   })
+
+  it("clears stale messages immediately when deleting the currently selected thread", async () => {
+    let resolveLatestMessages: (() => void) | null = null
+    let delayNextLatestLoad = false
+    let currentSessions = [
+      {
+        sessionKey: "telegram:1001:session-b",
+        sessionId: "session-b",
+        chatId: "1001",
+        startedAt: 1_710_000_100_000,
+        updatedAt: 1_710_000_200_000,
+        isActive: true,
+        messageCount: 2,
+        firstMessagePreview: "hello",
+        lastMessageRole: "assistant",
+        lastMessagePreview: "latest answer"
+      },
+      {
+        sessionKey: "telegram:1001:session-a",
+        sessionId: "session-a",
+        chatId: "1001",
+        startedAt: 1_710_000_000_000,
+        updatedAt: 1_710_000_050_000,
+        isActive: false,
+        messageCount: 2,
+        firstMessagePreview: "older hello",
+        lastMessageRole: "assistant",
+        lastMessagePreview: "older answer"
+      }
+    ]
+
+    getTelegramChannelSessionsMock.mockImplementation(() =>
+      Promise.resolve({
+        sessions: currentSessions
+      })
+    )
+    getTelegramChannelSessionMessagesMock.mockImplementation((sessionKey: string) => {
+      if (sessionKey === "telegram:1001:session-b" && delayNextLatestLoad) {
+        delayNextLatestLoad = false
+        return new Promise(resolve => {
+          resolveLatestMessages = () => {
+            resolve({
+              sessionKey,
+              messages: [
+                {
+                  id: "user-1",
+                  role: "user",
+                  parts: [{ type: "text", text: "hello" }]
+                },
+                {
+                  id: "assistant-1",
+                  role: "assistant",
+                  parts: [{ type: "text", text: "latest answer" }]
+                }
+              ]
+            })
+          }
+        })
+      }
+
+      if (sessionKey === "telegram:1001:session-b") {
+        return Promise.resolve({
+          sessionKey,
+          messages: [
+            {
+              id: "user-1",
+              role: "user",
+              parts: [{ type: "text", text: "hello" }]
+            },
+            {
+              id: "assistant-1",
+              role: "assistant",
+              parts: [{ type: "text", text: "latest answer" }]
+            }
+          ]
+        })
+      }
+
+      return Promise.resolve({
+        sessionKey,
+        messages: [
+          {
+            id: "user-2",
+            role: "user",
+            parts: [{ type: "text", text: "older hello" }]
+          },
+          {
+            id: "assistant-2",
+            role: "assistant",
+            parts: [{ type: "text", text: "older answer" }]
+          }
+        ]
+      })
+    })
+    deleteTelegramChannelSessionMock.mockImplementation(async (sessionKey: string) => {
+      currentSessions = currentSessions.filter(session => session.sessionKey !== sessionKey)
+    })
+
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <SidebarProvider>
+            <ChannelTelegramChat />
+          </SidebarProvider>
+        </I18nextProvider>
+      )
+    })
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const sessionButtons = Array.from(container.querySelectorAll<HTMLElement>("[data-session-key]"))
+
+    await act(async () => {
+      sessionButtons[1]?.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(container.textContent).toContain("older answer")
+    delayNextLatestLoad = true
+
+    const deleteTrigger = container.querySelector<HTMLButtonElement>(
+      '[data-session-delete-trigger="telegram:1001:session-a"]'
+    )
+
+    await act(async () => {
+      deleteTrigger?.dispatchEvent(
+        new MouseEvent("pointerdown", {
+          bubbles: true,
+          button: 0
+        })
+      )
+      deleteTrigger?.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const deleteAction = document.body.querySelector<HTMLElement>(
+      '[data-session-delete-action="telegram:1001:session-a"]'
+    )
+
+    await act(async () => {
+      deleteAction?.click()
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(container.textContent).not.toContain("older answer")
+
+    await act(async () => {
+      resolveLatestMessages?.()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(container.textContent).toContain("latest answer")
+  })
 })

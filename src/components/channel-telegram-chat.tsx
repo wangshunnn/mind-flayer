@@ -216,6 +216,7 @@ export function ChannelTelegramChat() {
       const orderedSessions = sessions
       const deletedIndex = orderedSessions.findIndex(session => session.sessionKey === sessionKey)
       const remainingSessions = orderedSessions.filter(session => session.sessionKey !== sessionKey)
+      const wasDeletingSelectedSession = selectedSessionKeyRef.current === sessionKey
       let preferredSelectedSessionKey = selectedSessionKeyRef.current
 
       if (preferredSelectedSessionKey === sessionKey) {
@@ -230,14 +231,14 @@ export function ChannelTelegramChat() {
       try {
         await deleteTelegramChannelSession(sessionKey)
 
-        selectedSessionKeyRef.current = preferredSelectedSessionKey
-        setSelectedSessionKey(preferredSelectedSessionKey)
-
-        if (!preferredSelectedSessionKey) {
+        if (wasDeletingSelectedSession || !preferredSelectedSessionKey) {
           messagesRequestSeqRef.current += 1
           setMessages([])
           setErrorMessage(null)
         }
+
+        selectedSessionKeyRef.current = preferredSelectedSessionKey
+        setSelectedSessionKey(preferredSelectedSessionKey)
 
         await refreshAll({ preferredSelectedSessionKey })
         toast.success(t("toast.channelThreadDeleted"))

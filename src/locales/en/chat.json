@@ -84,6 +84,45 @@
       "channels": "Channels"
     }
   },
+  "imagePreview": {
+    "windowTitle": "Image Preview",
+    "loading": "Loading image...",
+    "empty": {
+      "title": "No image selected",
+      "description": "Open an image from the chat to preview it here."
+    },
+    "actions": {
+      "copy": "Copy image",
+      "save": "Save image",
+      "info": "Image details",
+      "reveal": "Reveal in folder"
+    },
+    "info": {
+      "title": "Image Details",
+      "description": "Metadata and source information for the current image.",
+      "fileName": "File name",
+      "source": "Source",
+      "sourceLocal": "Local file",
+      "sourceRemote": "Remote image",
+      "resolution": "Resolution",
+      "fileSize": "File size",
+      "mimeType": "MIME type",
+      "localPath": "File path",
+      "url": "Image URL",
+      "notAvailable": "N/A"
+    },
+    "errors": {
+      "title": "Unable to load image",
+      "load": "Failed to load the selected image."
+    },
+    "toast": {
+      "copySuccess": "Image copied",
+      "copyError": "Failed to copy image.",
+      "saveSuccess": "Image saved",
+      "saveError": "Failed to save image.",
+      "revealError": "Failed to reveal the image file."
+    }
+  },
   "toast": {
     "newChatCreated": "New chat created"
   }

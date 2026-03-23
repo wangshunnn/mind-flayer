@@ -239,6 +239,20 @@ export function resolveLocalImageUrl(
   return appendCacheBustParam(resolvedProxyUrl, cacheBustKey)
 }
 
+export function getLocalImagePath(source: string): string | null {
+  const directPath = normalizeLocalPathCandidate(source)
+  if (directPath) {
+    return directPath
+  }
+
+  const proxiedPath = getOriginalLocalImagePathFromProxyUrl(source)
+  if (!proxiedPath) {
+    return null
+  }
+
+  return normalizeLocalPathCandidate(proxiedPath)
+}
+
 export function getOriginalLocalImagePathFromProxyUrl(source: string): string | null {
   try {
     const parsedUrl = new URL(source)

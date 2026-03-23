@@ -1,6 +1,7 @@
 import { LogicalPosition } from "@tauri-apps/api/dpi"
 import { emit } from "@tauri-apps/api/event"
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow"
+import { type ImagePreviewPayload, storeImagePreviewSession } from "@/lib/image-preview"
 
 /**
  * Settings section identifiers
@@ -53,5 +54,34 @@ export async function openSettingsWindow(initialTab: SettingsSection = SettingsS
     hiddenTitle: true,
     titleBarStyle: "overlay",
     trafficLightPosition: new LogicalPosition(24, 30)
+  })
+}
+
+export async function openImagePreviewWindow(payload: ImagePreviewPayload) {
+  const existingWindow = await WebviewWindow.getByLabel("image-preview")
+
+  if (existingWindow) {
+    await existingWindow.emit("image-preview:show", payload)
+    await existingWindow.show()
+    await existingWindow.unminimize()
+    await existingWindow.setFocus()
+    return
+  }
+
+  const sessionId = globalThis.crypto.randomUUID()
+  storeImagePreviewSession(sessionId, payload)
+
+  new WebviewWindow("image-preview", {
+    url: `/image-preview?session=${encodeURIComponent(sessionId)}`,
+    width: 920,
+    height: 640,
+    minWidth: 520,
+    minHeight: 380,
+    center: true,
+    resizable: true,
+    fullscreen: false,
+    hiddenTitle: true,
+    titleBarStyle: "overlay",
+    trafficLightPosition: new LogicalPosition(16, 18)
   })
 }

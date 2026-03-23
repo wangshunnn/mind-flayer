@@ -2,8 +2,10 @@ import type { ComponentProps } from "react"
 import { memo, useMemo, useState } from "react"
 import type { StreamdownProps } from "streamdown"
 import { defaultRehypePlugins } from "streamdown"
+import { buildImagePreviewPayload } from "@/lib/image-preview"
 import { getOriginalLocalImagePathFromProxyUrl, resolveLocalImageUrl } from "@/lib/local-image-url"
 import { cn } from "@/lib/utils"
+import { openImagePreviewWindow } from "@/lib/window-manager"
 
 type SanitizeSchema = {
   protocols?: Record<string, string[] | undefined>
@@ -134,6 +136,73 @@ type StreamdownLocalImageProps = ComponentProps<"img"> & {
   localImageCacheBustKey?: string
 }
 
+type PreviewableImageProps = ComponentProps<"img"> & {
+  displaySource: string
+  localImageProxyOrigin?: string
+  originalSource: string
+}
+
+const MESSAGE_IMAGE_WRAPPER_CLASSNAME =
+  "block w-fit max-w-full bg-transparent p-0 text-left sm:max-w-[32rem]"
+const MESSAGE_IMAGE_CLASSNAME =
+  "block h-auto w-auto max-w-full max-h-[28rem] rounded-xl object-contain"
+
+const PreviewableImage = memo(
+  ({
+    alt,
+    className,
+    displaySource,
+    localImageProxyOrigin,
+    originalSource,
+    ...props
+  }: PreviewableImageProps) => {
+    const previewPayload = useMemo(
+      () => buildImagePreviewPayload(originalSource, alt || "", localImageProxyOrigin),
+      [alt, localImageProxyOrigin, originalSource]
+    )
+
+    if (!previewPayload) {
+      return (
+        <img
+          {...props}
+          alt={alt}
+          className={cn(className, MESSAGE_IMAGE_CLASSNAME)}
+          src={displaySource}
+          onContextMenu={event => {
+            props.onContextMenu?.(event)
+          }}
+        />
+      )
+    }
+
+    return (
+      <button
+        type="button"
+        className={cn(
+          MESSAGE_IMAGE_WRAPPER_CLASSNAME,
+          "cursor-zoom-in",
+          "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        )}
+        onClick={() => {
+          void openImagePreviewWindow(previewPayload)
+        }}
+        onContextMenu={event => {
+          event.preventDefault()
+        }}
+      >
+        <img
+          {...props}
+          alt={alt}
+          className={cn(className, MESSAGE_IMAGE_CLASSNAME)}
+          src={displaySource}
+        />
+      </button>
+    )
+  }
+)
+
+PreviewableImage.displayName = "PreviewableImage"
+
 const StreamdownLocalImage = memo(
   ({
     src,
@@ -145,16 +214,32 @@ const StreamdownLocalImage = memo(
     ...props
   }: StreamdownLocalImageProps) => {
     const source = typeof src === "string" ? src : ""
-    const resolvedSource = useMemo(
-      () =>
-        resolveLocalImageUrl(source, localImageProxyOrigin, {
-          cacheBustKey: localImageCacheBustKey
-        }),
-      [source, localImageProxyOrigin, localImageCacheBustKey]
+    const previewPayload = useMemo(
+      () => buildImagePreviewPayload(source, props.alt || "", localImageProxyOrigin),
+      [source, props.alt, localImageProxyOrigin]
     )
+    const resolvedSource = useMemo(() => {
+      if (previewPayload?.kind === "local") {
+        return resolveLocalImageUrl(previewPayload.originalUrl, localImageProxyOrigin, {
+          cacheBustKey: localImageCacheBustKey
+        })
+      }
+
+      if (previewPayload) {
+        return previewPayload.resourceUrl
+      }
+
+      return resolveLocalImageUrl(source, localImageProxyOrigin, {
+        cacheBustKey: localImageCacheBustKey
+      })
+    }, [source, previewPayload, localImageProxyOrigin, localImageCacheBustKey])
     const fallbackText = useMemo(
-      () => getOriginalLocalImagePathFromProxyUrl(source) ?? (source || resolvedSource),
-      [source, resolvedSource]
+      () =>
+        previewPayload?.localPath ??
+        previewPayload?.originalUrl ??
+        getOriginalLocalImagePathFromProxyUrl(source) ??
+        (source || resolvedSource),
+      [previewPayload, source, resolvedSource]
     )
     const [failedSource, setFailedSource] = useState<string | null>(null)
     const hasLoadError = failedSource === resolvedSource
@@ -180,11 +265,13 @@ const StreamdownLocalImage = memo(
     }
 
     return (
-      <img
+      <PreviewableImage
         {...props}
-        alt={props.alt || source || ""}
+        alt={props.alt || previewPayload?.filename || source || ""}
         className={className}
-        src={resolvedSource}
+        displaySource={resolvedSource}
+        localImageProxyOrigin={localImageProxyOrigin}
+        originalSource={source}
         onError={event => {
           setFailedSource(resolvedSource)
           onError?.(event)

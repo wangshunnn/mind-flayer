@@ -9,6 +9,7 @@ import { initDatabase } from "@/lib/database"
 import i18n from "@/lib/i18n"
 import { SettingsSection } from "@/lib/window-manager"
 import Home from "@/pages/Home"
+import ImagePreview from "@/pages/ImagePreview"
 import Settings from "@/pages/Settings"
 
 import "@/styles/App.css"
@@ -30,7 +31,16 @@ const settingsRoute = createRoute({
   })
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, settingsRoute])
+const imagePreviewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/image-preview",
+  component: ImagePreview,
+  validateSearch: z.object({
+    session: z.string().optional()
+  })
+})
+
+const routeTree = rootRoute.addChildren([indexRoute, settingsRoute, imagePreviewRoute])
 
 const router = createRouter({ routeTree })
 

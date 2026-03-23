@@ -4,6 +4,7 @@ const REMOTE_IMAGE_PROXY_PATH_SUFFIX = "/api/remote-image"
 const HTTP_PROTOCOL_REGEX = /^https?:/i
 const DATA_OR_BLOB_PROTOCOL_REGEX = /^(data:|blob:)/i
 const IMAGE_PREVIEW_SESSION_STORAGE_PREFIX = "image-preview:session:"
+const RELATIVE_URL_PARSE_BASE = "http://localhost"
 
 export type ImagePreviewSourceKind = "local" | "remote"
 
@@ -20,6 +21,22 @@ export function isRemoteImageUrl(source: string): boolean {
   return HTTP_PROTOCOL_REGEX.test(source.trim())
 }
 
+function isImagePreviewPayload(value: unknown): value is ImagePreviewPayload {
+  if (!value || typeof value !== "object") {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.alt === "string" &&
+    typeof candidate.filename === "string" &&
+    (candidate.kind === "local" || candidate.kind === "remote") &&
+    (typeof candidate.localPath === "string" || candidate.localPath === null) &&
+    typeof candidate.originalUrl === "string" &&
+    typeof candidate.resourceUrl === "string"
+  )
+}
+
 function trimTrailingSlashes(origin: string): string {
   return origin.replace(/\/+$/, "")
 }
@@ -32,16 +49,24 @@ function decodePathSegment(value: string): string {
   }
 }
 
-function isRemoteImageProxyUrl(source: string): boolean {
+function parseUrlAllowRelative(source: string): URL | null {
   try {
-    const parsedUrl = new URL(source)
-    return (
-      parsedUrl.pathname.endsWith(REMOTE_IMAGE_PROXY_PATH_SUFFIX) &&
-      parsedUrl.searchParams.has("url")
-    )
+    return new URL(source)
   } catch {
-    return false
+    try {
+      return new URL(source, RELATIVE_URL_PARSE_BASE)
+    } catch {
+      return null
+    }
   }
+}
+
+function isRemoteImageProxyUrl(source: string): boolean {
+  const parsedUrl = parseUrlAllowRelative(source)
+  return Boolean(
+    parsedUrl?.pathname.endsWith(REMOTE_IMAGE_PROXY_PATH_SUFFIX) &&
+      parsedUrl.searchParams.has("url")
+  )
 }
 
 export function resolveRemoteImageUrl(source: string, sidecarOrigin?: string): string {
@@ -58,17 +83,13 @@ export function resolveRemoteImageUrl(source: string, sidecarOrigin?: string): s
 }
 
 export function getOriginalRemoteImageUrlFromProxyUrl(source: string): string | null {
-  try {
-    const parsedUrl = new URL(source)
-    if (!parsedUrl.pathname.endsWith(REMOTE_IMAGE_PROXY_PATH_SUFFIX)) {
-      return null
-    }
-
-    const originalUrl = parsedUrl.searchParams.get("url")
-    return originalUrl?.trim() ? originalUrl : null
-  } catch {
+  const parsedUrl = parseUrlAllowRelative(source)
+  if (!parsedUrl?.pathname.endsWith(REMOTE_IMAGE_PROXY_PATH_SUFFIX)) {
     return null
   }
+
+  const originalUrl = parsedUrl.searchParams.get("url")
+  return originalUrl?.trim() ? originalUrl : null
 }
 
 export function deriveImageFilename(source: string, localPath?: string | null): string {
@@ -99,6 +120,18 @@ export function buildImagePreviewPayload(
     return null
   }
 
+  const proxiedRemoteUrl = getOriginalRemoteImageUrlFromProxyUrl(trimmedSource)
+  if (proxiedRemoteUrl) {
+    return {
+      alt,
+      filename: deriveImageFilename(proxiedRemoteUrl),
+      kind: "remote",
+      localPath: null,
+      originalUrl: proxiedRemoteUrl,
+      resourceUrl: resolveRemoteImageUrl(proxiedRemoteUrl, sidecarOrigin)
+    }
+  }
+
   const localPath = getLocalImagePath(trimmedSource)
   if (localPath) {
     const originalUrl = trimmedSource
@@ -112,8 +145,7 @@ export function buildImagePreviewPayload(
     }
   }
 
-  const proxiedRemoteUrl = getOriginalRemoteImageUrlFromProxyUrl(trimmedSource)
-  const originalUrl = proxiedRemoteUrl ?? trimmedSource
+  const originalUrl = trimmedSource
   if (!isRemoteImageUrl(originalUrl)) {
     return null
   }
@@ -133,21 +165,35 @@ export function createImagePreviewSessionKey(sessionId: string): string {
 }
 
 export function storeImagePreviewSession(sessionId: string, payload: ImagePreviewPayload): void {
-  globalThis.localStorage.setItem(createImagePreviewSessionKey(sessionId), JSON.stringify(payload))
+  const storageKey = createImagePreviewSessionKey(sessionId)
+
+  try {
+    globalThis.localStorage.setItem(storageKey, JSON.stringify(payload))
+  } catch (error) {
+    console.error(`[image-preview] Failed to store preview session "${storageKey}"`, error)
+  }
 }
 
 export function consumeImagePreviewSession(sessionId: string): ImagePreviewPayload | null {
-  const key = createImagePreviewSessionKey(sessionId)
-  const storedValue = globalThis.localStorage.getItem(key)
-  if (!storedValue) {
-    return null
-  }
-
-  globalThis.localStorage.removeItem(key)
+  const storageKey = createImagePreviewSessionKey(sessionId)
 
   try {
-    return JSON.parse(storedValue) as ImagePreviewPayload
-  } catch {
+    const storedValue = globalThis.localStorage.getItem(storageKey)
+    if (!storedValue) {
+      return null
+    }
+
+    globalThis.localStorage.removeItem(storageKey)
+
+    const parsedValue: unknown = JSON.parse(storedValue)
+    if (!isImagePreviewPayload(parsedValue)) {
+      console.warn(`[image-preview] Ignoring invalid preview session "${storageKey}"`)
+      return null
+    }
+
+    return parsedValue
+  } catch (error) {
+    console.error(`[image-preview] Failed to consume preview session "${storageKey}"`, error)
     return null
   }
 }

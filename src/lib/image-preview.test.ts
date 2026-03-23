@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import {
   buildImagePreviewPayload,
   consumeImagePreviewSession,
@@ -55,6 +55,23 @@ describe("buildImagePreviewPayload", () => {
     })
   })
 
+  it("builds remote image payloads from relative proxy URLs", () => {
+    const payload = buildImagePreviewPayload(
+      `/api/remote-image?url=${encodeURIComponent("https://example.com/assets/photo.png")}`,
+      "remote",
+      SIDECAR_ORIGIN
+    )
+
+    expect(payload).toEqual({
+      alt: "remote",
+      filename: "photo.png",
+      kind: "remote",
+      localPath: null,
+      originalUrl: "https://example.com/assets/photo.png",
+      resourceUrl: `${SIDECAR_ORIGIN}/api/remote-image?url=${encodeURIComponent("https://example.com/assets/photo.png")}`
+    })
+  })
+
   it("returns null for data and blob URLs", () => {
     expect(buildImagePreviewPayload("data:image/png;base64,abc", "", SIDECAR_ORIGIN)).toBeNull()
     expect(buildImagePreviewPayload("blob:http://localhost/id", "", SIDECAR_ORIGIN)).toBeNull()
@@ -86,5 +103,52 @@ describe("image preview sessions", () => {
 
     expect(consumeImagePreviewSession(sessionId)).toEqual(payload)
     expect(consumeImagePreviewSession(sessionId)).toBeNull()
+  })
+
+  it("returns null for invalid stored payloads", () => {
+    const sessionId = "invalid-preview-session"
+
+    localStorage.setItem(
+      `image-preview:session:${sessionId}`,
+      JSON.stringify({
+        alt: "preview",
+        filename: "photo.png"
+      })
+    )
+
+    expect(consumeImagePreviewSession(sessionId)).toBeNull()
+  })
+
+  it("returns null for malformed stored payloads", () => {
+    const sessionId = "malformed-preview-session"
+
+    localStorage.setItem(`image-preview:session:${sessionId}`, "{broken")
+
+    expect(consumeImagePreviewSession(sessionId)).toBeNull()
+  })
+
+  it("swallows storage write errors", () => {
+    const sessionId = "quota-preview-session"
+    const payload = {
+      alt: "preview",
+      filename: "photo.png",
+      kind: "remote" as const,
+      localPath: null,
+      originalUrl: "https://example.com/photo.png",
+      resourceUrl:
+        "http://localhost:21420/api/remote-image?url=https%3A%2F%2Fexample.com%2Fphoto.png"
+    }
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("quota exceeded")
+    })
+
+    expect(() => {
+      storeImagePreviewSession(sessionId, payload)
+    }).not.toThrow()
+
+    expect(consoleErrorSpy).toHaveBeenCalled()
+    setItemSpy.mockRestore()
+    consoleErrorSpy.mockRestore()
   })
 })

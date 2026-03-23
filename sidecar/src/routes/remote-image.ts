@@ -1,8 +1,14 @@
+import { lookup } from "node:dns/promises"
 import { isIP } from "node:net"
 import type { Context } from "hono"
 import { BadRequestError } from "../utils/http-errors"
 
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:"])
+const MAX_REDIRECTS = 5
+
+function isRedirectStatus(status: number): boolean {
+  return status >= 300 && status < 400
+}
 
 function isPrivateIpv4Address(hostname: string): boolean {
   const octets = hostname.split(".").map(segment => Number.parseInt(segment, 10))
@@ -30,7 +36,37 @@ function isPrivateIpv6Address(hostname: string): boolean {
   )
 }
 
-function validateRemoteImageUrl(rawUrl: string): URL {
+function isDisallowedIpAddress(hostname: string): boolean {
+  const hostType = isIP(hostname)
+  return (
+    (hostType === 4 && isPrivateIpv4Address(hostname)) ||
+    (hostType === 6 && isPrivateIpv6Address(hostname))
+  )
+}
+
+async function validateResolvedHostname(hostname: string): Promise<void> {
+  if (hostname === "localhost") {
+    throw new BadRequestError("Localhost image URLs are not allowed")
+  }
+
+  if (isDisallowedIpAddress(hostname)) {
+    throw new BadRequestError("Private network image URLs are not allowed")
+  }
+
+  const resolvedAddresses = await lookup(hostname, {
+    all: true,
+    verbatim: true
+  })
+  if (!resolvedAddresses.length) {
+    throw new BadRequestError("Unable to resolve remote image hostname")
+  }
+
+  if (resolvedAddresses.some(address => isDisallowedIpAddress(address.address))) {
+    throw new BadRequestError("Private network image URLs are not allowed")
+  }
+}
+
+async function validateRemoteImageUrl(rawUrl: string): Promise<URL> {
   const trimmedUrl = rawUrl.trim()
   if (!trimmedUrl) {
     throw new BadRequestError("Query parameter 'url' is required")
@@ -47,19 +83,44 @@ function validateRemoteImageUrl(rawUrl: string): URL {
     throw new BadRequestError("Only http and https image URLs are supported")
   }
 
-  if (parsedUrl.hostname === "localhost") {
-    throw new BadRequestError("Localhost image URLs are not allowed")
-  }
+  try {
+    await validateResolvedHostname(parsedUrl.hostname)
+  } catch (error) {
+    if (error instanceof BadRequestError) {
+      throw error
+    }
 
-  const hostType = isIP(parsedUrl.hostname)
-  if (
-    (hostType === 4 && isPrivateIpv4Address(parsedUrl.hostname)) ||
-    (hostType === 6 && isPrivateIpv6Address(parsedUrl.hostname))
-  ) {
-    throw new BadRequestError("Private network image URLs are not allowed")
+    throw new BadRequestError("Unable to resolve remote image hostname")
   }
 
   return parsedUrl
+}
+
+async function fetchRemoteImageWithRedirectValidation(initialUrl: URL): Promise<Response> {
+  let currentUrl = initialUrl
+
+  for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
+    const response = await fetch(currentUrl.toString(), {
+      redirect: "manual"
+    })
+
+    if (!isRedirectStatus(response.status)) {
+      return response
+    }
+
+    const locationHeader = response.headers.get("location")
+    if (!locationHeader) {
+      return response
+    }
+
+    if (redirectCount === MAX_REDIRECTS) {
+      throw new Error("Too many redirects while fetching remote image")
+    }
+
+    currentUrl = await validateRemoteImageUrl(new URL(locationHeader, currentUrl).toString())
+  }
+
+  throw new Error("Too many redirects while fetching remote image")
 }
 
 function resolveErrorMessage(error: unknown): string {
@@ -74,7 +135,7 @@ export async function handleRemoteImage(c: Context) {
 
   let remoteUrl: URL
   try {
-    remoteUrl = validateRemoteImageUrl(rawUrl)
+    remoteUrl = await validateRemoteImageUrl(rawUrl)
   } catch (error) {
     const message = resolveErrorMessage(error)
     return c.json({ error: message, code: "BAD_REQUEST" }, 400)
@@ -82,8 +143,18 @@ export async function handleRemoteImage(c: Context) {
 
   let response: Response
   try {
-    response = await fetch(remoteUrl.toString())
+    response = await fetchRemoteImageWithRedirectValidation(remoteUrl)
   } catch (error) {
+    if (error instanceof BadRequestError) {
+      return c.json(
+        {
+          error: error.message,
+          code: "BAD_REQUEST"
+        },
+        400
+      )
+    }
+
     return c.json(
       {
         error: resolveErrorMessage(error),

@@ -1,5 +1,14 @@
 import { Hono } from "hono"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+
+const { lookupMock } = vi.hoisted(() => ({
+  lookupMock: vi.fn()
+}))
+
+vi.mock("node:dns/promises", () => ({
+  lookup: lookupMock
+}))
+
 import { handleRemoteImage } from "../remote-image"
 
 const PNG_BYTES = Uint8Array.from([
@@ -13,7 +22,15 @@ describe("handleRemoteImage", () => {
   beforeEach(() => {
     app = new Hono()
     app.get("/api/remote-image", handleRemoteImage)
+    fetchMock.mockReset()
+    lookupMock.mockReset()
     vi.stubGlobal("fetch", fetchMock)
+    lookupMock.mockResolvedValue([
+      {
+        address: "93.184.216.34",
+        family: 4
+      }
+    ])
   })
 
   afterEach(() => {
@@ -38,6 +55,9 @@ describe("handleRemoteImage", () => {
     expect(res.status).toBe(200)
     expect(res.headers.get("content-type")).toContain("image/png")
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(PNG_BYTES)
+    expect(fetchMock).toHaveBeenCalledWith("https://example.com/photo.png", {
+      redirect: "manual"
+    })
   })
 
   it("returns 415 for non-image upstream responses", async () => {
@@ -79,5 +99,66 @@ describe("handleRemoteImage", () => {
     )
 
     expect(res.status).toBe(502)
+  })
+
+  it("returns 400 when a hostname resolves to a private IP", async () => {
+    lookupMock.mockResolvedValue([
+      {
+        address: "192.168.1.25",
+        family: 4
+      }
+    ])
+
+    const res = await app.request(
+      `/api/remote-image?url=${encodeURIComponent("https://rebind.example/photo.png")}`
+    )
+
+    expect(res.status).toBe(400)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("returns 400 when a redirect target resolves to a private IP", async () => {
+    lookupMock.mockImplementation(async hostname => {
+      if (hostname === "example.com") {
+        return [
+          {
+            address: "93.184.216.34",
+            family: 4
+          }
+        ]
+      }
+
+      if (hostname === "internal.example") {
+        return [
+          {
+            address: "10.0.0.42",
+            family: 4
+          }
+        ]
+      }
+
+      return [
+        {
+          address: "93.184.216.34",
+          family: 4
+        }
+      ]
+    })
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: "https://internal.example/private.png"
+        }
+      })
+    )
+
+    const res = await app.request(
+      `/api/remote-image?url=${encodeURIComponent("https://example.com/photo.png")}`
+    )
+
+    expect(res.status).toBe(400)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

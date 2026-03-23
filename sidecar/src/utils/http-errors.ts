@@ -1,4 +1,4 @@
-type HttpStatusCode = 400 | 401 | 403 | 404 | 500
+type HttpStatusCode = 400 | 401 | 403 | 404 | 409 | 500
 
 /**
  * Base class for HTTP errors with status codes.
@@ -47,6 +47,15 @@ export class ForbiddenError extends HttpError<403> {
 export class NotFoundError extends HttpError<404> {
   constructor(message: string, code = "NOT_FOUND") {
     super(message, 404, code)
+  }
+}
+
+/**
+ * 409 Conflict - Request conflicts with current resource state.
+ */
+export class ConflictError extends HttpError<409> {
+  constructor(message: string, code = "CONFLICT") {
+    super(message, 409, code)
   }
 }
 

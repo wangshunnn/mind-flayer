@@ -243,6 +243,20 @@ export async function getTelegramChannelSessions(): Promise<TelegramChannelSessi
   }
 }
 
+export async function deleteTelegramChannelSession(sessionKey: string): Promise<void> {
+  const encodedSessionKey = encodeURIComponent(sessionKey)
+  const url = await getSidecarUrl(`/api/channels/telegram/sessions?sessionKey=${encodedSessionKey}`)
+  const response = await fetch(url, {
+    method: "DELETE"
+  })
+
+  if (!response.ok) {
+    throw new Error(
+      await readResponseError(response, `Telegram session delete failed (${response.status})`)
+    )
+  }
+}
+
 export interface TelegramChannelSessionMessagesResult {
   sessionKey: string
   messages: UIMessage[]

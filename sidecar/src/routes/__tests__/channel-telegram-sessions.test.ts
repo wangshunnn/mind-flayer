@@ -1,7 +1,9 @@
 import type { LanguageModelUsage, UIMessage } from "ai"
 import { Hono } from "hono"
 import { describe, expect, it, vi } from "vitest"
+import { ConflictError, NotFoundError } from "../../utils/http-errors"
 import {
+  handleDeleteTelegramChannelSession,
   handleTelegramChannelSessionMessages,
   handleTelegramChannelSessions
 } from "../channel-telegram-sessions"
@@ -150,5 +152,78 @@ describe("Telegram channel session routes", () => {
     expect(payload.sessionKey).toBe("telegram:thread-1")
     expect(payload.messages).toHaveLength(2)
     expect(payload.messages[1]?.role).toBe("assistant")
+  })
+
+  it("deletes an archived session", async () => {
+    const app = new Hono()
+    const telegramBotService = {
+      deleteSession: vi.fn(async () => undefined)
+    }
+
+    app.delete("/api/channels/telegram/sessions", c =>
+      handleDeleteTelegramChannelSession(c, telegramBotService as never)
+    )
+
+    const res = await app.request(
+      "/api/channels/telegram/sessions?sessionKey=telegram%3Athread-1%3Asession-a",
+      {
+        method: "DELETE"
+      }
+    )
+
+    expect(res.status).toBe(200)
+    expect(telegramBotService.deleteSession).toHaveBeenCalledWith("telegram:thread-1:session-a")
+
+    const payload = (await res.json()) as {
+      success: boolean
+      deletedSessionKey: string
+    }
+
+    expect(payload.success).toBe(true)
+    expect(payload.deletedSessionKey).toBe("telegram:thread-1:session-a")
+  })
+
+  it("returns 404 when deleting a missing session", async () => {
+    const app = new Hono()
+    const telegramBotService = {
+      deleteSession: vi.fn(async () => {
+        throw new NotFoundError("Telegram session not found")
+      })
+    }
+
+    app.delete("/api/channels/telegram/sessions", c =>
+      handleDeleteTelegramChannelSession(c, telegramBotService as never)
+    )
+
+    const res = await app.request("/api/channels/telegram/sessions?sessionKey=telegram%3Amissing", {
+      method: "DELETE"
+    })
+
+    expect(res.status).toBe(404)
+
+    const payload = (await res.json()) as { error: string; code: string }
+    expect(payload.code).toBe("NOT_FOUND")
+  })
+
+  it("returns 409 when deleting an active session", async () => {
+    const app = new Hono()
+    const telegramBotService = {
+      deleteSession: vi.fn(async () => {
+        throw new ConflictError("Active Telegram sessions cannot be deleted")
+      })
+    }
+
+    app.delete("/api/channels/telegram/sessions", c =>
+      handleDeleteTelegramChannelSession(c, telegramBotService as never)
+    )
+
+    const res = await app.request("/api/channels/telegram/sessions?sessionKey=telegram%3Aactive", {
+      method: "DELETE"
+    })
+
+    expect(res.status).toBe(409)
+
+    const payload = (await res.json()) as { error: string; code: string }
+    expect(payload.code).toBe("CONFLICT")
   })
 })

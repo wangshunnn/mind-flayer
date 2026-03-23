@@ -1,8 +1,9 @@
 import type { LanguageModelUsage, UIMessage } from "ai"
 import { isTextUIPart } from "ai"
-import { ArchiveIcon, CircleDot } from "lucide-react"
+import { ArchiveIcon, CircleDot, Ellipsis, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import {
   ContextWindowUsageDetails,
   ContextWindowUsageIndicator
@@ -22,12 +23,19 @@ import {
 import { TokenUsageDetails } from "@/components/ai-elements/token-usage-details"
 import { TopFloatingHeader } from "@/components/top-floating-header"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { computeContextWindowUsage, formatContextWindowTokens } from "@/lib/context-window-usage"
 import { findModelContextWindow, findModelPricing } from "@/lib/provider-constants"
 import {
+  deleteTelegramChannelSession,
   getTelegramChannelSessionMessages,
   getTelegramChannelSessions,
   type TelegramChannelSessionSummary
@@ -85,6 +93,7 @@ export function ChannelTelegramChat() {
   const [messages, setMessages] = useState<UIMessage[]>([])
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [deletingSessionKey, setDeletingSessionKey] = useState<string | null>(null)
 
   const selectedSessionKeyRef = useRef<string | null>(null)
   const sessionsRequestSeqRef = useRef(0)
@@ -127,47 +136,51 @@ export function ChannelTelegramChat() {
     [t]
   )
 
-  const refreshAll = useCallback(async () => {
-    const requestSeq = sessionsRequestSeqRef.current + 1
-    sessionsRequestSeqRef.current = requestSeq
+  const refreshAll = useCallback(
+    async (options?: { preferredSelectedSessionKey?: string | null }) => {
+      const requestSeq = sessionsRequestSeqRef.current + 1
+      sessionsRequestSeqRef.current = requestSeq
 
-    try {
-      const result = await getTelegramChannelSessions()
-      if (requestSeq !== sessionsRequestSeqRef.current) {
-        return
+      try {
+        const result = await getTelegramChannelSessions()
+        if (requestSeq !== sessionsRequestSeqRef.current) {
+          return
+        }
+
+        setSessions(result.sessions)
+
+        const currentSelected =
+          options?.preferredSelectedSessionKey ?? selectedSessionKeyRef.current
+        const nextSelected =
+          currentSelected && result.sessions.some(session => session.sessionKey === currentSelected)
+            ? currentSelected
+            : (result.sessions.find(session => session.isActive)?.sessionKey ??
+              result.sessions[0]?.sessionKey ??
+              null)
+
+        if (nextSelected !== currentSelected) {
+          selectedSessionKeyRef.current = nextSelected
+          setSelectedSessionKey(nextSelected)
+        }
+
+        if (!nextSelected) {
+          messagesRequestSeqRef.current += 1
+          setMessages([])
+          setErrorMessage(null)
+          return
+        }
+
+        await loadMessagesForSession(nextSelected)
+      } catch (error) {
+        if (requestSeq !== sessionsRequestSeqRef.current) {
+          return
+        }
+
+        setErrorMessage(error instanceof Error ? error.message : t("channelChat.refreshFailed"))
       }
-
-      setSessions(result.sessions)
-
-      const currentSelected = selectedSessionKeyRef.current
-      const nextSelected =
-        currentSelected && result.sessions.some(session => session.sessionKey === currentSelected)
-          ? currentSelected
-          : (result.sessions.find(session => session.isActive)?.sessionKey ??
-            result.sessions[0]?.sessionKey ??
-            null)
-
-      if (nextSelected !== currentSelected) {
-        selectedSessionKeyRef.current = nextSelected
-        setSelectedSessionKey(nextSelected)
-      }
-
-      if (!nextSelected) {
-        messagesRequestSeqRef.current += 1
-        setMessages([])
-        setErrorMessage(null)
-        return
-      }
-
-      await loadMessagesForSession(nextSelected)
-    } catch (error) {
-      if (requestSeq !== sessionsRequestSeqRef.current) {
-        return
-      }
-
-      setErrorMessage(error instanceof Error ? error.message : t("channelChat.refreshFailed"))
-    }
-  }, [loadMessagesForSession, t])
+    },
+    [loadMessagesForSession, t]
+  )
 
   useEffect(() => {
     void refreshAll()
@@ -192,6 +205,53 @@ export function ChannelTelegramChat() {
       void loadMessagesForSession(sessionKey)
     },
     [loadMessagesForSession]
+  )
+
+  const handleDeleteSession = useCallback(
+    async (sessionKey: string) => {
+      if (deletingSessionKey) {
+        return
+      }
+
+      const orderedSessions = sessions
+      const deletedIndex = orderedSessions.findIndex(session => session.sessionKey === sessionKey)
+      const remainingSessions = orderedSessions.filter(session => session.sessionKey !== sessionKey)
+      const wasDeletingSelectedSession = selectedSessionKeyRef.current === sessionKey
+      let preferredSelectedSessionKey = selectedSessionKeyRef.current
+
+      if (preferredSelectedSessionKey === sessionKey) {
+        preferredSelectedSessionKey =
+          remainingSessions[deletedIndex]?.sessionKey ??
+          remainingSessions[remainingSessions.length - 1]?.sessionKey ??
+          null
+      }
+
+      setDeletingSessionKey(sessionKey)
+
+      try {
+        await deleteTelegramChannelSession(sessionKey)
+
+        if (wasDeletingSelectedSession || !preferredSelectedSessionKey) {
+          messagesRequestSeqRef.current += 1
+          setMessages([])
+          setErrorMessage(null)
+        }
+
+        selectedSessionKeyRef.current = preferredSelectedSessionKey
+        setSelectedSessionKey(preferredSelectedSessionKey)
+
+        await refreshAll({ preferredSelectedSessionKey })
+        toast.success(t("toast.channelThreadDeleted"))
+      } catch (error) {
+        toast.error(t("toast.error"), {
+          description:
+            error instanceof Error ? error.message : t("toast.failedToDeleteChannelThread")
+        })
+      } finally {
+        setDeletingSessionKey(current => (current === sessionKey ? null : current))
+      }
+    },
+    [deletingSessionKey, refreshAll, sessions, t]
   )
 
   const startedAtFormatter = useMemo(
@@ -382,35 +442,38 @@ export function ChannelTelegramChat() {
 
                         return (
                           <li key={session.sessionKey}>
-                            <button
-                              type="button"
-                              data-session-key={session.sessionKey}
-                              data-active={isSelected}
-                              onClick={() => handleSelectSession(session.sessionKey)}
+                            <div
                               className={cn(
-                                "w-full rounded-md border border-transparent px-2 py-2 text-left transition-colors",
+                                "group/session-item relative rounded-md border border-transparent px-2 py-1 transition-colors",
                                 "hover:bg-sidebar-accent",
                                 isSelected && "bg-sidebar-accent"
                               )}
                             >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="truncate text-xs font-medium">{title}</p>
-                                  <p className="truncate text-[11px] text-muted-foreground">
-                                    {formatCompactThreadStartedAt(
-                                      compactStartedAtFormatter,
-                                      session.startedAt
-                                    )}
-                                  </p>
-                                </div>
+                              <button
+                                type="button"
+                                data-session-key={session.sessionKey}
+                                data-active={isSelected}
+                                onClick={() => handleSelectSession(session.sessionKey)}
+                                className="absolute inset-0 rounded-md outline-hidden focus-visible:ring-1 focus-visible:ring-sidebar-ring"
+                              >
+                                <span className="sr-only">{title}</span>
+                              </button>
+
+                              <div className="pointer-events-none relative z-10 flex items-center justify-between gap-2">
+                                <p className="min-w-0 flex-1 truncate text-xs font-medium leading-4">
+                                  {title}
+                                </p>
 
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <span
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon-xs"
                                       data-session-status={session.isActive ? "active" : "archived"}
-                                      role="img"
                                       aria-label={`${statusLabel}. ${statusDescription}`}
-                                      className="inline-flex shrink-0 items-center justify-center rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                                      onClick={() => handleSelectSession(session.sessionKey)}
+                                      className="pointer-events-auto size-6 inline-flex shrink-0 items-center justify-center rounded-sm p-1 text-muted-foreground transition-colors outline-hidden hover:text-foreground focus-visible:ring-1 focus-visible:ring-sidebar-ring"
                                     >
                                       {session.isActive ? (
                                         <CircleDot
@@ -420,7 +483,7 @@ export function ChannelTelegramChat() {
                                       ) : (
                                         <ArchiveIcon aria-hidden className="size-3" />
                                       )}
-                                    </span>
+                                    </Button>
                                   </TooltipTrigger>
                                   <TooltipContent side="right" className="max-w-56">
                                     <div className="space-y-1">
@@ -430,7 +493,51 @@ export function ChannelTelegramChat() {
                                   </TooltipContent>
                                 </Tooltip>
                               </div>
-                            </button>
+
+                              <div className="pointer-events-none relative z-10 mt-0.5 flex items-center justify-between gap-2">
+                                <p className="min-w-0 flex-1 truncate text-[11px] leading-4 text-muted-foreground">
+                                  {formatCompactThreadStartedAt(
+                                    compactStartedAtFormatter,
+                                    session.startedAt
+                                  )}
+                                </p>
+                                {!session.isActive ? (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-xs"
+                                        data-session-delete-trigger={session.sessionKey}
+                                        disabled={deletingSessionKey !== null}
+                                        onClick={event => {
+                                          event.stopPropagation()
+                                        }}
+                                        className={cn(
+                                          "pointer-events-auto size-6 shrink-0 text-muted-foreground hover:text-foreground"
+                                        )}
+                                      >
+                                        <Ellipsis className="size-3" />
+                                        <span className="sr-only">{t("nav.more")}</span>
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" side="bottom" className="w-44">
+                                      <DropdownMenuItem
+                                        data-session-delete-action={session.sessionKey}
+                                        disabled={deletingSessionKey !== null}
+                                        onClick={event => {
+                                          event.stopPropagation()
+                                          void handleDeleteSession(session.sessionKey)
+                                        }}
+                                      >
+                                        <Trash2 className="text-muted-foreground" />
+                                        <span>{t("menu.deleteChat")}</span>
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                ) : null}
+                              </div>
+                            </div>
                           </li>
                         )
                       })}

@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from "node:crypto"
 import type { LanguageModel, LanguageModelUsage } from "ai"
 import { stepCountIs, streamText, type UIMessage } from "ai"
 import { discoverSkillsSafely, filterDisabledSkills } from "../skills/catalog"
+import { ConflictError, NotFoundError } from "../utils/http-errors"
 import { compactMessages } from "../utils/message-compaction"
 import { buildSystemPrompt } from "../utils/system-prompt-builder"
 import {
@@ -12,6 +13,11 @@ import { toTelegramHtml } from "../utils/telegram-rich-text"
 import { buildToolChoice } from "../utils/tool-choice"
 import type { ChannelRuntimeConfigService } from "./channel-runtime-config-service"
 import type { ProviderService } from "./provider-service"
+import type {
+  PersistedTelegramSession,
+  TelegramSessionStore,
+  TelegramSessionStoreSnapshot
+} from "./telegram-session-store"
 import type { ToolService } from "./tool-service"
 
 const TELEGRAM_PROVIDER_ID = "telegram"
@@ -19,7 +25,6 @@ const DEFAULT_TELEGRAM_API_BASE_URL = "https://api.telegram.org"
 const LONG_POLL_TIMEOUT_SECONDS = 30
 const RETRY_BASE_DELAY_MS = 1000
 const RETRY_MAX_DELAY_MS = 30_000
-const MAX_SESSION_MESSAGES = 40
 const LOG_TEXT_PREVIEW_LENGTH = 100
 const TELEGRAM_MAX_MESSAGE_LENGTH = 4096
 const TELEGRAM_DRAFT_UPDATE_INTERVAL_MS = 700
@@ -31,6 +36,8 @@ const TELEGRAM_NEW_SESSION_COMMAND = /^\/new(?:@[A-Za-z0-9_]+)?$/u
 const TELEGRAM_NEW_SESSION_DESCRIPTION = "Start a new conversation"
 const TELEGRAM_NEW_SESSION_CONFIRMATION =
   "Started a new session. Your next message will use a fresh context."
+const TELEGRAM_NEW_SESSION_FAILURE = "Error: Failed to start a new session. Please try again."
+const TELEGRAM_RESPONSE_FAILURE = "Error: Failed to generate response. Please try again."
 
 interface TelegramApiResponse<T> {
   ok: boolean
@@ -182,10 +189,12 @@ export interface TelegramWhitelistRequest {
 export type TelegramWhitelistDecision = "approve" | "reject"
 
 export class TelegramBotService {
+  private initialized = false
   private pollingAbortController: AbortController | null = null
   private pollingTask: Promise<void> | null = null
   private runtimeSignature: string | null = null
   private refreshChain: Promise<void> = Promise.resolve()
+  private sessionMutationChain: Promise<void> = Promise.resolve()
   private sessionMessages = new Map<string, UIMessage[]>()
   private sessionStartedAt = new Map<string, number>()
   private sessionUpdatedAt = new Map<string, number>()
@@ -198,8 +207,24 @@ export class TelegramBotService {
   constructor(
     private readonly providerService: ProviderService,
     private readonly toolService: ToolService,
-    private readonly channelRuntimeConfigService: ChannelRuntimeConfigService
+    private readonly channelRuntimeConfigService: ChannelRuntimeConfigService,
+    private readonly sessionStore: TelegramSessionStore | null = null
   ) {}
+
+  async initialize(): Promise<void> {
+    if (this.initialized) {
+      return
+    }
+
+    this.initialized = true
+
+    if (!this.sessionStore) {
+      return
+    }
+
+    const snapshot = await this.sessionStore.load()
+    this.hydrateSessions(snapshot)
+  }
 
   refresh(): Promise<void> {
     this.refreshChain = this.refreshChain
@@ -266,6 +291,23 @@ export class TelegramBotService {
     }
 
     return JSON.parse(JSON.stringify(messages)) as UIMessage[]
+  }
+
+  async deleteSession(sessionKey: string): Promise<void> {
+    if (!this.sessionMessages.has(sessionKey)) {
+      throw new NotFoundError("Telegram session not found")
+    }
+
+    const chatId = this.extractChatIdFromSessionKey(sessionKey)
+    if (this.activeSessionKeyByChatId.get(chatId) === sessionKey) {
+      throw new ConflictError("Active Telegram sessions cannot be deleted")
+    }
+
+    await this.withPersistedSessionMutation(() => {
+      this.sessionMessages.delete(sessionKey)
+      this.sessionStartedAt.delete(sessionKey)
+      this.sessionUpdatedAt.delete(sessionKey)
+    })
   }
 
   listWhitelistRequests(): TelegramWhitelistRequest[] {
@@ -567,8 +609,13 @@ export class TelegramBotService {
     }
 
     if (this.isNewSessionCommand(message.text)) {
-      this.createSession(chatId)
-      await this.sendTextMessage(chatId, TELEGRAM_NEW_SESSION_CONFIRMATION)
+      try {
+        await this.createSession(chatId)
+        await this.sendTextMessage(chatId, TELEGRAM_NEW_SESSION_CONFIRMATION)
+      } catch (error) {
+        console.error("[TelegramBotService] Failed to start new session:", error)
+        await this.sendTextMessage(chatId, TELEGRAM_NEW_SESSION_FAILURE)
+      }
       return
     }
 
@@ -577,8 +624,6 @@ export class TelegramBotService {
     if (!incomingText) {
       return
     }
-
-    const sessionKey = this.getOrCreateActiveSessionKey(chatId)
 
     const selectedModel = this.channelRuntimeConfigService.getSelectedModel()
     if (!selectedModel) {
@@ -608,13 +653,6 @@ export class TelegramBotService {
       console.error("[TelegramBotService] Failed to create model:", error)
       return
     }
-
-    const history = this.sessionMessages.get(sessionKey) ?? []
-    const messagesWithLatestInput = this.trimSessionMessages([
-      ...history,
-      this.createTextMessage("user", incomingText)
-    ])
-    this.setSessionMessages(sessionKey, messagesWithLatestInput)
 
     let currentChatAction: TelegramChatAction = "typing"
     let chatActionAbortController: AbortController | null = null
@@ -671,9 +709,14 @@ export class TelegramBotService {
       }
     }
 
-    startChatActionLoop()
-
     try {
+      const sessionKey = await this.getOrCreateActiveSessionKey(chatId)
+      const history = this.sessionMessages.get(sessionKey) ?? []
+      const messagesWithLatestInput = [...history, this.createTextMessage("user", incomingText)]
+      await this.setSessionMessages(sessionKey, messagesWithLatestInput)
+
+      startChatActionLoop()
+
       const tools = this.toolService.getRequestTools({
         useWebSearch: true,
         chatId: this.toSafeToolSessionId(sessionKey),
@@ -783,13 +826,10 @@ export class TelegramBotService {
       if (!normalizedAssistantText) {
         const fallbackText = "I could not generate a response. Please try again."
         await this.sendTextMessage(chatId, fallbackText)
-        this.setSessionMessages(
-          sessionKey,
-          this.trimSessionMessages([
-            ...messagesWithLatestInput,
-            this.createTextMessage("assistant", fallbackText, assistantMetadata)
-          ])
-        )
+        await this.setSessionMessages(sessionKey, [
+          ...messagesWithLatestInput,
+          this.createTextMessage("assistant", fallbackText, assistantMetadata)
+        ])
         return
       }
 
@@ -807,16 +847,13 @@ export class TelegramBotService {
         await switchChatAction(this.mapUploadKindToChatAction(upload.kind))
       })
 
-      this.setSessionMessages(
-        sessionKey,
-        this.trimSessionMessages([
-          ...messagesWithLatestInput,
-          this.createTextMessage("assistant", sanitizedText, assistantMetadata)
-        ])
-      )
+      await this.setSessionMessages(sessionKey, [
+        ...messagesWithLatestInput,
+        this.createTextMessage("assistant", sanitizedText, assistantMetadata)
+      ])
     } catch (error) {
       console.error("[TelegramBotService] Failed to process message:", error)
-      await this.sendTextMessage(chatId, "Error: Failed to generate response. Please try again.")
+      await this.sendTextMessage(chatId, TELEGRAM_RESPONSE_FAILURE)
     } finally {
       await stopChatActionLoop()
     }
@@ -1286,20 +1323,22 @@ export class TelegramBotService {
     return Boolean(normalized && TELEGRAM_NEW_SESSION_COMMAND.test(normalized))
   }
 
-  private createSession(chatId: string): string {
+  private async createSession(chatId: string): Promise<string> {
     const startedAt = Date.now()
     const sessionId = randomUUID()
     const sessionKey = this.buildSessionKey(chatId, sessionId)
 
-    this.activeSessionKeyByChatId.set(chatId, sessionKey)
-    this.sessionStartedAt.set(sessionKey, startedAt)
-    this.sessionMessages.set(sessionKey, [])
-    this.sessionUpdatedAt.set(sessionKey, startedAt)
+    return this.withPersistedSessionMutation(() => {
+      this.activeSessionKeyByChatId.set(chatId, sessionKey)
+      this.sessionStartedAt.set(sessionKey, startedAt)
+      this.sessionMessages.set(sessionKey, [])
+      this.sessionUpdatedAt.set(sessionKey, startedAt)
 
-    return sessionKey
+      return sessionKey
+    })
   }
 
-  private getOrCreateActiveSessionKey(chatId: string): string {
+  private async getOrCreateActiveSessionKey(chatId: string): Promise<string> {
     const activeSessionKey = this.activeSessionKeyByChatId.get(chatId)
     if (activeSessionKey && this.sessionMessages.has(activeSessionKey)) {
       return activeSessionKey
@@ -1356,14 +1395,6 @@ export class TelegramBotService {
     } as UIMessage
   }
 
-  private trimSessionMessages(messages: UIMessage[]): UIMessage[] {
-    if (messages.length <= MAX_SESSION_MESSAGES) {
-      return messages
-    }
-
-    return messages.slice(messages.length - MAX_SESSION_MESSAGES)
-  }
-
   private toSafeToolSessionId(rawSessionKey: string): string {
     const normalized = rawSessionKey
       .replace(/[^a-zA-Z0-9_-]/g, "_")
@@ -1373,13 +1404,88 @@ export class TelegramBotService {
     return normalized || "telegram_session"
   }
 
-  private setSessionMessages(sessionKey: string, messages: UIMessage[]): void {
-    this.sessionMessages.set(sessionKey, messages)
-    const updatedAt = Date.now()
-    this.sessionUpdatedAt.set(sessionKey, updatedAt)
-    if (!this.sessionStartedAt.has(sessionKey)) {
-      this.sessionStartedAt.set(sessionKey, updatedAt)
+  private async setSessionMessages(sessionKey: string, messages: UIMessage[]): Promise<void> {
+    await this.withPersistedSessionMutation(() => {
+      this.sessionMessages.set(sessionKey, messages)
+      const updatedAt = Date.now()
+      this.sessionUpdatedAt.set(sessionKey, updatedAt)
+      if (!this.sessionStartedAt.has(sessionKey)) {
+        this.sessionStartedAt.set(sessionKey, updatedAt)
+      }
+    })
+  }
+
+  private hydrateSessions(snapshot: TelegramSessionStoreSnapshot): void {
+    this.sessionMessages.clear()
+    this.sessionStartedAt.clear()
+    this.sessionUpdatedAt.clear()
+    this.activeSessionKeyByChatId.clear()
+
+    for (const session of snapshot.sessions) {
+      this.sessionMessages.set(
+        session.sessionKey,
+        JSON.parse(JSON.stringify(session.messages)) as UIMessage[]
+      )
+      this.sessionStartedAt.set(session.sessionKey, session.startedAt)
+      this.sessionUpdatedAt.set(session.sessionKey, session.updatedAt)
     }
+
+    for (const [chatId, sessionKey] of Object.entries(snapshot.activeSessionKeyByChatId)) {
+      if (
+        this.sessionMessages.has(sessionKey) &&
+        this.extractChatIdFromSessionKey(sessionKey) === chatId
+      ) {
+        this.activeSessionKeyByChatId.set(chatId, sessionKey)
+      }
+    }
+  }
+
+  private createSessionSnapshot(): TelegramSessionStoreSnapshot {
+    const sessions: PersistedTelegramSession[] = [...this.sessionMessages.entries()].map(
+      ([sessionKey, messages]) => ({
+        sessionKey,
+        chatId: this.extractChatIdFromSessionKey(sessionKey),
+        startedAt:
+          this.sessionStartedAt.get(sessionKey) ?? this.sessionUpdatedAt.get(sessionKey) ?? 0,
+        updatedAt: this.sessionUpdatedAt.get(sessionKey) ?? 0,
+        messages: JSON.parse(JSON.stringify(messages)) as UIMessage[]
+      })
+    )
+
+    return {
+      sessions,
+      activeSessionKeyByChatId: Object.fromEntries(this.activeSessionKeyByChatId.entries())
+    }
+  }
+
+  private async persistSessions(): Promise<void> {
+    if (!this.sessionStore) {
+      return
+    }
+
+    await this.sessionStore.save(this.createSessionSnapshot())
+  }
+
+  private async withPersistedSessionMutation<T>(mutate: () => Promise<T> | T): Promise<T> {
+    const mutationTask = this.sessionMutationChain.then(async () => {
+      const previousSnapshot = this.createSessionSnapshot()
+
+      try {
+        const result = await mutate()
+        await this.persistSessions()
+        return result
+      } catch (error) {
+        this.hydrateSessions(previousSnapshot)
+        throw error
+      }
+    })
+
+    this.sessionMutationChain = mutationTask.then(
+      () => undefined,
+      () => undefined
+    )
+
+    return mutationTask
   }
 
   private extractChatIdFromSessionKey(sessionKey: string): string {

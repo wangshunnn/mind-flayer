@@ -8,7 +8,7 @@
   "scripts": {
     "clean:binaries": "rimraf ../src-tauri/binaries/*",
     "dev": "npm run clean:binaries && NODE_ENV=development tsup && bash scripts/rename-binaries.sh",
-    "build": "npm run clean:binaries && NODE_ENV=production tsup && pkg dist/index.js -t node24-macos-arm64 -o ../src-tauri/binaries/mind-flayer-sidecar-aarch64-apple-darwin",
+    "build": "npm run clean:binaries && NODE_ENV=production tsup && PKG_CACHE_PATH=\"${PKG_CACHE_PATH:-${TMPDIR:-/tmp}/mind-flayer-pkg-cache}\" pkg dist/index.js -t node24-macos-arm64 -o ../src-tauri/binaries/mind-flayer-sidecar-aarch64-apple-darwin",
     "typecheck": "tsc --noEmit",
     "test": "vitest"
   },

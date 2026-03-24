@@ -55,19 +55,33 @@ describe("handleRemoteImage", () => {
     expect(res.status).toBe(200)
     expect(res.headers.get("content-type")).toContain("image/png")
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(PNG_BYTES)
-    expect(fetchMock).toHaveBeenCalledWith("https://example.com/photo.png", {
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://example.com/photo.png")
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       redirect: "manual"
     })
+    expect(fetchMock.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal)
   })
 
   it("returns 415 for non-image upstream responses", async () => {
+    const cancelMock = vi.fn()
     fetchMock.mockResolvedValue(
-      new Response("not an image", {
-        status: 200,
-        headers: {
-          "content-type": "text/plain"
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode("not an image"))
+          },
+          cancel() {
+            cancelMock()
+          }
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "text/plain"
+          }
         }
-      })
+      )
     )
 
     const res = await app.request(
@@ -75,13 +89,27 @@ describe("handleRemoteImage", () => {
     )
 
     expect(res.status).toBe(415)
+    await vi.waitFor(() => {
+      expect(cancelMock).toHaveBeenCalledTimes(1)
+    })
   })
 
   it("returns the upstream status when the remote image is missing", async () => {
+    const cancelMock = vi.fn()
     fetchMock.mockResolvedValue(
-      new Response("missing", {
-        status: 404
-      })
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode("missing"))
+          },
+          cancel() {
+            cancelMock()
+          }
+        }),
+        {
+          status: 404
+        }
+      )
     )
 
     const res = await app.request(
@@ -89,6 +117,9 @@ describe("handleRemoteImage", () => {
     )
 
     expect(res.status).toBe(404)
+    await vi.waitFor(() => {
+      expect(cancelMock).toHaveBeenCalledTimes(1)
+    })
   })
 
   it("returns 502 when the upstream request fails", async () => {
@@ -118,6 +149,7 @@ describe("handleRemoteImage", () => {
   })
 
   it("returns 400 when a redirect target resolves to a private IP", async () => {
+    const cancelMock = vi.fn()
     lookupMock.mockImplementation(async hostname => {
       if (hostname === "example.com") {
         return [
@@ -146,12 +178,19 @@ describe("handleRemoteImage", () => {
     })
 
     fetchMock.mockResolvedValueOnce(
-      new Response(null, {
-        status: 302,
-        headers: {
-          location: "https://internal.example/private.png"
+      new Response(
+        new ReadableStream({
+          cancel() {
+            cancelMock()
+          }
+        }),
+        {
+          status: 302,
+          headers: {
+            location: "https://internal.example/private.png"
+          }
         }
-      })
+      )
     )
 
     const res = await app.request(
@@ -160,5 +199,33 @@ describe("handleRemoteImage", () => {
 
     expect(res.status).toBe(400)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => {
+      expect(cancelMock).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it("returns 400 when a hostname resolves to an IPv4-mapped private IPv6 address", async () => {
+    lookupMock.mockResolvedValue([
+      {
+        address: "::ffff:127.0.0.1",
+        family: 6
+      }
+    ])
+
+    const res = await app.request(
+      `/api/remote-image?url=${encodeURIComponent("https://mapped.example/photo.png")}`
+    )
+
+    expect(res.status).toBe(400)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("returns 400 for literal IPv4-mapped private IPv6 image URLs", async () => {
+    const res = await app.request(
+      `/api/remote-image?url=${encodeURIComponent("https://[::ffff:0:7f00:1]/photo.png")}`
+    )
+
+    expect(res.status).toBe(400)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

@@ -1,10 +1,11 @@
 import { lookup } from "node:dns/promises"
-import { isIP } from "node:net"
+import { isIP, SocketAddress } from "node:net"
 import type { Context } from "hono"
 import { BadRequestError } from "../utils/http-errors"
 
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:"])
 const MAX_REDIRECTS = 5
+const REMOTE_IMAGE_FETCH_TIMEOUT_MS = 10_000
 
 function isRedirectStatus(status: number): boolean {
   return status >= 300 && status < 400
@@ -36,24 +37,129 @@ function isPrivateIpv6Address(hostname: string): boolean {
   )
 }
 
+function unwrapHostname(hostname: string): string {
+  return hostname.startsWith("[") && hostname.endsWith("]") ? hostname.slice(1, -1) : hostname
+}
+
+function normalizeIpv6SegmentList(segments: string[]): string[] | null {
+  if (!segments.length) {
+    return []
+  }
+
+  const lastSegment = segments.at(-1)
+  if (!lastSegment?.includes(".")) {
+    return segments
+  }
+
+  if (isIP(lastSegment) !== 4) {
+    return null
+  }
+
+  const octets = lastSegment.split(".").map(segment => Number.parseInt(segment, 10))
+  if (octets.length !== 4 || octets.some(Number.isNaN)) {
+    return null
+  }
+
+  return [
+    ...segments.slice(0, -1),
+    ((octets[0] << 8) | octets[1]).toString(16),
+    ((octets[2] << 8) | octets[3]).toString(16)
+  ]
+}
+
+function parseIpv6Segments(hostname: string): number[] | null {
+  const parsedAddress = SocketAddress.parse(`[${unwrapHostname(hostname)}]:0`)
+  if (!parsedAddress || parsedAddress.family !== "ipv6") {
+    return null
+  }
+
+  const normalizedHostname = parsedAddress.address.toLowerCase()
+  const [head = "", tail = ""] = normalizedHostname.split("::", 2)
+  const headSegments = normalizeIpv6SegmentList(head ? head.split(":").filter(Boolean) : [])
+  const tailSegments = normalizeIpv6SegmentList(tail ? tail.split(":").filter(Boolean) : [])
+  if (!headSegments || !tailSegments) {
+    return null
+  }
+
+  const totalSegments = headSegments.length + tailSegments.length
+  if (totalSegments > 8) {
+    return null
+  }
+
+  const zeroSegments = Array.from({ length: 8 - totalSegments }, () => "0")
+  const segments = [...headSegments, ...zeroSegments, ...tailSegments]
+  if (segments.length !== 8) {
+    return null
+  }
+
+  const parsedSegments = segments.map(segment => Number.parseInt(segment, 16))
+  return parsedSegments.some(segment => Number.isNaN(segment) || segment < 0 || segment > 0xffff)
+    ? null
+    : parsedSegments
+}
+
+function getEmbeddedIpv4Address(hostname: string): string | null {
+  const ipv6Segments = parseIpv6Segments(hostname)
+  if (!ipv6Segments) {
+    return null
+  }
+
+  const isIpv4MappedAddress =
+    ipv6Segments[0] === 0 &&
+    ipv6Segments[1] === 0 &&
+    ipv6Segments[2] === 0 &&
+    ipv6Segments[3] === 0 &&
+    ((ipv6Segments[4] === 0 && ipv6Segments[5] === 0xffff) ||
+      (ipv6Segments[4] === 0xffff && ipv6Segments[5] === 0))
+
+  if (!isIpv4MappedAddress) {
+    return null
+  }
+
+  return [
+    ipv6Segments[6] >> 8,
+    ipv6Segments[6] & 0xff,
+    ipv6Segments[7] >> 8,
+    ipv6Segments[7] & 0xff
+  ].join(".")
+}
+
 function isDisallowedIpAddress(hostname: string): boolean {
-  const hostType = isIP(hostname)
-  return (
-    (hostType === 4 && isPrivateIpv4Address(hostname)) ||
-    (hostType === 6 && isPrivateIpv6Address(hostname))
-  )
+  const normalizedHostname = unwrapHostname(hostname)
+  const hostType = isIP(normalizedHostname)
+  if (hostType === 4) {
+    return isPrivateIpv4Address(normalizedHostname)
+  }
+
+  if (hostType !== 6) {
+    return false
+  }
+
+  const embeddedIpv4Address = getEmbeddedIpv4Address(normalizedHostname)
+  return embeddedIpv4Address
+    ? isPrivateIpv4Address(embeddedIpv4Address)
+    : isPrivateIpv6Address(normalizedHostname)
+}
+
+function cancelResponseBody(response: Response): void {
+  void response.body?.cancel().catch(() => undefined)
 }
 
 async function validateResolvedHostname(hostname: string): Promise<void> {
-  if (hostname === "localhost") {
+  const normalizedHostname = unwrapHostname(hostname)
+  if (normalizedHostname === "localhost") {
     throw new BadRequestError("Localhost image URLs are not allowed")
   }
 
-  if (isDisallowedIpAddress(hostname)) {
+  if (isDisallowedIpAddress(normalizedHostname)) {
     throw new BadRequestError("Private network image URLs are not allowed")
   }
 
-  const resolvedAddresses = await lookup(hostname, {
+  if (isIP(normalizedHostname) !== 0) {
+    return
+  }
+
+  const resolvedAddresses = await lookup(normalizedHostname, {
     all: true,
     verbatim: true
   })
@@ -101,7 +207,8 @@ async function fetchRemoteImageWithRedirectValidation(initialUrl: URL): Promise<
 
   for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
     const response = await fetch(currentUrl.toString(), {
-      redirect: "manual"
+      redirect: "manual",
+      signal: AbortSignal.timeout(REMOTE_IMAGE_FETCH_TIMEOUT_MS)
     })
 
     if (!isRedirectStatus(response.status)) {
@@ -114,9 +221,11 @@ async function fetchRemoteImageWithRedirectValidation(initialUrl: URL): Promise<
     }
 
     if (redirectCount === MAX_REDIRECTS) {
+      cancelResponseBody(response)
       throw new Error("Too many redirects while fetching remote image")
     }
 
+    cancelResponseBody(response)
     currentUrl = await validateRemoteImageUrl(new URL(locationHeader, currentUrl).toString())
   }
 
@@ -165,6 +274,7 @@ export async function handleRemoteImage(c: Context) {
   }
 
   if (!response.ok) {
+    cancelResponseBody(response)
     return Response.json(
       {
         error: `Upstream image request failed (${response.status})`,
@@ -178,6 +288,7 @@ export async function handleRemoteImage(c: Context) {
 
   const contentType = response.headers.get("content-type")
   if (!contentType?.toLowerCase().startsWith("image/")) {
+    cancelResponseBody(response)
     return c.json(
       {
         error: "Upstream response is not an image",
@@ -187,9 +298,11 @@ export async function handleRemoteImage(c: Context) {
     )
   }
 
-  const imageBuffer = new Uint8Array(await response.arrayBuffer())
-  return c.body(imageBuffer, 200, {
-    "Cache-Control": "no-store",
-    "Content-Type": contentType
+  return new Response(response.body, {
+    status: 200,
+    headers: {
+      "Cache-Control": "no-store",
+      "Content-Type": contentType
+    }
   })
 }

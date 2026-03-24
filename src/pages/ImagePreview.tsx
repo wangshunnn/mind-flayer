@@ -168,28 +168,36 @@ function ActionButton({
   label,
   onClick,
   children,
-  disabled = false
+  disabled = false,
+  showTooltip = true
 }: {
   children: ReactNode
   disabled?: boolean
   label: string
   onClick?: () => void
+  showTooltip?: boolean
 }) {
+  const button = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+      <span className="sr-only">{label}</span>
+    </Button>
+  )
+
+  if (!showTooltip) {
+    return button
+  }
+
   return (
     <Tooltip disableHoverableContent={true}>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={label}
-          disabled={disabled}
-          onClick={onClick}
-        >
-          {children}
-          <span className="sr-only">{label}</span>
-        </Button>
-      </TooltipTrigger>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent side="bottom">
         <p>{label}</p>
       </TooltipContent>
@@ -610,7 +618,7 @@ export default function ImagePreview() {
             <HoverCard closeDelay={120} openDelay={120}>
               <HoverCardTrigger asChild>
                 <div>
-                  <ActionButton label={infoLabel} disabled={!payload}>
+                  <ActionButton label={infoLabel} disabled={!payload} showTooltip={false}>
                     <InfoIcon className="size-4" />
                   </ActionButton>
                 </div>

@@ -241,9 +241,34 @@ describe("handleRemoteImage", () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it("returns 400 when a hostname resolves to a link-local IPv6 address outside fe80::/16", async () => {
+    lookupMock.mockResolvedValue([
+      {
+        address: "fe90::1",
+        family: 6
+      }
+    ])
+
+    const res = await app.request(
+      `/api/remote-image?url=${encodeURIComponent("https://link-local.example/photo.png")}`
+    )
+
+    expect(res.status).toBe(400)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it("returns 400 for literal IPv4-mapped private IPv6 image URLs", async () => {
     const res = await app.request(
       `/api/remote-image?url=${encodeURIComponent("https://[::ffff:0:7f00:1]/photo.png")}`
+    )
+
+    expect(res.status).toBe(400)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("returns 400 for literal link-local IPv6 image URLs in fe80::/10", async () => {
+    const res = await app.request(
+      `/api/remote-image?url=${encodeURIComponent("https://[fe90::1]/photo.png")}`
     )
 
     expect(res.status).toBe(400)
@@ -262,5 +287,19 @@ describe("handleRemoteImage", () => {
 
     expect(res.status).toBe(400)
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("maps upstream 304 responses to a valid proxy error status", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 304 }))
+
+    const res = await app.request(
+      `/api/remote-image?url=${encodeURIComponent("https://example.com/not-modified.png")}`
+    )
+
+    expect(res.status).toBe(502)
+    await expect(res.json()).resolves.toMatchObject({
+      error: "Upstream image request failed (304)",
+      code: "UPSTREAM_REQUEST_FAILED"
+    })
   })
 })

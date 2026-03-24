@@ -33,11 +33,12 @@ function isPrivateIpv4Address(hostname: string): boolean {
 
 function isPrivateIpv6Address(hostname: string): boolean {
   const normalizedHostname = hostname.toLowerCase()
+  const firstSegment = parseIpv6Segments(normalizedHostname)?.[0]
+
   return (
     normalizedHostname === "::1" ||
-    normalizedHostname.startsWith("fc") ||
-    normalizedHostname.startsWith("fd") ||
-    normalizedHostname.startsWith("fe80:")
+    (typeof firstSegment === "number" && (firstSegment & 0xfe00) === 0xfc00) ||
+    (typeof firstSegment === "number" && (firstSegment & 0xffc0) === 0xfe80)
   )
 }
 
@@ -147,6 +148,10 @@ function isDisallowedIpAddress(hostname: string): boolean {
 
 function cancelResponseBody(response: Response): void {
   void response.body?.cancel().catch(() => undefined)
+}
+
+function getProxyErrorStatus(status: number): number {
+  return status === 304 ? 502 : status
 }
 
 async function validateResolvedHostname(hostname: string): Promise<void> {
@@ -285,7 +290,7 @@ export async function handleRemoteImage(c: Context) {
         code: "UPSTREAM_REQUEST_FAILED"
       },
       {
-        status: response.status
+        status: getProxyErrorStatus(response.status)
       }
     )
   }

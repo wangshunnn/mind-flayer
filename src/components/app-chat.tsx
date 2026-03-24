@@ -16,7 +16,15 @@ import {
 } from "ai"
 import { BrainIcon, CircleIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
 import { nanoid } from "nanoid"
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import type { StickToBottomContext } from "use-stick-to-bottom"
@@ -66,6 +74,10 @@ import {
   ToolCallsSummary,
   ToolCallTimelineItem
 } from "@/components/ai-elements/tool-calls-container"
+import {
+  ChatMessageTimeline,
+  type ChatMessageTimelineAnchor
+} from "@/components/ChatMessageTimeline"
 import { NewChatEmptyState } from "@/components/new-chat-empty-state"
 import { SelectModel } from "@/components/select-model"
 import { ToolButton } from "@/components/tool-button"
@@ -75,6 +87,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useAvailableModels } from "@/hooks/use-available-models"
 import { useLatest } from "@/hooks/use-latest"
 import { useSetting } from "@/hooks/use-settings-store"
+import {
+  CHAT_MESSAGE_TIMELINE_SCROLL_TOLERANCE,
+  getActiveTimelineAnchorIndex
+} from "@/lib/chat-message-timeline"
 import { generateChatTitle } from "@/lib/chat-utils"
 import {
   useMessageConstants,
@@ -165,6 +181,7 @@ const TOP_PIN_OFFSET = 0
 const EPSILON = 1
 const PENDING_TIMEOUT_MS = 500
 const MAX_PENDING_FRAMES = 30
+const TIMELINE_PREVIEW_LENGTH = 10
 // Keep send-scroll behavior aligned with use-stick-to-bottom's default spring profile.
 const SEND_SCROLL_ANIMATION = {
   damping: 0.7,
@@ -173,6 +190,20 @@ const SEND_SCROLL_ANIMATION = {
 } as const
 // Extra hold time for scrollToBottom to keep following during late layout updates.
 const RETAIN_ANIMATION_DURATION_MS = 350
+
+function getTimelinePreview(text: string): string {
+  const normalizedText = text.replace(/\s+/g, " ").trim()
+  if (!normalizedText) {
+    return ""
+  }
+
+  const characters = Array.from(normalizedText)
+  if (characters.length <= TIMELINE_PREVIEW_LENGTH) {
+    return normalizedText
+  }
+
+  return `${characters.slice(0, TIMELINE_PREVIEW_LENGTH).join("")}...`
+}
 
 const AppChatInner = ({
   activeChatId,
@@ -235,6 +266,8 @@ const AppChatInner = ({
   const pendingPinFrameRef = useRef<number | null>(null)
   const pendingPinTimeoutRef = useRef<number | null>(null)
   const recalcFrameRef = useRef<number | null>(null)
+  const timelineItemRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const [activeTimelineIndex, setActiveTimelineIndex] = useState(-1)
 
   const sidecarOrigin = useMemo(() => {
     try {
@@ -298,6 +331,23 @@ const AppChatInner = ({
     }
     setSpacerHeight(0)
   }, [setSpacerHeight])
+
+  const releasePinSessionConstraint = useCallback(() => {
+    const context = conversationContextRef.current
+    if (context) {
+      context.targetScrollTop = null
+    }
+
+    const pinSession = pinSessionRef.current
+    if (!pinSession || pinSession.mode === "released") {
+      return
+    }
+
+    pinSessionRef.current = {
+      ...pinSession,
+      mode: "released"
+    }
+  }, [])
 
   const recalculateTopPinSpacer = useCallback(() => {
     const pinSession = pinSessionRef.current
@@ -1199,6 +1249,83 @@ const AppChatInner = ({
   const activeRuntime = runtimeForActiveChat
   const thinkingDurations = activeRuntime?.thinkingDurations
   const toolDurations = activeRuntime?.toolDurations
+  const timelineAnchors = useMemo<ChatMessageTimelineAnchor[]>(
+    () =>
+      messages
+        .filter(message => message.role === "user")
+        .map(message => ({
+          id: message.id,
+          preview: getTimelinePreview(
+            message.parts
+              .filter(isTextUIPart)
+              .map(part => part.text)
+              .join("")
+          )
+        })),
+    [messages]
+  )
+
+  const syncActiveTimelineIndex = useCallback(() => {
+    if (timelineAnchors.length === 0) {
+      startTransition(() => {
+        setActiveTimelineIndex(currentIndex => (currentIndex === -1 ? currentIndex : -1))
+      })
+      return
+    }
+
+    const scrollElement = conversationContextRef.current?.scrollRef.current
+    if (!scrollElement) {
+      return
+    }
+
+    const anchorOffsets: number[] = []
+    for (const anchor of timelineAnchors) {
+      const messageNode = messageNodeByIdRef.current.get(anchor.id)
+      if (!messageNode || !messageNode.isConnected) {
+        return
+      }
+      anchorOffsets.push(messageNode.offsetTop)
+    }
+
+    const nextActiveIndex = getActiveTimelineAnchorIndex(anchorOffsets, scrollElement.scrollTop, {
+      maxScrollTop: Math.max(0, scrollElement.scrollHeight - scrollElement.clientHeight),
+      tolerance: CHAT_MESSAGE_TIMELINE_SCROLL_TOLERANCE,
+      viewportHeight: scrollElement.clientHeight
+    })
+
+    startTransition(() => {
+      setActiveTimelineIndex(currentIndex =>
+        currentIndex === nextActiveIndex ? currentIndex : nextActiveIndex
+      )
+    })
+  }, [timelineAnchors])
+
+  const scrollToTimelineIndex = useCallback(
+    (index: number) => {
+      const targetAnchor = timelineAnchors[index]
+      if (!targetAnchor) {
+        return
+      }
+
+      clearPendingPin()
+      releasePinSessionConstraint()
+
+      const scrollElement = conversationContextRef.current?.scrollRef.current
+      const messageNode = messageNodeByIdRef.current.get(targetAnchor.id)
+      if (!scrollElement || !messageNode || !messageNode.isConnected) {
+        return
+      }
+
+      startTransition(() => {
+        setActiveTimelineIndex(currentIndex => (currentIndex === index ? currentIndex : index))
+      })
+      scrollElement.scrollTo({
+        top: Math.max(0, messageNode.offsetTop - TOP_PIN_OFFSET),
+        behavior: "smooth"
+      })
+    },
+    [clearPendingPin, releasePinSessionConstraint, timelineAnchors]
+  )
 
   const isStreaming = status === "streaming"
   const isSubmitDisabled = isStreaming ? false : !input.trim() || status !== "ready"
@@ -1222,6 +1349,29 @@ const AppChatInner = ({
     }
     return undefined
   }, [messages])
+
+  useLayoutEffect(() => {
+    timelineItemRefs.current.length = timelineAnchors.length
+    syncActiveTimelineIndex()
+  }, [syncActiveTimelineIndex, timelineAnchors.length])
+
+  useEffect(() => {
+    const scrollElement = conversationContextRef.current?.scrollRef.current
+    if (!scrollElement) {
+      return
+    }
+
+    const handleScroll = () => {
+      syncActiveTimelineIndex()
+    }
+
+    scrollElement.addEventListener("scroll", handleScroll, { passive: true })
+    handleScroll()
+
+    return () => {
+      scrollElement.removeEventListener("scroll", handleScroll)
+    }
+  }, [syncActiveTimelineIndex])
 
   return (
     <div className="flex h-full flex-col">
@@ -1429,6 +1579,12 @@ const AppChatInner = ({
               />
             )}
           </ConversationContent>
+          <ChatMessageTimeline
+            activeIndex={activeTimelineIndex}
+            anchors={timelineAnchors}
+            itemRefs={timelineItemRefs}
+            onSelect={scrollToTimelineIndex}
+          />
           <ConversationScrollButton />
         </Conversation>
       </div>

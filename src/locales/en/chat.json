@@ -125,5 +125,9 @@
   },
   "toast": {
     "newChatCreated": "New chat created"
+  },
+  "timeline": {
+    "label": "Conversation timeline",
+    "jumpToMessage": "Jump to message {{index}}"
   }
 }

@@ -124,5 +124,9 @@
   },
   "toast": {
     "newChatCreated": "已创建新聊天"
+  },
+  "timeline": {
+    "label": "对话时间轴",
+    "jumpToMessage": "跳转到第 {{index}} 条消息"
   }
 }

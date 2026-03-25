@@ -45,6 +45,9 @@ import { ChannelRuntimeConfigService } from "../channel-runtime-config-service"
 import { TelegramBotService } from "../telegram-bot-service"
 import { FileTelegramSessionStore } from "../telegram-session-store"
 
+const TELEGRAM_PHOTO_FALLBACK_NOTICE =
+  "Image exceeded Telegram photo limits, sent as a file instead."
+
 function createTextStream(text: string): AsyncIterable<string> {
   return (async function* () {
     yield text
@@ -2102,34 +2105,49 @@ describe("TelegramBotService", () => {
       .spyOn(telegramMediaMessageModule, "transformTelegramMediaMessage")
       .mockResolvedValue({
         sanitizedText: "Media attached",
+        attachmentsSection: "Attachments:\n![photo](file:///tmp/photo.png)",
         uploads: [
           {
             kind: "photo",
+            intent: "photo",
             data: Buffer.from([1]),
             filename: "photo.png",
             mimeType: "image/png",
-            caption: "**photo**"
+            caption: "**photo**",
+            resolvedPath: "/tmp/photo.png",
+            originalSizeBytes: 1,
+            imageWidth: 100,
+            imageHeight: 100
           },
           {
             kind: "video",
+            intent: "document",
             data: Buffer.from([2]),
             filename: "video.mp4",
             mimeType: "video/mp4",
-            caption: "video"
+            caption: "video",
+            resolvedPath: "/tmp/video.mp4",
+            originalSizeBytes: 2
           },
           {
             kind: "audio",
+            intent: "document",
             data: Buffer.from([3]),
             filename: "voice.ogg",
             mimeType: "audio/ogg",
-            caption: "voice"
+            caption: "voice",
+            resolvedPath: "/tmp/voice.ogg",
+            originalSizeBytes: 3
           },
           {
             kind: "document",
+            intent: "document",
             data: Buffer.from([4]),
             filename: "report.txt",
             mimeType: "text/plain",
-            caption: "document"
+            caption: "document",
+            resolvedPath: "/tmp/report.txt",
+            originalSizeBytes: 4
           }
         ],
         warnings: []
@@ -2255,6 +2273,431 @@ describe("TelegramBotService", () => {
     expect((photoBody as FormData).get("caption")).toBe("<b>photo</b>")
 
     transformSpy.mockRestore()
+  })
+
+  it("sends original image files as documents when attachment intent is document", async () => {
+    const transformSpy = vi
+      .spyOn(telegramMediaMessageModule, "transformTelegramMediaMessage")
+      .mockResolvedValue({
+        sanitizedText: "Reply\n\nAttachments:\n[original](file:///tmp/original.png)",
+        attachmentsSection: "Attachments:\n[original](file:///tmp/original.png)",
+        uploads: [
+          {
+            kind: "photo",
+            intent: "document",
+            data: Buffer.from([1]),
+            filename: "original.png",
+            mimeType: "image/png",
+            caption: "original",
+            resolvedPath: "/tmp/original.png",
+            originalSizeBytes: 128,
+            imageWidth: 200,
+            imageHeight: 100
+          }
+        ],
+        warnings: []
+      })
+
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes("/sendChatAction")) {
+        return telegramApiSuccess(true)
+      }
+      if (url.includes("/sendMessageDraft")) {
+        return telegramApiSuccess(true)
+      }
+      return telegramApiSuccess({ message_id: 80 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    streamTextMock.mockReturnValue({
+      textStream: createTextStream("Assistant reply")
+    })
+
+    const providerService = {
+      hasConfig: vi.fn(() => true),
+      createModel: vi.fn(() => ({})),
+      getConfig: vi.fn((provider: string) => {
+        if (provider === "telegram") {
+          return { apiKey: "tg-token", baseUrl: "https://api.telegram.org" }
+        }
+        return { apiKey: "model-key" }
+      })
+    }
+    const toolService = {
+      getRequestTools: vi.fn(() => ({}))
+    }
+
+    const runtimeConfigService = new ChannelRuntimeConfigService()
+    runtimeConfigService.update({
+      selectedModel: { provider: "minimax", modelId: "model-a" },
+      channels: {
+        telegram: {
+          enabled: true,
+          allowedUserIds: ["3010"]
+        }
+      }
+    })
+
+    const service = new TelegramBotService(
+      providerService as never,
+      toolService as never,
+      runtimeConfigService
+    )
+
+    await (
+      service as unknown as {
+        handleIncomingMessage: (
+          botToken: string,
+          apiBaseUrl: string,
+          message: unknown
+        ) => Promise<void>
+      }
+    ).handleIncomingMessage("token", "https://api.telegram.org", {
+      message_id: 160,
+      chat: {
+        id: 3010,
+        type: "private"
+      },
+      from: {
+        id: 3010,
+        is_bot: false
+      },
+      text: "hello"
+    })
+
+    expect(fetchMock.mock.calls.some(call => String(call[0]).includes("/sendPhoto"))).toBe(false)
+    expect(fetchMock.mock.calls.some(call => String(call[0]).includes("/sendDocument"))).toBe(true)
+
+    transformSpy.mockRestore()
+  })
+
+  it("falls back to sendDocument before upload when a preview image exceeds Telegram photo limits", async () => {
+    const transformSpy = vi
+      .spyOn(telegramMediaMessageModule, "transformTelegramMediaMessage")
+      .mockResolvedValue({
+        sanitizedText: "Reply\n\nAttachments:\n![preview](file:///tmp/large.png)",
+        attachmentsSection: "Attachments:\n![preview](file:///tmp/large.png)",
+        uploads: [
+          {
+            kind: "photo",
+            intent: "photo",
+            data: Buffer.from([1]),
+            filename: "large.png",
+            mimeType: "image/png",
+            caption: "preview",
+            resolvedPath: "/tmp/large.png",
+            originalSizeBytes: 10 * 1024 * 1024 + 1,
+            imageWidth: 1200,
+            imageHeight: 800
+          }
+        ],
+        warnings: []
+      })
+
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes("/sendChatAction")) {
+        return telegramApiSuccess(true)
+      }
+      if (url.includes("/sendMessageDraft")) {
+        return telegramApiSuccess(true)
+      }
+      return telegramApiSuccess({ message_id: 81 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    streamTextMock.mockReturnValue({
+      textStream: createTextStream("Assistant reply")
+    })
+
+    const providerService = {
+      hasConfig: vi.fn(() => true),
+      createModel: vi.fn(() => ({})),
+      getConfig: vi.fn((provider: string) => {
+        if (provider === "telegram") {
+          return { apiKey: "tg-token", baseUrl: "https://api.telegram.org" }
+        }
+        return { apiKey: "model-key" }
+      })
+    }
+    const toolService = {
+      getRequestTools: vi.fn(() => ({}))
+    }
+
+    const runtimeConfigService = new ChannelRuntimeConfigService()
+    runtimeConfigService.update({
+      selectedModel: { provider: "minimax", modelId: "model-a" },
+      channels: {
+        telegram: {
+          enabled: true,
+          allowedUserIds: ["3011"]
+        }
+      }
+    })
+
+    const service = new TelegramBotService(
+      providerService as never,
+      toolService as never,
+      runtimeConfigService
+    )
+
+    await (
+      service as unknown as {
+        handleIncomingMessage: (
+          botToken: string,
+          apiBaseUrl: string,
+          message: unknown
+        ) => Promise<void>
+      }
+    ).handleIncomingMessage("token", "https://api.telegram.org", {
+      message_id: 161,
+      chat: {
+        id: 3011,
+        type: "private"
+      },
+      from: {
+        id: 3011,
+        is_bot: false
+      },
+      text: "hello"
+    })
+
+    expect(fetchMock.mock.calls.some(call => String(call[0]).includes("/sendPhoto"))).toBe(false)
+    expect(fetchMock.mock.calls.some(call => String(call[0]).includes("/sendDocument"))).toBe(true)
+
+    const sendMessageCalls = fetchMock.mock.calls.filter(call =>
+      String(call[0]).endsWith("/sendMessage")
+    )
+    const bodies = sendMessageCalls.map(call =>
+      parseMockCallJsonBody<{
+        text?: string
+      }>(call as readonly unknown[] | undefined)
+    )
+    expect(bodies.some(body => body.text === TELEGRAM_PHOTO_FALLBACK_NOTICE)).toBe(true)
+
+    transformSpy.mockRestore()
+  })
+
+  it("falls back to sendDocument when Telegram rejects sendPhoto for media limits", async () => {
+    const transformSpy = vi
+      .spyOn(telegramMediaMessageModule, "transformTelegramMediaMessage")
+      .mockResolvedValue({
+        sanitizedText: "Reply\n\nAttachments:\n![preview](file:///tmp/photo.png)",
+        attachmentsSection: "Attachments:\n![preview](file:///tmp/photo.png)",
+        uploads: [
+          {
+            kind: "photo",
+            intent: "photo",
+            data: Buffer.from([1]),
+            filename: "photo.png",
+            mimeType: "image/png",
+            caption: "preview",
+            resolvedPath: "/tmp/photo.png",
+            originalSizeBytes: 128,
+            imageWidth: 640,
+            imageHeight: 480
+          }
+        ],
+        warnings: []
+      })
+
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes("/sendChatAction")) {
+        return telegramApiSuccess(true)
+      }
+      if (url.includes("/sendMessageDraft")) {
+        return telegramApiSuccess(true)
+      }
+      if (url.includes("/sendPhoto")) {
+        return telegramApiFailure(400, "Bad Request: PHOTO_INVALID_DIMENSIONS")
+      }
+      return telegramApiSuccess({ message_id: 82 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    streamTextMock.mockReturnValue({
+      textStream: createTextStream("Assistant reply")
+    })
+
+    const providerService = {
+      hasConfig: vi.fn(() => true),
+      createModel: vi.fn(() => ({})),
+      getConfig: vi.fn((provider: string) => {
+        if (provider === "telegram") {
+          return { apiKey: "tg-token", baseUrl: "https://api.telegram.org" }
+        }
+        return { apiKey: "model-key" }
+      })
+    }
+    const toolService = {
+      getRequestTools: vi.fn(() => ({}))
+    }
+
+    const runtimeConfigService = new ChannelRuntimeConfigService()
+    runtimeConfigService.update({
+      selectedModel: { provider: "minimax", modelId: "model-a" },
+      channels: {
+        telegram: {
+          enabled: true,
+          allowedUserIds: ["3012"]
+        }
+      }
+    })
+
+    const service = new TelegramBotService(
+      providerService as never,
+      toolService as never,
+      runtimeConfigService
+    )
+
+    await (
+      service as unknown as {
+        handleIncomingMessage: (
+          botToken: string,
+          apiBaseUrl: string,
+          message: unknown
+        ) => Promise<void>
+      }
+    ).handleIncomingMessage("token", "https://api.telegram.org", {
+      message_id: 162,
+      chat: {
+        id: 3012,
+        type: "private"
+      },
+      from: {
+        id: 3012,
+        is_bot: false
+      },
+      text: "hello"
+    })
+
+    expect(fetchMock.mock.calls.some(call => String(call[0]).includes("/sendPhoto"))).toBe(true)
+    expect(fetchMock.mock.calls.some(call => String(call[0]).includes("/sendDocument"))).toBe(true)
+
+    const sendMessageCalls = fetchMock.mock.calls.filter(call =>
+      String(call[0]).endsWith("/sendMessage")
+    )
+    const bodies = sendMessageCalls.map(call =>
+      parseMockCallJsonBody<{
+        text?: string
+      }>(call as readonly unknown[] | undefined)
+    )
+    expect(bodies.some(body => body.text === TELEGRAM_PHOTO_FALLBACK_NOTICE)).toBe(true)
+
+    transformSpy.mockRestore()
+  })
+
+  it("sends a failure message when media upload times out", async () => {
+    const transformSpy = vi
+      .spyOn(telegramMediaMessageModule, "transformTelegramMediaMessage")
+      .mockResolvedValue({
+        sanitizedText: "Reply\n\nAttachments:\n[original](file:///tmp/photo.png)",
+        attachmentsSection: "Attachments:\n[original](file:///tmp/photo.png)",
+        uploads: [
+          {
+            kind: "photo",
+            intent: "document",
+            data: Buffer.from([1]),
+            filename: "photo.png",
+            mimeType: "image/png",
+            caption: "original",
+            resolvedPath: "/tmp/photo.png",
+            originalSizeBytes: 128,
+            imageWidth: 640,
+            imageHeight: 480
+          }
+        ],
+        warnings: []
+      })
+
+    try {
+      const fetchMock = vi.fn((url: string) => {
+        if (url.includes("/sendChatAction")) {
+          return telegramApiSuccess(true)
+        }
+        if (url.includes("/sendMessageDraft")) {
+          return telegramApiSuccess(true)
+        }
+        if (url.includes("/sendDocument")) {
+          return Promise.reject(new DOMException("Timed out", "TimeoutError"))
+        }
+        return telegramApiSuccess({ message_id: 83 })
+      })
+      vi.stubGlobal("fetch", fetchMock)
+
+      streamTextMock.mockReturnValue({
+        textStream: createTextStream("Assistant reply")
+      })
+
+      const providerService = {
+        hasConfig: vi.fn(() => true),
+        createModel: vi.fn(() => ({})),
+        getConfig: vi.fn((provider: string) => {
+          if (provider === "telegram") {
+            return { apiKey: "tg-token", baseUrl: "https://api.telegram.org" }
+          }
+          return { apiKey: "model-key" }
+        })
+      }
+      const toolService = {
+        getRequestTools: vi.fn(() => ({}))
+      }
+
+      const runtimeConfigService = new ChannelRuntimeConfigService()
+      runtimeConfigService.update({
+        selectedModel: { provider: "minimax", modelId: "model-a" },
+        channels: {
+          telegram: {
+            enabled: true,
+            allowedUserIds: ["3013"]
+          }
+        }
+      })
+
+      const service = new TelegramBotService(
+        providerService as never,
+        toolService as never,
+        runtimeConfigService
+      )
+
+      await (
+        service as unknown as {
+          handleIncomingMessage: (
+            botToken: string,
+            apiBaseUrl: string,
+            message: unknown
+          ) => Promise<void>
+        }
+      ).handleIncomingMessage("token", "https://api.telegram.org", {
+        message_id: 163,
+        chat: {
+          id: 3013,
+          type: "private"
+        },
+        from: {
+          id: 3013,
+          is_bot: false
+        },
+        text: "hello"
+      })
+
+      const sendMessageCalls = fetchMock.mock.calls.filter(call =>
+        String(call[0]).endsWith("/sendMessage")
+      )
+      const bodies = sendMessageCalls.map(call =>
+        parseMockCallJsonBody<{
+          text?: string
+        }>(call as readonly unknown[] | undefined)
+      )
+      expect(
+        bodies.some(body =>
+          body.text?.includes(
+            "Failed to send attachment 'photo.png' before the Telegram upload timeout"
+          )
+        )
+      ).toBe(true)
+    } finally {
+      transformSpy.mockRestore()
+    }
   })
 
   it("retries sendMessage without parse_mode when Telegram returns parse entity error", async () => {

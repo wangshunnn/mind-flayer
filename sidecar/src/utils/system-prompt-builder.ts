@@ -28,18 +28,46 @@ function buildRoleContext(): string {
   return "You are Mind Flayer, a local desktop AI assistant."
 }
 
-/**
- * Build response format rules.
- *
- * @returns Response format rules string
- */
-function buildResponseFormatRules(): string {
+function buildDefaultResponseFormatRules(): string {
   return [
     "Response format rules:",
     "- When sharing a local image file (such as a screenshot), always embed it using Markdown image syntax.",
     "- Use an absolute file URI in the image URL: ![screenshot](file:///absolute/path/to/image.png).",
     "- Do not reply with only a plain file path for images."
   ].join("\n")
+}
+
+function buildTelegramResponseFormatRules(): string {
+  return [
+    "Response format rules:",
+    "- Telegram local attachment rule: if you include any local file:// path, your reply MUST end with exactly one final section titled 'Attachments:'.",
+    "- Put the normal reply text first. Then add one blank line, then the line 'Attachments:', then one attachment per line. Do not put any prose after the attachments.",
+    "- Never place a local file:// path in the main body. Local file:// paths are allowed only inside the final 'Attachments:' section.",
+    "- If you cannot produce a final 'Attachments:' section, do not output any local file:// path.",
+    "- In the Telegram 'Attachments:' section, use ![caption](file:///absolute/path/to/image.png) to request an in-chat image preview.",
+    "- In the Telegram 'Attachments:' section, use [caption](file:///absolute/path/to/image.png) to request the original file as an attachment.",
+    "- If the user wants the original file, an attachment, no compression, or maximum fidelity, use the link form without '!'.",
+    "- If the user wants an in-chat preview or asks to see the screenshot directly, use the image form with '!'.",
+    "- Example Telegram format:",
+    "Main reply text.",
+    "",
+    "Attachments:",
+    "![preview](file:///absolute/path/to/preview.png)",
+    "[original](file:///absolute/path/to/original.png)"
+  ].join("\n")
+}
+
+/**
+ * Build response format rules.
+ *
+ * @returns Response format rules string
+ */
+function buildResponseFormatRules(channel?: string): string {
+  if (channel?.trim() === "telegram") {
+    return buildTelegramResponseFormatRules()
+  }
+
+  return buildDefaultResponseFormatRules()
 }
 
 function escapeXmlAttribute(value: string): string {
@@ -142,7 +170,7 @@ function buildRuntimeContext(options: BuildSystemPromptOptions): string {
 export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
   return [
     buildRoleContext(),
-    buildResponseFormatRules(),
+    buildResponseFormatRules(options.channel),
     buildSkillsPromptSection(options) || null,
     buildRuntimeContext(options)
   ]

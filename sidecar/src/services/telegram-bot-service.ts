@@ -6,6 +6,7 @@ import { ConflictError, NotFoundError } from "../utils/http-errors"
 import { compactMessages } from "../utils/message-compaction"
 import { buildSystemPrompt } from "../utils/system-prompt-builder"
 import {
+  type TelegramMediaSendMethod,
   type TelegramMediaUpload,
   transformTelegramMediaMessage
 } from "../utils/telegram-media-message"
@@ -29,6 +30,11 @@ const LOG_TEXT_PREVIEW_LENGTH = 100
 const TELEGRAM_MAX_MESSAGE_LENGTH = 4096
 const TELEGRAM_DRAFT_UPDATE_INTERVAL_MS = 700
 const TELEGRAM_CHAT_ACTION_INTERVAL_MS = 3000
+const TELEGRAM_MEDIA_UPLOAD_TIMEOUT_MS = 30_000
+const TELEGRAM_MAX_PHOTO_SIZE_BYTES = 10 * 1024 * 1024
+const TELEGRAM_MAX_DOCUMENT_SIZE_BYTES = 50 * 1024 * 1024
+const TELEGRAM_MAX_PHOTO_DIMENSION_SUM = 10_000
+const TELEGRAM_MAX_PHOTO_ASPECT_RATIO = 20
 const WHITELIST_JOIN_BUTTON_TEXT = "Join the Channel"
 const JOIN_REQUEST_CALLBACK_DATA = "mf_join_request_v1"
 const WHITELIST_DENY_COOLDOWN_MS = 10 * 60 * 1000
@@ -38,6 +44,8 @@ const TELEGRAM_NEW_SESSION_CONFIRMATION =
   "Started a new session. Your next message will use a fresh context."
 const TELEGRAM_NEW_SESSION_FAILURE = "Error: Failed to start a new session. Please try again."
 const TELEGRAM_RESPONSE_FAILURE = "Error: Failed to generate response. Please try again."
+const TELEGRAM_PHOTO_FALLBACK_NOTICE =
+  "Image exceeded Telegram photo limits, sent as a file instead."
 
 interface TelegramApiResponse<T> {
   ok: boolean
@@ -155,6 +163,11 @@ interface AssistantMessageMetadata {
   modelProviderLabel?: string
   modelId?: string
   modelLabel?: string
+}
+
+interface TelegramMediaSendPlan {
+  finalMethod: TelegramMediaSendMethod
+  noticeText?: string
 }
 
 export interface TelegramSessionSummary {
@@ -840,11 +853,27 @@ export class TelegramBotService {
           warning
         })
       })
+      if (transformed.attachmentsSection) {
+        this.logInfo("Telegram attachments section", {
+          chatId,
+          attachments: transformed.attachmentsSection
+        })
+      }
 
       const sanitizedText = transformed.sanitizedText || normalizedAssistantText
       await this.sendTextInChunks(chatId, sanitizedText)
-      await this.sendMediaUploads(chatId, transformed.uploads, async upload => {
-        await switchChatAction(this.mapUploadKindToChatAction(upload.kind))
+      await this.sendMediaUploads(chatId, transformed.uploads, async (action, upload) => {
+        await switchChatAction(action)
+        this.logInfo("Telegram media upload started", {
+          chatId,
+          filename: upload.filename,
+          intent: upload.intent,
+          kind: upload.kind,
+          finalMethod: upload.finalMethod,
+          sizeBytes: upload.originalSizeBytes,
+          width: upload.imageWidth,
+          height: upload.imageHeight
+        })
       })
 
       await this.setSessionMessages(sessionKey, [
@@ -929,26 +958,178 @@ export class TelegramBotService {
   private async sendMediaUploads(
     chatId: string,
     uploads: TelegramMediaUpload[],
-    beforeUpload?: (upload: TelegramMediaUpload) => Promise<void>
+    beforeUpload?: (action: TelegramChatAction, upload: TelegramMediaUpload) => Promise<void>
   ): Promise<void> {
     for (const upload of uploads) {
-      if (beforeUpload) {
-        await beforeUpload(upload)
-      }
-
       try {
-        await this.sendMediaUpload(chatId, upload)
+        const plan = this.planMediaUpload(upload)
+        upload.finalMethod = plan.finalMethod
+
+        if (beforeUpload) {
+          await beforeUpload(this.mapSendMethodToChatAction(plan.finalMethod), upload)
+        }
+
+        if (plan.noticeText) {
+          await this.sendTextMessage(chatId, plan.noticeText)
+        }
+
+        const finalMethod = await this.sendMediaUpload(chatId, upload, plan.finalMethod)
+        upload.finalMethod = finalMethod
+
+        this.logInfo("Telegram media upload completed", {
+          chatId,
+          filename: upload.filename,
+          finalMethod,
+          sizeBytes: upload.originalSizeBytes
+        })
       } catch (error) {
         console.warn("[TelegramBotService] Failed to send media upload:", error)
+        try {
+          await this.sendTextMessage(chatId, this.buildMediaUploadFailureMessage(upload, error))
+        } catch (sendError) {
+          console.warn("[TelegramBotService] Failed to send media upload error message:", sendError)
+        }
       }
     }
   }
 
-  private async sendMediaUpload(chatId: string, upload: TelegramMediaUpload): Promise<void> {
-    const method = this.resolveMediaUploadMethod(upload.kind)
+  private planMediaUpload(upload: TelegramMediaUpload): TelegramMediaSendPlan {
+    const preferredMethod = this.resolvePreferredMediaSendMethod(upload)
+
+    if (preferredMethod !== "sendPhoto") {
+      if (preferredMethod === "sendDocument") {
+        this.assertDocumentWithinLimit(upload)
+      }
+
+      return {
+        finalMethod: preferredMethod
+      }
+    }
+
+    if (!this.canSendTelegramPhoto(upload)) {
+      this.assertDocumentWithinLimit(upload)
+
+      return {
+        finalMethod: "sendDocument",
+        noticeText: TELEGRAM_PHOTO_FALLBACK_NOTICE
+      }
+    }
+
+    return {
+      finalMethod: "sendPhoto"
+    }
+  }
+
+  private resolvePreferredMediaSendMethod(upload: TelegramMediaUpload): TelegramMediaSendMethod {
+    const defaultMethod = this.resolveMediaUploadMethod(upload.kind)
+
+    if (defaultMethod !== "sendPhoto") {
+      return defaultMethod
+    }
+
+    return upload.intent === "document" ? "sendDocument" : "sendPhoto"
+  }
+
+  private canSendTelegramPhoto(upload: TelegramMediaUpload): boolean {
+    if (upload.kind !== "photo") {
+      return false
+    }
+
+    if (upload.originalSizeBytes > TELEGRAM_MAX_PHOTO_SIZE_BYTES) {
+      return false
+    }
+
+    const width = upload.imageWidth ?? 0
+    const height = upload.imageHeight ?? 0
+    if (width <= 0 || height <= 0) {
+      return false
+    }
+
+    if (width + height > TELEGRAM_MAX_PHOTO_DIMENSION_SUM) {
+      return false
+    }
+
+    const shorterSide = Math.min(width, height)
+    if (shorterSide <= 0) {
+      return false
+    }
+
+    return Math.max(width, height) / shorterSide <= TELEGRAM_MAX_PHOTO_ASPECT_RATIO
+  }
+
+  private assertDocumentWithinLimit(upload: TelegramMediaUpload): void {
+    if (upload.originalSizeBytes <= TELEGRAM_MAX_DOCUMENT_SIZE_BYTES) {
+      return
+    }
+
+    throw new Error(
+      `The original file '${upload.filename}' exceeds Telegram's 50 MB bot upload limit.`
+    )
+  }
+
+  private buildMediaUploadFailureMessage(upload: TelegramMediaUpload, error: unknown): string {
+    const reason = error instanceof Error ? error.message : String(error)
+
+    if (this.isTimeoutError(error)) {
+      return `Failed to send attachment '${upload.filename}' before the Telegram upload timeout. Please try again.`
+    }
+
+    if (reason.includes("50 MB bot upload limit")) {
+      return reason
+    }
+
+    return `Failed to send attachment '${upload.filename}'. Please try again.`
+  }
+
+  private async sendMediaUpload(
+    chatId: string,
+    upload: TelegramMediaUpload,
+    method: TelegramMediaSendMethod
+  ): Promise<TelegramMediaSendMethod> {
+    const signal = AbortSignal.timeout(TELEGRAM_MEDIA_UPLOAD_TIMEOUT_MS)
 
     try {
-      await this.callTelegramApi(method, this.createMediaUploadPayload(chatId, upload, true), true)
+      await this.performMediaUpload(chatId, upload, method, signal)
+      return method
+    } catch (error) {
+      if (method !== "sendPhoto" || !this.isTelegramPhotoLimitError(error)) {
+        throw error
+      }
+
+      this.assertDocumentWithinLimit(upload)
+      await this.sendTextMessage(chatId, TELEGRAM_PHOTO_FALLBACK_NOTICE)
+      this.logInfo("Telegram photo upload failed, retrying as document", {
+        chatId,
+        filename: upload.filename,
+        reason: error instanceof Error ? error.message : String(error)
+      })
+
+      await this.performMediaUpload(
+        chatId,
+        upload,
+        "sendDocument",
+        AbortSignal.timeout(TELEGRAM_MEDIA_UPLOAD_TIMEOUT_MS)
+      )
+
+      return "sendDocument"
+    }
+  }
+
+  private async performMediaUpload(
+    chatId: string,
+    upload: TelegramMediaUpload,
+    method: TelegramMediaSendMethod,
+    signal: AbortSignal
+  ): Promise<void> {
+    try {
+      await this.callTelegramApi(
+        method,
+        this.createMediaUploadPayload(chatId, upload, method, true),
+        true,
+        {
+          signal
+        }
+      )
     } catch (error) {
       if (!this.isTelegramEntityParseError(error)) {
         throw error
@@ -960,7 +1141,14 @@ export class TelegramBotService {
         reason: error instanceof Error ? error.message : String(error)
       })
 
-      await this.callTelegramApi(method, this.createMediaUploadPayload(chatId, upload, false), true)
+      await this.callTelegramApi(
+        method,
+        this.createMediaUploadPayload(chatId, upload, method, false),
+        true,
+        {
+          signal
+        }
+      )
     }
   }
 
@@ -998,7 +1186,9 @@ export class TelegramBotService {
     }
   }
 
-  private resolveMediaUploadMethod(uploadKind: TelegramMediaUpload["kind"]): string {
+  private resolveMediaUploadMethod(
+    uploadKind: TelegramMediaUpload["kind"]
+  ): TelegramMediaSendMethod {
     if (uploadKind === "photo") {
       return "sendPhoto"
     }
@@ -1014,6 +1204,7 @@ export class TelegramBotService {
   private createMediaUploadPayload(
     chatId: string,
     upload: TelegramMediaUpload,
+    method: TelegramMediaSendMethod,
     useHtmlParseMode: boolean
   ): FormData {
     const formData = new FormData()
@@ -1028,7 +1219,14 @@ export class TelegramBotService {
     }
 
     const blob = new Blob([new Uint8Array(upload.data)], { type: upload.mimeType })
-    const mediaFieldName = upload.kind === "photo" ? "photo" : upload.kind
+    const mediaFieldName =
+      method === "sendPhoto"
+        ? "photo"
+        : method === "sendVideo"
+          ? "video"
+          : method === "sendAudio"
+            ? "audio"
+            : "document"
     formData.set(mediaFieldName, blob, upload.filename)
 
     return formData
@@ -1039,16 +1237,37 @@ export class TelegramBotService {
     return message.includes("can't parse entities") || message.includes("parse entities")
   }
 
-  private mapUploadKindToChatAction(kind: TelegramMediaUpload["kind"]): TelegramChatAction {
-    if (kind === "photo") {
+  private isTelegramPhotoLimitError(error: unknown): boolean {
+    const message = (error instanceof Error ? error.message : String(error)).toLowerCase()
+
+    return (
+      message.includes("file is too big") ||
+      message.includes("photo_invalid_dimensions") ||
+      message.includes("width and height ratio") ||
+      message.includes("dimensions") ||
+      message.includes("image_process_failed")
+    )
+  }
+
+  private isTimeoutError(error: unknown): boolean {
+    if (error instanceof DOMException) {
+      return error.name === "AbortError" || error.name === "TimeoutError"
+    }
+
+    const message = (error instanceof Error ? error.message : String(error)).toLowerCase()
+    return message.includes("timeout") || message.includes("aborted")
+  }
+
+  private mapSendMethodToChatAction(method: TelegramMediaSendMethod): TelegramChatAction {
+    if (method === "sendPhoto") {
       return "upload_photo"
     }
 
-    if (kind === "video") {
+    if (method === "sendVideo") {
       return "upload_video"
     }
 
-    if (kind === "audio") {
+    if (method === "sendAudio") {
       return "upload_voice"
     }
 
@@ -1275,7 +1494,10 @@ export class TelegramBotService {
   private async callTelegramApi<T = TelegramSentMessage>(
     method: string,
     payload: object | FormData,
-    isFormData = false
+    isFormData = false,
+    options?: {
+      signal?: AbortSignal
+    }
   ): Promise<T> {
     const telegramConfig = this.providerService.getConfig(TELEGRAM_PROVIDER_ID)
     const botToken = telegramConfig?.apiKey?.trim() ?? ""
@@ -1292,7 +1514,8 @@ export class TelegramBotService {
         : {
             "Content-Type": "application/json"
           },
-      body: isFormData ? (payload as FormData) : JSON.stringify(payload)
+      body: isFormData ? (payload as FormData) : JSON.stringify(payload),
+      signal: options?.signal
     })
 
     if (!response.ok) {

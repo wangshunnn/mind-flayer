@@ -21,15 +21,6 @@ export interface BuildSystemPromptOptions {
   workspaceContext?: WorkspacePromptContext
 }
 
-/**
- * Build role context for the AI agent.
- *
- * @returns Role context string
- */
-function buildRoleContext(): string {
-  return "You are Mind Flayer, a local desktop AI assistant."
-}
-
 function buildDefaultResponseFormatRules(): string {
   return [
     "Response format rules:",
@@ -209,7 +200,6 @@ function buildRuntimeContext(options: BuildSystemPromptOptions): string {
  */
 export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
   return [
-    buildRoleContext(),
     buildResponseFormatRules(options.channel),
     buildSkillsPromptSection(options) || null,
     buildWorkspacePromptSection(options),

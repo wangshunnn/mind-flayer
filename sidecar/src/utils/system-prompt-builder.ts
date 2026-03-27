@@ -115,7 +115,7 @@ function buildWorkspacePromptSection(options: BuildSystemPromptOptions): string 
     workspaceContext.files.length > 0
       ? workspaceContext.files.map(file =>
           [
-            `<workspace_file path="${escapeXmlAttribute(file.path)}"${file.truncated ? ' truncated="true"' : ""}>`,
+            `<workspace_file relative_path="${escapeXmlAttribute(file.path)}" absolute_path="${escapeXmlAttribute(file.absolutePath)}"${file.truncated ? ' truncated="true"' : ""}>`,
             file.content,
             "</workspace_file>"
           ].join("\n")
@@ -124,7 +124,7 @@ function buildWorkspacePromptSection(options: BuildSystemPromptOptions): string 
 
   return [
     "## Project Context",
-    "Shared workspace root: <workspace>",
+    `Shared workspace root: ${workspaceContext.workspaceDir}`,
     "- Treat injected workspace files as the source of truth for identity, behavior, and long-term context.",
     "- BOOTSTRAP.md is passive: if it is present below, follow it in this conversation and delete it with deleteWorkspaceFile when onboarding is complete.",
     "- Use appendWorkspaceSection to add facts to USER.md, SOUL.md, IDENTITY.md, or MEMORY.md. It can append to an existing ## section or create a new one.",

@@ -246,7 +246,7 @@ export class TelegramBotService {
         await this.refreshInternal()
       })
       .catch(error => {
-        console.error("[TelegramBotService] Refresh failed:", error)
+        this.logError("Refresh failed", error)
       })
 
     return this.refreshChain
@@ -449,7 +449,7 @@ export class TelegramBotService {
       try {
         await runningTask
       } catch (error) {
-        console.warn("[TelegramBotService] Polling task stopped with error:", error)
+        this.logWarn("Polling task stopped with error", error)
       }
     }
 
@@ -487,7 +487,9 @@ export class TelegramBotService {
           break
         }
 
-        console.error(`[TelegramBotService] Polling error (baseURL=${apiBaseUrl}):`, error)
+        this.logError("Polling error", error, {
+          baseUrl: apiBaseUrl
+        })
         await this.delay(retryDelayMs, signal)
         retryDelayMs = Math.min(retryDelayMs * 2, RETRY_MAX_DELAY_MS)
       }
@@ -627,7 +629,9 @@ export class TelegramBotService {
         await this.createSession(chatId)
         await this.sendTextMessage(chatId, TELEGRAM_NEW_SESSION_CONFIRMATION)
       } catch (error) {
-        console.error("[TelegramBotService] Failed to start new session:", error)
+        this.logError("Failed to start new session", error, {
+          chatId
+        })
         await this.sendTextMessage(chatId, TELEGRAM_NEW_SESSION_FAILURE)
       }
       return
@@ -664,7 +668,11 @@ export class TelegramBotService {
         chatId,
         `Failed to load model '${selectedModel.modelId}'. Please verify your model settings in Mind Flayer.`
       )
-      console.error("[TelegramBotService] Failed to create model:", error)
+      this.logError("Failed to create model", error, {
+        chatId,
+        provider: selectedModel.provider,
+        modelId: selectedModel.modelId
+      })
       return
     }
 
@@ -723,8 +731,10 @@ export class TelegramBotService {
       }
     }
 
+    let sessionKey: string | undefined
+
     try {
-      const sessionKey = await this.getOrCreateActiveSessionKey(chatId)
+      sessionKey = await this.getOrCreateActiveSessionKey(chatId)
       const history = this.sessionMessages.get(sessionKey) ?? []
       const messagesWithLatestInput = [...history, this.createTextMessage("user", incomingText)]
       await this.setSessionMessages(sessionKey, messagesWithLatestInput)
@@ -884,7 +894,10 @@ export class TelegramBotService {
         this.createTextMessage("assistant", sanitizedText, assistantMetadata)
       ])
     } catch (error) {
-      console.error("[TelegramBotService] Failed to process message:", error)
+      this.logError("Failed to process message", error, {
+        chatId,
+        ...(sessionKey ? { sessionKey } : {})
+      })
       await this.sendTextMessage(chatId, TELEGRAM_RESPONSE_FAILURE)
     } finally {
       await stopChatActionLoop()
@@ -986,11 +999,20 @@ export class TelegramBotService {
           sizeBytes: upload.originalSizeBytes
         })
       } catch (error) {
-        console.warn("[TelegramBotService] Failed to send media upload:", error)
+        this.logWarn("Failed to send media upload", error, {
+          chatId,
+          filename: upload.filename,
+          kind: upload.kind,
+          intent: upload.intent,
+          finalMethod: upload.finalMethod
+        })
         try {
           await this.sendTextMessage(chatId, this.buildMediaUploadFailureMessage(upload, error))
         } catch (sendError) {
-          console.warn("[TelegramBotService] Failed to send media upload error message:", sendError)
+          this.logWarn("Failed to send media upload error message", sendError, {
+            chatId,
+            filename: upload.filename
+          })
         }
       }
     }
@@ -1770,8 +1792,42 @@ export class TelegramBotService {
   }
 
   private logInfo(event: string, details?: Record<string, LogValue>): void {
+    this.log("info", event, details)
+  }
+
+  private logWarn(event: string, error: unknown, details?: Record<string, LogValue>): void {
+    this.log("warn", event, {
+      ...(details ?? {}),
+      reason: this.formatErrorMessage(error)
+    })
+  }
+
+  private logError(event: string, error: unknown, details?: Record<string, LogValue>): void {
+    this.log("error", event, {
+      ...(details ?? {}),
+      reason: this.formatErrorMessage(error)
+    })
+  }
+
+  private log(
+    level: "info" | "warn" | "error",
+    event: string,
+    details?: Record<string, LogValue>
+  ): void {
     const suffix = this.formatLogDetails(details)
-    console.log(`[TelegramBotService] ${event}${suffix}`)
+    const message = `[TelegramBotService] ${event}${suffix}`
+
+    if (level === "warn") {
+      console.warn(message)
+      return
+    }
+
+    if (level === "error") {
+      console.error(message)
+      return
+    }
+
+    console.log(message)
   }
 
   private formatLogDetails(details?: Record<string, LogValue>): string {
@@ -1796,6 +1852,32 @@ export class TelegramBotService {
       return JSON.stringify(value)
     }
     return String(value)
+  }
+
+  private formatErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      const message = error.message.trim()
+      if (message) {
+        return error.name !== "Error" ? `${error.name}: ${message}` : message
+      }
+
+      return error.name || "unknown error"
+    }
+
+    if (typeof error === "string") {
+      const message = error.trim()
+      return message || "unknown error"
+    }
+
+    if (error === null || error === undefined) {
+      return "unknown error"
+    }
+
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return String(error)
+    }
   }
 
   private async delay(ms: number, signal: AbortSignal): Promise<void> {

@@ -47,7 +47,7 @@ describe("NewChatEmptyState", () => {
       )
     })
 
-    expect(container.textContent).toContain("多模型 · 技能 · 工具 · 渠道集成")
+    expect(container.textContent).toContain("多模型 · 记忆 · 工具 · 技能 · 渠道集成")
     expect(container.textContent).not.toContain("Mind Flayer")
     expect(container.textContent).not.toContain(
       "跨平台桌面 AI 助手，支持多模型、Skills、工具调用与渠道集成。"
@@ -69,7 +69,7 @@ describe("NewChatEmptyState", () => {
       )
     })
 
-    expect(container.textContent).toContain("Models · Skills · Tools · Channels")
+    expect(container.textContent).toContain("Models · Memory · Tools · Skills · Channels")
     expect(container.textContent).not.toContain("Mind Flayer")
     expect(container.textContent).not.toContain(
       "Cross-platform desktop AI assistant with multi-model support, Skills, tool use, and channel integrations."

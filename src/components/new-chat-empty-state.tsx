@@ -6,8 +6,9 @@ export function NewChatEmptyState() {
   const { t } = useTranslation("chat")
   const highlights = [
     t("emptyState.highlights.multiModel"),
-    t("emptyState.highlights.skills"),
+    t("emptyState.highlights.memory"),
     t("emptyState.highlights.tools"),
+    t("emptyState.highlights.skills"),
     t("emptyState.highlights.channels")
   ]
 

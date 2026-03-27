@@ -79,8 +79,9 @@
     "logoAlt": "Mind Flayer logo",
     "highlights": {
       "multiModel": "Models",
-      "skills": "Skills",
+      "memory": "Memory",
       "tools": "Tools",
+      "skills": "Skills",
       "channels": "Channels"
     }
   },

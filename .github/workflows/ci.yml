@@ -2,6 +2,8 @@ name: CI
 
 on:
     push:
+        tags-ignore:
+            - "v*.*.*"
     pull_request:
 
 env:
@@ -34,14 +36,8 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
-            - name: Format check (Frontend)
-              run: pnpm format:frontend
-
-            - name: Lint check (Frontend)
-              run: pnpm lint:frontend
-
             - name: Biome and TS check (Frontend)
-              run: pnpm check:frontend
+              run: pnpm check:frontend:ci
 
             - name: Check i18n completeness
               run: pnpm check:i18n
@@ -54,12 +50,7 @@ jobs:
 
     backend-checks:
         name: Backend Checks (Rust)
-        runs-on: ${{ matrix.os }}
-
-        strategy:
-            fail-fast: false
-            matrix:
-                os: [macos-latest]
+        runs-on: macos-15
 
         steps:
             - name: Checkout repository
@@ -74,19 +65,6 @@ jobs:
               uses: Swatinem/rust-cache@v2
               with:
                   workspaces: src-tauri
-
-            - name: Install system dependencies (Ubuntu)
-              if: matrix.os == 'ubuntu-latest'
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y libwebkit2gtk-4.1-dev \
-                    build-essential \
-                    curl \
-                    wget \
-                    file \
-                    libssl-dev \
-                    libayatana-appindicator3-dev \
-                    librsvg2-dev
 
             - name: Setup pnpm
               uses: pnpm/action-setup@v4

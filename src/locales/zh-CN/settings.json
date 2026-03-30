@@ -83,6 +83,52 @@
     }
   },
   "advanced": {},
-  "about": {},
+  "about": {
+    "loading": "加载中",
+    "versionLabel": "当前版本",
+    "versionDescription": "当前已安装的 Mind Flayer 应用版本。",
+    "updater": {
+      "title": "更新",
+      "availableVersionLabel": "可用版本",
+      "releaseDateLabel": "发布时间",
+      "releaseNotesLabel": "发布说明",
+      "noReleaseNotes": "这个版本没有提供发布说明。",
+      "downloadProgress": "已下载 {{downloaded}} / {{total}}",
+      "downloadProgressUnknownTotal": "已下载 {{downloaded}}",
+      "buttons": {
+        "check": "检查更新",
+        "checking": "检查中",
+        "downloadAndInstall": "下载并安装",
+        "installing": "安装中",
+        "restart": "立即重启更新",
+        "productionOnly": "仅生产版本可用"
+      },
+      "status": {
+        "idle": "检查 GitHub Releases 上是否有新的稳定版本。",
+        "unavailable": "自动更新仅在生产环境构建中可用。",
+        "checking": "正在检查新版本...",
+        "upToDate": "当前已经是最新版本。",
+        "updateAvailable": "Mind Flayer {{version}} 已可安装。",
+        "installing": "正在下载并安装更新...",
+        "restartRequired": "更新已安装完成，重启后生效。",
+        "error": "检查更新失败。"
+      },
+      "dialog": {
+        "title": "发现新版本",
+        "description": "Mind Flayer {{version}} 已可用，你当前使用的是 {{currentVersion}}。",
+        "later": "稍后",
+        "download": "下载并安装",
+        "restartTitle": "重启以完成更新",
+        "restartDescription": "Mind Flayer {{version}} 已安装完成，可以立即重启。",
+        "restartLater": "稍后",
+        "restartNow": "立即重启"
+      },
+      "toast": {
+        "checkFailed": "检查更新失败",
+        "installFailed": "安装更新失败",
+        "restartFailed": "重启应用失败"
+      }
+    }
+  },
   "comingSoon": "即将推出"
 }

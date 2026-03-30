@@ -11,10 +11,12 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { useAppUpdater } from "@/hooks/use-app-updater"
 import { useAvailableModels } from "@/hooks/use-available-models"
 import { useChatStorage } from "@/hooks/use-chat-storage"
 import { useLocalShortcut } from "@/hooks/use-local-shortcut"
@@ -26,6 +28,7 @@ import {
   syncRuntimeConfig,
   type TelegramWhitelistRequest
 } from "@/lib/sidecar-client"
+import { shouldAutoCheckForUpdates, toErrorMessage } from "@/lib/updater"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import type { ChatId } from "@/types/chat"
@@ -119,7 +122,7 @@ function runtimeConfigSettingsEqual(
 }
 
 export default function Page() {
-  const { t } = useTranslation("common")
+  const { t } = useTranslation(["common", "settings"])
   const {
     chats,
     activeChatId,
@@ -145,15 +148,26 @@ export default function Page() {
     useSettingWithLoaded("disabledSkills")
   const [whitelistRequests, setWhitelistRequests] = useState<TelegramWhitelistRequest[]>([])
   const [isDecidingWhitelistRequest, setIsDecidingWhitelistRequest] = useState(false)
+  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false)
+  const [isRestartDialogOpen, setIsRestartDialogOpen] = useState(false)
   const sidebarActiveChatId = activePane === "desktop-chat" ? activeChatId : null
   const draftStoreRef = useRef<Map<string, string>>(new Map())
   const activePaneRef = useRef<ActivePane>(activePane)
   const activeChatIdRef = useRef(activeChatId)
   const newChatTokenRef = useRef(newChatToken)
   const telegramAllowedUserIdsRef = useRef(telegramAllowedUserIds)
+  const hasCheckedForUpdatesRef = useRef(false)
   const runtimeConfigSyncQueueRef = useRef<Promise<void>>(Promise.resolve())
   const latestRuntimeConfigSyncIdRef = useRef(0)
   const lastAppliedRuntimeConfigRef = useRef<RuntimeConfigSettingsSnapshot | null>(null)
+  const {
+    availableUpdate: availableAppUpdate,
+    checkForUpdates,
+    currentVersion: appVersion,
+    installUpdate,
+    relaunchApp,
+    status: appUpdaterStatus
+  } = useAppUpdater()
   const selectedModel =
     availableModels.find(model => model.api_id === selectedModelApiId) ?? availableModels[0] ?? null
   const selectedModelProvider = selectedModel?.provider ?? null
@@ -181,6 +195,23 @@ export default function Page() {
   useEffect(() => {
     activePaneRef.current = activePane
   }, [activePane])
+
+  useEffect(() => {
+    if (!shouldAutoCheckForUpdates() || hasCheckedForUpdatesRef.current) {
+      return
+    }
+
+    hasCheckedForUpdatesRef.current = true
+
+    const runUpdateCheck = async () => {
+      const update = await checkForUpdates({ silent: true })
+      if (update) {
+        setIsUpdateDialogOpen(true)
+      }
+    }
+
+    void runUpdateCheck()
+  }, [checkForUpdates])
 
   const restoreRuntimeConfigSnapshot = useCallback(
     async (snapshot: RuntimeConfigSettingsSnapshot) => {
@@ -469,6 +500,28 @@ export default function Page() {
     [currentWhitelistRequest, isDecidingWhitelistRequest, setTelegramAllowedUserIds]
   )
 
+  const handleInstallAppUpdate = useCallback(async () => {
+    try {
+      await installUpdate()
+      setIsUpdateDialogOpen(false)
+      setIsRestartDialogOpen(true)
+    } catch (nextError) {
+      toast.error(t("about.updater.toast.installFailed", { ns: "settings" }), {
+        description: toErrorMessage(nextError) ?? undefined
+      })
+    }
+  }, [installUpdate, t])
+
+  const handleRestartAppAfterUpdate = useCallback(async () => {
+    try {
+      await relaunchApp()
+    } catch (nextError) {
+      toast.error(t("about.updater.toast.restartFailed", { ns: "settings" }), {
+        description: toErrorMessage(nextError) ?? undefined
+      })
+    }
+  }, [relaunchApp, t])
+
   return (
     <SidebarProvider className="h-screen overflow-hidden">
       {/* Left sidebar */}
@@ -592,6 +645,64 @@ export default function Page() {
               {t("telegramWhitelist.approve")}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isUpdateDialogOpen && Boolean(availableAppUpdate)}>
+        <DialogContent showCloseButton={false} className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t("about.updater.dialog.title", { ns: "settings" })}</DialogTitle>
+            <DialogDescription>
+              {t("about.updater.dialog.description", {
+                ns: "settings",
+                currentVersion: appVersion ?? availableAppUpdate?.currentVersion ?? "",
+                version: availableAppUpdate?.version ?? ""
+              })}
+            </DialogDescription>
+          </DialogHeader>
+
+          {availableAppUpdate?.body?.trim() && (
+            <p className="text-sm leading-6 whitespace-pre-wrap text-muted-foreground">
+              {availableAppUpdate.body}
+            </p>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUpdateDialogOpen(false)}>
+              {t("about.updater.dialog.later", { ns: "settings" })}
+            </Button>
+            <Button
+              disabled={appUpdaterStatus === "installing"}
+              onClick={() => void handleInstallAppUpdate()}
+            >
+              {appUpdaterStatus === "installing"
+                ? t("about.updater.buttons.installing", { ns: "settings" })
+                : t("about.updater.dialog.download", { ns: "settings" })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isRestartDialogOpen && Boolean(availableAppUpdate)}>
+        <DialogContent showCloseButton={false} className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t("about.updater.dialog.restartTitle", { ns: "settings" })}</DialogTitle>
+            <DialogDescription>
+              {t("about.updater.dialog.restartDescription", {
+                ns: "settings",
+                version: availableAppUpdate?.version ?? ""
+              })}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRestartDialogOpen(false)}>
+              {t("about.updater.dialog.restartLater", { ns: "settings" })}
+            </Button>
+            <Button onClick={() => void handleRestartAppAfterUpdate()}>
+              {t("about.updater.dialog.restartNow", { ns: "settings" })}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </SidebarProvider>

@@ -70,6 +70,12 @@ pnpm build            # 构建生产版本
 
 <br>
 
+## 发版
+
+macOS 发版流程与自动更新配置说明见 [docs/releasing.md](docs/releasing.md)。
+
+<br>
+
 ## 技术栈
 
 ### 前端

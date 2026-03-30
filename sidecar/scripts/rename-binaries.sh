@@ -1,32 +1,47 @@
 #!/bin/bash
 
-# Copy and rename pkg-generated binaries to Tauri format
-
 set -e
 
-# Configuration
 BINARY_NAME="mind-flayer-sidecar"
 BINARIES_DIR="../src-tauri/binaries"
 
-echo "📦 Copying binaries to Tauri..."
+resolve_target_triple() {
+  if [[ -n "${SIDECAR_TARGET_TRIPLE:-}" ]]; then
+    printf '%s' "$SIDECAR_TARGET_TRIPLE"
+    return
+  fi
 
-# Clean and ensure binaries directory exists
-echo "📁 Cleaning and creating binaries directory..."
+  local system
+  local machine
+  system="$(uname -s)"
+  machine="$(uname -m)"
+
+  case "$system:$machine" in
+    Darwin:arm64)
+      printf '%s' "aarch64-apple-darwin"
+      ;;
+    Darwin:x86_64)
+      printf '%s' "x86_64-apple-darwin"
+      ;;
+    Linux:x86_64)
+      printf '%s' "x86_64-unknown-linux-gnu"
+      ;;
+    *)
+      echo "Unsupported development platform: $system $machine" >&2
+      exit 1
+      ;;
+  esac
+}
+
+TARGET_TRIPLE="$(resolve_target_triple)"
+
+echo "📦 Preparing development sidecar for $TARGET_TRIPLE..."
 npx rimraf "$BINARIES_DIR"
 mkdir -p "$BINARIES_DIR"
 
 cp "scripts/$BINARY_NAME" "$BINARIES_DIR/$BINARY_NAME"
 chmod +x "$BINARIES_DIR/$BINARY_NAME"
-
-# Create platform-specific symlinks (for development environment)
-echo "🔗 Creating platform-specific symlinks..."
-
-# macOS ARM64
-ln -sf "$BINARY_NAME" "$BINARIES_DIR/$BINARY_NAME-aarch64-apple-darwin"
-# macOS x64
-ln -sf "$BINARY_NAME" "$BINARIES_DIR/$BINARY_NAME-x86_64-apple-darwin"
-# Windows x64
-ln -sf "$BINARY_NAME" "$BINARIES_DIR/$BINARY_NAME-x86_64-pc-windows-msvc.exe"
+ln -sf "$BINARY_NAME" "$BINARIES_DIR/$BINARY_NAME-$TARGET_TRIPLE"
 
 echo "✅ Sidecar build complete!"
-echo "📍 Binary location: src-tauri/binaries/mind-flayer-sidecar"
+echo "📍 Binary location: $BINARIES_DIR/$BINARY_NAME-$TARGET_TRIPLE"

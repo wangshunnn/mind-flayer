@@ -11,16 +11,10 @@
 | --- | --- | --- | --- |
 | `TAURI_SIGNING_PRIVATE_KEY` | Yes | Full contents of `~/.tauri/mind-flayer-updater.key` | Generated locally with `pnpm tauri signer generate` |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Optional | Password used when generating the updater private key | Leave empty if the key was generated without a password |
-| `APPLE_CERTIFICATE` | Yes | Base64-encoded Developer ID Application `.p12` certificate | Export from Keychain Access, then base64-encode it |
-| `APPLE_CERTIFICATE_PASSWORD` | Yes | Password used when exporting the `.p12` certificate | Chosen when exporting the certificate |
-| `APPLE_SIGNING_IDENTITY` | Yes | Exact certificate identity string, for example `Developer ID Application: Your Name (TEAMID)` | `security find-identity -v -p codesigning` |
-| `APPLE_API_ISSUER` | Yes | App Store Connect Issuer ID | App Store Connect > Users and Access > Integrations |
-| `APPLE_API_KEY_ID` | Yes | App Store Connect Key ID | Same page as above |
-| `APPLE_API_PRIVATE_KEY` | Yes | Raw contents of `AuthKey_<APPLE_API_KEY_ID>.p8` | Download once from App Store Connect when creating the key |
 
 ## Secret preparation
 
-### 1. Updater signing key
+### Updater signing key
 
 Mind Flayer uses a Tauri updater signing key pair. The public key is committed in [tauri.conf.json](/Users/didi/.codex/worktrees/be0e/mind-flayer/src-tauri/tauri.conf.json); the private key must stay secret.
 
@@ -37,35 +31,26 @@ cat ~/.tauri/mind-flayer-updater.key
 
 Set that full output as `TAURI_SIGNING_PRIVATE_KEY`.
 
-### 2. Apple Developer certificate
+## What this release flow does
 
-You need a `Developer ID Application` certificate installed in your local Keychain, then export it as `.p12`.
+- Builds unsigned macOS artifacts for both `aarch64-apple-darwin` and `x86_64-apple-darwin`
+- Publishes them to GitHub Releases
+- Uploads Tauri updater signatures and `latest.json`
+- Lets installed production builds check GitHub Releases for updates from inside the app
+- Uses a stable asset naming pattern that is easy to extend to more platforms later
 
-Export and encode it:
+## What this release flow does not do
 
-```sh
-base64 -i /path/to/DeveloperIDApplication.p12 | pbcopy
-```
+- No Apple `Developer ID Application` signing
+- No notarization
+- No Gatekeeper-friendly first-run experience for users downloading the app in a browser
 
-Paste the copied value into `APPLE_CERTIFICATE`.
+This means the initial install experience on macOS is rougher. Users may need to manually allow the app in `System Settings > Privacy & Security` after the first launch attempt.
 
-To find the identity string used by the workflow:
+Apple's guidance for opening apps from an unknown developer:
 
-```sh
-security find-identity -v -p codesigning
-```
-
-Copy the exact `Developer ID Application: ...` line into `APPLE_SIGNING_IDENTITY`.
-
-### 3. App Store Connect notarization key
-
-Create an App Store Connect API key with `Developer` access, then save:
-
-- `APPLE_API_ISSUER`: the Issuer ID shown above the keys table
-- `APPLE_API_KEY_ID`: the Key ID from the created key row
-- `APPLE_API_PRIVATE_KEY`: the full contents of the downloaded `AuthKey_<KEY_ID>.p8` file
-
-Do not base64-encode the `.p8` file for this setup. The workflow writes the raw secret into a temporary file and passes that path to Tauri via `APPLE_API_KEY_PATH`.
+- [Open a Mac app from an unknown developer](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac)
+- [Safely open apps on your Mac](https://support.apple.com/en-us/102445)
 
 ## Secret-to-workflow mapping
 
@@ -73,12 +58,33 @@ The release workflow maps GitHub Secrets to the environment variables Tauri expe
 
 - `TAURI_SIGNING_PRIVATE_KEY` -> updater signing private key
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` -> optional updater signing key password
-- `APPLE_CERTIFICATE` -> base64 `.p12`
-- `APPLE_CERTIFICATE_PASSWORD` -> `.p12` export password
-- `APPLE_SIGNING_IDENTITY` -> signing identity name
-- `APPLE_API_ISSUER` -> App Store Connect issuer id
-- `APPLE_API_KEY_ID` -> App Store Connect key id
-- `APPLE_API_PRIVATE_KEY` -> raw `.p8` contents, written to `APPLE_API_KEY_PATH` at runtime
+
+## Release asset names
+
+GitHub Release assets use this naming pattern:
+
+```text
+mind-flayer_[version]_[platform]_[arch][ext]
+```
+
+The release workflow derives `[platform]` and `[arch]` from per-target matrix metadata, so adding new platforms later only requires another matrix entry instead of a separate publish step.
+
+For the current macOS-only matrix, you should expect names similar to:
+
+- `mind-flayer_0.1.0_macOS_arm64.dmg`
+- `mind-flayer_0.1.0_macOS_x64.dmg`
+- `mind-flayer_0.1.0_macOS_arm64.app.tar.gz`
+- `mind-flayer_0.1.0_macOS_x64.app.tar.gz`
+- `mind-flayer_0.1.0_macOS_arm64.app.tar.gz.sig`
+- `mind-flayer_0.1.0_macOS_x64.app.tar.gz.sig`
+- `latest.json`
+
+Notes:
+
+- `.dmg` is for manual download and installation.
+- `.app.tar.gz` is for the in-app updater.
+- `.sig` is the updater signature for the matching `.app.tar.gz`.
+- `latest.json` keeps the fixed Tauri updater filename and should not be renamed.
 
 ## Verification checklist
 
@@ -93,7 +99,7 @@ pnpm build:sidecar
 
 Then verify GitHub configuration:
 
-1. Confirm every secret above exists in `Settings > Secrets and variables > Actions`.
+1. Confirm the required secret above exists in `Settings > Secrets and variables > Actions`.
 2. Confirm the repo is public and Actions are enabled.
 3. Confirm the `Release` workflow is present on the default branch.
 4. Confirm the updater private key in GitHub matches the public key committed in [tauri.conf.json](/Users/didi/.codex/worktrees/be0e/mind-flayer/src-tauri/tauri.conf.json).
@@ -105,11 +111,15 @@ Then verify GitHub configuration:
 3. Push `main`, then push the generated `vX.Y.Z` tag.
 4. Watch the `Release` workflow in GitHub Actions.
 5. Confirm the GitHub Release contains:
-   - both macOS architectures
-   - `.sig` updater signature files
+   - `mind-flayer_<version>_macOS_arm64.dmg`
+   - `mind-flayer_<version>_macOS_x64.dmg`
+   - `mind-flayer_<version>_macOS_arm64.app.tar.gz`
+   - `mind-flayer_<version>_macOS_x64.app.tar.gz`
+   - matching `.sig` updater signature files
    - `latest.json`
-6. Download one generated `.dmg` and confirm macOS opens it without an unidentified developer warning.
+6. Download one generated `.dmg`, open the app, and if macOS blocks it use `Privacy & Security > Open Anyway`.
 7. Install the previous production build, launch it, and confirm the in-app updater discovers the new version.
+8. Accept the in-app update and confirm the app restarts into the new version.
 
 ## Release flow
 
@@ -117,10 +127,10 @@ Then verify GitHub configuration:
 2. Review the generated release commit, version bumps, and `CHANGELOG.md`.
 3. Push the release commit: `git push origin main`.
 4. Push the generated version tag: `git push origin vX.Y.Z`.
-5. Wait for the `Release` GitHub Actions workflow to publish the signed GitHub Release.
+5. Wait for the `Release` GitHub Actions workflow to publish the GitHub Release.
 
 ## Expected result
 
 - The `Release` workflow builds both `aarch64-apple-darwin` and `x86_64-apple-darwin`.
-- GitHub Releases hosts the signed bundles, updater signatures, and `latest.json`.
+- GitHub Releases hosts clearly named macOS bundles, updater signatures, and `latest.json`.
 - Installed production builds can discover the latest stable release through the in-app updater.

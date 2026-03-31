@@ -6,9 +6,17 @@ import { NavChats } from "@/components/nav-chats"
 import { NavMain } from "@/components/nav-main"
 import { NavSkills } from "@/components/nav-skills"
 import { NavUser } from "@/components/nav-user"
+import { SidebarUpdateIndicator } from "@/components/SidebarUpdateIndicator"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar"
 import { SearchChat } from "@/components/ui/sidebar-search"
+import type { AppUpdaterStatus } from "@/lib/updater"
 import type { Chat, ChatId } from "@/types/chat"
+
+interface SidebarAppUpdate {
+  status: AppUpdaterStatus
+  onInstall: () => void | Promise<void>
+  onRestart: () => void | Promise<void>
+}
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   chats: Chat[]
@@ -23,6 +31,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   isTelegramChannelEnabled?: boolean
   isTelegramDebugActive?: boolean
   onTelegramDebugClick?: () => void
+  appUpdate?: SidebarAppUpdate | null
 }
 
 export function AppSidebar({
@@ -38,6 +47,7 @@ export function AppSidebar({
   isTelegramChannelEnabled = false,
   isTelegramDebugActive = false,
   onTelegramDebugClick,
+  appUpdate,
   ...props
 }: AppSidebarProps) {
   const { t } = useTranslation("common")
@@ -78,7 +88,18 @@ export function AppSidebar({
         <div data-tauri-drag-region className="flex-1 min-h-0" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser />
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <NavUser />
+          </div>
+          {appUpdate && (
+            <SidebarUpdateIndicator
+              status={appUpdate.status}
+              onInstall={appUpdate.onInstall}
+              onRestart={appUpdate.onRestart}
+            />
+          )}
+        </div>
       </SidebarFooter>
     </Sidebar>
   )

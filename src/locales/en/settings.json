@@ -102,6 +102,12 @@
         "restart": "Restart to Update",
         "productionOnly": "Production only"
       },
+      "sidebar": {
+        "updateReady": "Update",
+        "installing": "Installing",
+        "restart": "Restart",
+        "retryInstall": "Retry Update"
+      },
       "status": {
         "idle": "Check GitHub Releases for the latest stable build.",
         "unavailable": "Automatic updates are only available in production builds.",
@@ -111,16 +117,6 @@
         "installing": "Downloading and installing the update...",
         "restartRequired": "The update is installed and ready for a restart.",
         "error": "Update check failed."
-      },
-      "dialog": {
-        "title": "Update available",
-        "description": "Mind Flayer {{version}} is available. You're currently on {{currentVersion}}.",
-        "later": "Later",
-        "download": "Download and Install",
-        "restartTitle": "Restart to finish update",
-        "restartDescription": "Mind Flayer {{version}} has been installed and is ready to restart.",
-        "restartLater": "Later",
-        "restartNow": "Restart Now"
       },
       "toast": {
         "checkFailed": "Failed to check for updates",

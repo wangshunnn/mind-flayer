@@ -1,94 +1,94 @@
 name: CI
 
 on:
-    push:
-        tags-ignore:
-            - "v*.*.*"
-    pull_request:
+  push:
+    tags-ignore:
+      - "v*.*.*"
+  pull_request:
 
 env:
-    CARGO_TERM_COLOR: always
+  CARGO_TERM_COLOR: always
 
 jobs:
-    frontend-checks:
-        name: Frontend Checks
-        runs-on: ubuntu-latest
+  frontend-checks:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
 
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-            - name: Setup pnpm
-              uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
-            - name: Setup Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: "24"
-                  cache: "pnpm"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
 
-            - name: Runtime versions
-              run: |
-                  node -v
-                  npm -v
-                  pnpm -v
+      - name: Runtime versions
+        run: |
+          node -v
+          npm -v
+          pnpm -v
 
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-            - name: Biome and TS check (Frontend)
-              run: pnpm check:frontend:ci
+      - name: Biome and TS check (Frontend)
+        run: pnpm check:frontend:ci
 
-            - name: Check i18n completeness
-              run: pnpm check:i18n
+      - name: Check i18n completeness
+        run: pnpm check:i18n
 
-            - name: Test (Frontend)
-              run: pnpm test:frontend
+      - name: Test (Frontend)
+        run: pnpm test:frontend
 
-            - name: Build (Frontend)
-              run: pnpm build:frontend
+      - name: Build (Frontend)
+        run: pnpm build:frontend
 
-    backend-checks:
-        name: Backend Checks (Rust)
-        runs-on: macos-15
+  backend-checks:
+    name: Backend Checks (Rust)
+    runs-on: macos-15
 
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-            - name: Setup Rust
-              uses: dtolnay/rust-toolchain@stable
-              with:
-                  components: rustfmt, clippy
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
-            - name: Cache Rust dependencies
-              uses: Swatinem/rust-cache@v2
-              with:
-                  workspaces: src-tauri
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
 
-            - name: Setup pnpm
-              uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
-            - name: Setup Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: "24"
-                  cache: "pnpm"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
 
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-            - name: Build sidecar (build)
-              run: pnpm build:sidecar
+      - name: Build sidecar (build)
+        run: pnpm build:sidecar
 
-            - name: Format check (Backend)
-              working-directory: src-tauri
-              run: cargo fmt --all -- --check
+      - name: Format check (Backend)
+        working-directory: src-tauri
+        run: cargo fmt --all -- --check
 
-            - name: Check (Backend)
-              working-directory: src-tauri
-              run: cargo check --all-features
+      - name: Check (Backend)
+        working-directory: src-tauri
+        run: cargo check --all-features
 
-            - name: Test (Backend)
-              working-directory: src-tauri
-              run: cargo test --all-features
+      - name: Test (Backend)
+        working-directory: src-tauri
+        run: cargo test --all-features

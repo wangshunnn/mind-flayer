@@ -30,7 +30,7 @@ export function GeneralSection() {
       <SettingGroup>
         {/* Appearance */}
         <div className="flex items-center justify-between py-2.5">
-          <div className="text-base">{t("theme.title", { ns: "common" })}</div>
+          <div className="text-sm">{t("theme.title", { ns: "common" })}</div>
           <Select
             value={theme}
             onValueChange={value => setTheme(value as "light" | "dark" | "system")}
@@ -49,7 +49,7 @@ export function GeneralSection() {
         <Separator />
 
         <div className="flex items-center justify-between py-2.5">
-          <div className="text-base">{t("general.appearanceTheme")}</div>
+          <div className="text-sm">{t("general.appearanceTheme")}</div>
           <Select
             value={appearanceTheme}
             onValueChange={value => setAppearanceTheme(value as AppearanceThemeId)}
@@ -75,7 +75,7 @@ export function GeneralSection() {
 
         {/* Language */}
         <div className="flex items-center justify-between py-2.5">
-          <div className="text-base">{t("general.language")}</div>
+          <div className="text-sm">{t("general.language")}</div>
           <Select
             value={language}
             onValueChange={value => changeLanguage(value as "en" | "zh-CN" | "system")}
@@ -95,7 +95,7 @@ export function GeneralSection() {
       <SettingGroup>
         {/* Auto Launch */}
         <div className="flex items-center justify-between py-2.5">
-          <div className="text-base">{t("general.autoLaunch")}</div>
+          <div className="text-sm">{t("general.autoLaunch")}</div>
           <Switch checked={autoLaunch} onCheckedChange={setAutoLaunch} />
         </div>
       </SettingGroup>

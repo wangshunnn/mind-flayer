@@ -61,7 +61,7 @@ export function KeyboardSection() {
             {group.items.map((item, index) => (
               <Fragment key={item.label}>
                 <div className="flex items-center justify-between gap-4 py-2.5">
-                  <div className="text-base">{item.label}</div>
+                  <div className="text-sm">{item.label}</div>
                   <div className="px-1 py-1.5">
                     <KbdGroup className="gap-1.5">
                       {item.keys.map((key, keyIndex) => (

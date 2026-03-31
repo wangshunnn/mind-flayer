@@ -136,7 +136,7 @@ export function AboutSection() {
       <SettingGroup>
         <div className="flex items-center justify-between py-2.5">
           <div className="space-y-1">
-            <div className="text-base">{t("about.versionLabel")}</div>
+            <div className="text-sm">{t("about.versionLabel")}</div>
             <p className="text-xs text-muted-foreground">{t("about.versionDescription")}</p>
           </div>
           <div className="text-sm font-medium">{currentVersion ?? t("about.loading")}</div>
@@ -146,7 +146,7 @@ export function AboutSection() {
 
         <div className="flex items-start justify-between gap-4 py-2.5">
           <div className="space-y-1">
-            <div className="text-base">{t("about.updater.title")}</div>
+            <div className="text-sm">{t("about.updater.title")}</div>
             <p className="text-sm text-muted-foreground">{statusLabel}</p>
             {progressLabel && <p className="text-xs text-muted-foreground">{progressLabel}</p>}
             {error && <p className="text-xs text-destructive">{error}</p>}

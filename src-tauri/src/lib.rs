@@ -84,7 +84,7 @@ pub fn run() {
     // In production: logs are suppressed unless RUST_LOG is set
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -135,6 +135,22 @@ pub fn run() {
             list_all_providers,
             wait_for_sidecar_port
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| match event {
+        tauri::RunEvent::Exit => {
+            tauri::async_runtime::block_on(setup::cleanup_sidecar(app_handle.clone()));
+        }
+        #[cfg(target_os = "macos")]
+        tauri::RunEvent::Reopen {
+            has_visible_windows: false,
+            ..
+        } => {
+            if let Err(e) = setup::show_main_window(app_handle) {
+                log::error!("Failed to restore main window on reopen: {}", e);
+            }
+        }
+        _ => {}
+    });
 }

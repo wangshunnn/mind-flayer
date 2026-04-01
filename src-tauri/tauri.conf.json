@@ -47,9 +47,7 @@
       "icons/128x128@2x.png",
       "icons/icon.icns"
     ],
-    "externalBin": [
-      "binaries/mind-flayer-sidecar"
-    ]
+    "externalBin": ["binaries/mind-flayer-sidecar"]
   },
   "plugins": {
     "shell": {
@@ -62,9 +60,7 @@
       ]
     },
     "sql": {
-      "preload": [
-        "sqlite:chats.db"
-      ],
+      "preload": ["sqlite:chats.db"],
       "scope": {
         "allowed": [
           {

@@ -222,24 +222,46 @@ export function AppUpdaterOwner() {
     }
 
     const initialize = async () => {
-      const currentVersion = await getCurrentAppVersion()
-      if (!isMounted) {
+      try {
+        unlisten = await listen<AppUpdaterRequest>(APP_UPDATER_REQUEST_EVENT, event => {
+          void handleRequest(event.payload)
+        })
+      } catch (nextError) {
+        console.warn("[AppUpdaterOwner] Failed to subscribe to updater requests:", nextError)
         return
       }
 
-      snapshotRef.current = {
-        ...snapshotRef.current,
-        currentVersion
-      }
-      await publishSnapshot()
+      try {
+        const currentVersion = await getCurrentAppVersion()
+        if (!isMounted) {
+          return
+        }
 
-      unlisten = await listen<AppUpdaterRequest>(APP_UPDATER_REQUEST_EVENT, event => {
-        void handleRequest(event.payload)
-      })
+        snapshotRef.current = {
+          ...snapshotRef.current,
+          currentVersion
+        }
+      } catch (nextError) {
+        if (isMounted) {
+          console.warn("[AppUpdaterOwner] Failed to load current app version:", nextError)
+        }
+      }
+
+      try {
+        await publishSnapshot()
+      } catch (nextError) {
+        if (isMounted) {
+          console.warn("[AppUpdaterOwner] Failed to publish updater snapshot:", nextError)
+        }
+      }
 
       if (shouldAutoCheckForUpdates() && !hasCheckedForUpdatesRef.current) {
         hasCheckedForUpdatesRef.current = true
-        void runCheckForUpdates(true)
+        void runCheckForUpdates(true).catch(nextError => {
+          if (isMounted) {
+            console.warn("[AppUpdaterOwner] Silent updater check failed:", nextError)
+          }
+        })
       }
     }
 

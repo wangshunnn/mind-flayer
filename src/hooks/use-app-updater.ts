@@ -20,6 +20,11 @@ interface CheckForUpdatesOptions {
   silent?: boolean
 }
 
+interface UpdaterResponseWaiter {
+  cancel: () => void
+  responsePromise: Promise<AppUpdaterResponse>
+}
+
 function createUpdaterRequest(
   action: AppUpdaterRequestAction,
   silent?: boolean
@@ -31,51 +36,61 @@ function createUpdaterRequest(
   }
 }
 
-async function waitForUpdaterResponse(responseEvent: string) {
-  return new Promise<AppUpdaterResponse>((resolve, reject) => {
-    let isSettled = false
-    let timeoutId: number | null = null
-    let unlistenResponse: (() => void) | null = null
+async function createUpdaterResponseWaiter(responseEvent: string): Promise<UpdaterResponseWaiter> {
+  let isSettled = false
+  let timeoutId: number | null = null
+  let unlistenResponse: (() => void) | null = null
+  let resolveResponse: (response: AppUpdaterResponse) => void = () => undefined
+  let rejectResponse: (error: unknown) => void = () => undefined
 
-    const cleanup = () => {
-      isSettled = true
+  const cleanup = () => {
+    isSettled = true
 
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId)
-      }
-
-      unlistenResponse?.()
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId)
+      timeoutId = null
     }
 
-    timeoutId = window.setTimeout(() => {
-      cleanup()
-      reject(new Error("Updater owner did not respond in time"))
-    }, APP_UPDATER_REQUEST_TIMEOUT_MS)
+    unlistenResponse?.()
+    unlistenResponse = null
+  }
 
-    void listen<AppUpdaterResponse>(responseEvent, event => {
+  const responsePromise = new Promise<AppUpdaterResponse>((resolve, reject) => {
+    resolveResponse = resolve
+    rejectResponse = reject
+  })
+
+  try {
+    unlistenResponse = await listen<AppUpdaterResponse>(responseEvent, event => {
       if (isSettled) {
         return
       }
 
       cleanup()
-      resolve(event.payload)
+      resolveResponse(event.payload)
     })
-      .then(unlisten => {
-        unlistenResponse = unlisten
+  } catch (error) {
+    cleanup()
+    rejectResponse(error)
+    return {
+      cancel: cleanup,
+      responsePromise
+    }
+  }
 
-        if (isSettled) {
-          unlisten()
-        }
-      })
-      .catch(error => {
-        if (isSettled) {
-          return
-        }
+  timeoutId = window.setTimeout(() => {
+    if (isSettled) {
+      return
+    }
 
-        cleanup()
-        reject(error)
-      })
-  })
+    cleanup()
+    rejectResponse(new Error("Updater owner did not respond in time"))
+  }, APP_UPDATER_REQUEST_TIMEOUT_MS)
+
+  return {
+    cancel: cleanup,
+    responsePromise
+  }
 }
 
 export function useAppUpdater() {
@@ -86,22 +101,39 @@ export function useAppUpdater() {
     let unlisten: (() => void) | undefined
 
     const initialize = async () => {
-      const currentVersion = await getCurrentAppVersion()
-      if (isMounted && currentVersion) {
-        setSnapshot(currentSnapshot => ({
-          ...currentSnapshot,
-          currentVersion
-        }))
+      try {
+        unlisten = await listen<AppUpdaterSnapshot>(APP_UPDATER_STATE_CHANGED_EVENT, event => {
+          setSnapshot(event.payload)
+        })
+      } catch (nextError) {
+        console.warn("[useAppUpdater] Failed to subscribe to updater state changes:", nextError)
+        return
       }
 
-      unlisten = await listen<AppUpdaterSnapshot>(APP_UPDATER_STATE_CHANGED_EVENT, event => {
-        setSnapshot(event.payload)
-      })
+      try {
+        const currentVersion = await getCurrentAppVersion()
+        if (isMounted && currentVersion) {
+          setSnapshot(currentSnapshot => ({
+            ...currentSnapshot,
+            currentVersion
+          }))
+        }
+      } catch (nextError) {
+        if (isMounted) {
+          console.warn("[useAppUpdater] Failed to load current app version:", nextError)
+        }
+      }
 
       if (canUseAppUpdater()) {
-        await emit(APP_UPDATER_REQUEST_EVENT, {
-          action: "sync"
-        } satisfies AppUpdaterRequest)
+        try {
+          await emit(APP_UPDATER_REQUEST_EVENT, {
+            action: "sync"
+          } satisfies AppUpdaterRequest)
+        } catch (nextError) {
+          if (isMounted) {
+            console.warn("[useAppUpdater] Failed to request updater sync:", nextError)
+          }
+        }
       }
     }
 
@@ -129,9 +161,16 @@ export function useAppUpdater() {
         throw new Error("Updater request is missing a response event")
       }
 
-      const responsePromise = waitForUpdaterResponse(responseEvent)
-      await emit(APP_UPDATER_REQUEST_EVENT, request)
-      const response = await responsePromise
+      const responseWaiter = await createUpdaterResponseWaiter(responseEvent)
+
+      try {
+        await emit(APP_UPDATER_REQUEST_EVENT, request)
+      } catch (nextError) {
+        responseWaiter.cancel()
+        throw nextError
+      }
+
+      const response = await responseWaiter.responsePromise
 
       setSnapshot(response.snapshot)
 

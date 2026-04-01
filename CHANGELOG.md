@@ -1,3 +1,11 @@
+# Changelog
+
+## [0.1.1](https://github.com/wangshunnn/mind-flayer/compare/v0.1.0...v0.1.1) (2026-04-01)
+
+### Bug Fixes
+
+* **release:** update tauri-action to specific version for stability ([b0e0053](https://github.com/wangshunnn/mind-flayer/commit/b0e005398f71b96ed482252fe4c32b934ba34bad))
+
 ## 0.1.0 (2026-04-01)
 
 ### Features

@@ -1,7 +1,7 @@
 {
   "name": "sidecar",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "AI SDK sidecar for Mind Flayer",
   "main": "dist/index.js",

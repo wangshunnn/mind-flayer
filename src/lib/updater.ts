@@ -19,12 +19,50 @@ export interface AppUpdateInfo {
   version: string
 }
 
+export interface AppUpdaterSnapshot {
+  availableUpdate: AppUpdateInfo | null
+  currentVersion: string | null
+  downloadedBytes: number
+  error: string | null
+  status: AppUpdaterStatus
+  totalBytes: number | null
+}
+
+export type AppUpdaterRequestAction = "check" | "install" | "relaunch" | "sync"
+
+export interface AppUpdaterRequest {
+  action: AppUpdaterRequestAction
+  responseEvent?: string | null
+  silent?: boolean
+}
+
+export interface AppUpdaterResponse {
+  error: string | null
+  ok: boolean
+  snapshot: AppUpdaterSnapshot
+}
+
+export const APP_UPDATER_REQUEST_EVENT = "app-updater:request"
+export const APP_UPDATER_RESPONSE_EVENT_PREFIX = "app-updater:response"
+export const APP_UPDATER_STATE_CHANGED_EVENT = "app-updater:state-changed"
+
 export function canUseAppUpdater() {
   return isTauri() && !import.meta.env.DEV
 }
 
 export function shouldAutoCheckForUpdates() {
   return canUseAppUpdater()
+}
+
+export function createInitialAppUpdaterSnapshot(): AppUpdaterSnapshot {
+  return {
+    availableUpdate: null,
+    currentVersion: null,
+    downloadedBytes: 0,
+    error: null,
+    status: canUseAppUpdater() ? "idle" : "unavailable",
+    totalBytes: null
+  }
 }
 
 export async function getCurrentAppVersion() {

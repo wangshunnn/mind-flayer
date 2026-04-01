@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { AppChat } from "@/components/app-chat"
 import { AppSidebar } from "@/components/app-sidebar"
+import { AppUpdaterOwner } from "@/components/app-updater-owner"
 import { ChannelTelegramChat } from "@/components/channel-telegram-chat"
 import { NewChatTrigger } from "@/components/nav-top"
 import { SkillsPane } from "@/components/skills-pane"
@@ -27,7 +28,7 @@ import {
   syncRuntimeConfig,
   type TelegramWhitelistRequest
 } from "@/lib/sidecar-client"
-import { shouldAutoCheckForUpdates, toErrorMessage } from "@/lib/updater"
+import { toErrorMessage } from "@/lib/updater"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import type { ChatId } from "@/types/chat"
@@ -153,11 +154,10 @@ export default function Page() {
   const activeChatIdRef = useRef(activeChatId)
   const newChatTokenRef = useRef(newChatToken)
   const telegramAllowedUserIdsRef = useRef(telegramAllowedUserIds)
-  const hasCheckedForUpdatesRef = useRef(false)
   const runtimeConfigSyncQueueRef = useRef<Promise<void>>(Promise.resolve())
   const latestRuntimeConfigSyncIdRef = useRef(0)
   const lastAppliedRuntimeConfigRef = useRef<RuntimeConfigSettingsSnapshot | null>(null)
-  const { checkForUpdates, installUpdate, relaunchApp, status: appUpdaterStatus } = useAppUpdater()
+  const { installUpdate, relaunchApp, status: appUpdaterStatus } = useAppUpdater()
   const selectedModel =
     availableModels.find(model => model.api_id === selectedModelApiId) ?? availableModels[0] ?? null
   const selectedModelProvider = selectedModel?.provider ?? null
@@ -185,20 +185,6 @@ export default function Page() {
   useEffect(() => {
     activePaneRef.current = activePane
   }, [activePane])
-
-  useEffect(() => {
-    if (!shouldAutoCheckForUpdates() || hasCheckedForUpdatesRef.current) {
-      return
-    }
-
-    hasCheckedForUpdatesRef.current = true
-
-    const runUpdateCheck = async () => {
-      await checkForUpdates({ silent: true })
-    }
-
-    void runUpdateCheck()
-  }, [checkForUpdates])
 
   const restoreRuntimeConfigSnapshot = useCallback(
     async (snapshot: RuntimeConfigSettingsSnapshot) => {
@@ -509,6 +495,7 @@ export default function Page() {
 
   return (
     <SidebarProvider className="h-screen overflow-hidden">
+      <AppUpdaterOwner />
       {/* Left sidebar */}
       <AppSidebar
         chats={chats}

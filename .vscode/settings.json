@@ -16,5 +16,8 @@
   "[css]": {
     "editor.defaultFormatter": "biomejs.biome"
   },
-  "css.customData": [".vscode/tailwind.json"]
+  "css.customData": [".vscode/tailwind.json"],
+  "[github-actions-workflow]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
 }

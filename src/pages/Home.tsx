@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { AppChat } from "@/components/app-chat"
 import { AppSidebar } from "@/components/app-sidebar"
+import { AppUpdaterOwner } from "@/components/app-updater-owner"
 import { ChannelTelegramChat } from "@/components/channel-telegram-chat"
 import { NewChatTrigger } from "@/components/nav-top"
 import { SkillsPane } from "@/components/skills-pane"
@@ -15,6 +16,7 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { useAppUpdater } from "@/hooks/use-app-updater"
 import { useAvailableModels } from "@/hooks/use-available-models"
 import { useChatStorage } from "@/hooks/use-chat-storage"
 import { useLocalShortcut } from "@/hooks/use-local-shortcut"
@@ -26,6 +28,7 @@ import {
   syncRuntimeConfig,
   type TelegramWhitelistRequest
 } from "@/lib/sidecar-client"
+import { toErrorMessage } from "@/lib/updater"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import type { ChatId } from "@/types/chat"
@@ -119,7 +122,7 @@ function runtimeConfigSettingsEqual(
 }
 
 export default function Page() {
-  const { t } = useTranslation("common")
+  const { t } = useTranslation(["common", "settings"])
   const {
     chats,
     activeChatId,
@@ -154,6 +157,7 @@ export default function Page() {
   const runtimeConfigSyncQueueRef = useRef<Promise<void>>(Promise.resolve())
   const latestRuntimeConfigSyncIdRef = useRef(0)
   const lastAppliedRuntimeConfigRef = useRef<RuntimeConfigSettingsSnapshot | null>(null)
+  const { installUpdate, relaunchApp, status: appUpdaterStatus } = useAppUpdater()
   const selectedModel =
     availableModels.find(model => model.api_id === selectedModelApiId) ?? availableModels[0] ?? null
   const selectedModelProvider = selectedModel?.provider ?? null
@@ -469,8 +473,29 @@ export default function Page() {
     [currentWhitelistRequest, isDecidingWhitelistRequest, setTelegramAllowedUserIds]
   )
 
+  const handleInstallAppUpdate = useCallback(async () => {
+    try {
+      await installUpdate()
+    } catch (nextError) {
+      toast.error(t("about.updater.toast.installFailed", { ns: "settings" }), {
+        description: toErrorMessage(nextError) ?? undefined
+      })
+    }
+  }, [installUpdate, t])
+
+  const handleRestartAppAfterUpdate = useCallback(async () => {
+    try {
+      await relaunchApp()
+    } catch (nextError) {
+      toast.error(t("about.updater.toast.restartFailed", { ns: "settings" }), {
+        description: toErrorMessage(nextError) ?? undefined
+      })
+    }
+  }, [relaunchApp, t])
+
   return (
     <SidebarProvider className="h-screen overflow-hidden">
+      <AppUpdaterOwner />
       {/* Left sidebar */}
       <AppSidebar
         chats={chats}
@@ -485,6 +510,11 @@ export default function Page() {
         isTelegramChannelEnabled={enabledChannels.telegram ?? false}
         isTelegramDebugActive={activePane === "telegram-debug"}
         onTelegramDebugClick={handleOpenTelegramDebug}
+        appUpdate={{
+          status: appUpdaterStatus,
+          onInstall: handleInstallAppUpdate,
+          onRestart: handleRestartAppAfterUpdate
+        }}
       />
 
       {/* Top drag region */}

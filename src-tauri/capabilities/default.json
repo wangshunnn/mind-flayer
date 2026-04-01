@@ -41,11 +41,13 @@
     "fs:default",
     "fs:allow-write-file",
     "shell:allow-open",
+    "process:default",
     "sql:default",
     "sql:allow-load",
     "sql:allow-execute",
     "sql:allow-select",
     "store:default",
+    "updater:default",
     {
       "identifier": "shell:allow-spawn",
       "allow": [

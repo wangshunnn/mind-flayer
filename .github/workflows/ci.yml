@@ -1,116 +1,94 @@
 name: CI
 
 on:
-    push:
-    pull_request:
+  push:
+    tags-ignore:
+      - "v*.*.*"
+  pull_request:
 
 env:
-    CARGO_TERM_COLOR: always
+  CARGO_TERM_COLOR: always
 
 jobs:
-    frontend-checks:
-        name: Frontend Checks
-        runs-on: ubuntu-latest
+  frontend-checks:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
 
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-            - name: Setup pnpm
-              uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
-            - name: Setup Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: "24"
-                  cache: "pnpm"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
 
-            - name: Runtime versions
-              run: |
-                  node -v
-                  npm -v
-                  pnpm -v
+      - name: Runtime versions
+        run: |
+          node -v
+          npm -v
+          pnpm -v
 
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-            - name: Format check (Frontend)
-              run: pnpm format:frontend
+      - name: Biome and TS check (Frontend)
+        run: pnpm check:frontend:ci
 
-            - name: Lint check (Frontend)
-              run: pnpm lint:frontend
+      - name: Check i18n completeness
+        run: pnpm check:i18n
 
-            - name: Biome and TS check (Frontend)
-              run: pnpm check:frontend
+      - name: Test (Frontend)
+        run: pnpm test:frontend
 
-            - name: Check i18n completeness
-              run: pnpm check:i18n
+      - name: Build (Frontend)
+        run: pnpm build:frontend
 
-            - name: Test (Frontend)
-              run: pnpm test:frontend
+  backend-checks:
+    name: Backend Checks (Rust)
+    runs-on: macos-15
 
-            - name: Build (Frontend)
-              run: pnpm build:frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    backend-checks:
-        name: Backend Checks (Rust)
-        runs-on: ${{ matrix.os }}
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
-        strategy:
-            fail-fast: false
-            matrix:
-                os: [macos-latest]
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
 
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
-            - name: Setup Rust
-              uses: dtolnay/rust-toolchain@stable
-              with:
-                  components: rustfmt, clippy
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
 
-            - name: Cache Rust dependencies
-              uses: Swatinem/rust-cache@v2
-              with:
-                  workspaces: src-tauri
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-            - name: Install system dependencies (Ubuntu)
-              if: matrix.os == 'ubuntu-latest'
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y libwebkit2gtk-4.1-dev \
-                    build-essential \
-                    curl \
-                    wget \
-                    file \
-                    libssl-dev \
-                    libayatana-appindicator3-dev \
-                    librsvg2-dev
+      - name: Build sidecar (build)
+        run: pnpm build:sidecar
 
-            - name: Setup pnpm
-              uses: pnpm/action-setup@v4
+      - name: Format check (Backend)
+        working-directory: src-tauri
+        run: cargo fmt --all -- --check
 
-            - name: Setup Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: "24"
-                  cache: "pnpm"
+      - name: Check (Backend)
+        working-directory: src-tauri
+        run: cargo check --all-features
 
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
-
-            - name: Build sidecar (build)
-              run: pnpm build:sidecar
-
-            - name: Format check (Backend)
-              working-directory: src-tauri
-              run: cargo fmt --all -- --check
-
-            - name: Check (Backend)
-              working-directory: src-tauri
-              run: cargo check --all-features
-
-            - name: Test (Backend)
-              working-directory: src-tauri
-              run: cargo test --all-features
+      - name: Test (Backend)
+        working-directory: src-tauri
+        run: cargo test --all-features

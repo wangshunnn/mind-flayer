@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish-macos:
+    name: Publish ${{ matrix.asset_platform }} (${{ matrix.asset_arch }})
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            asset_platform: macOS
+            asset_arch: arm64
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            asset_platform: macOS
+            asset_arch: x64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build sidecar
+        env:
+          SIDECAR_TARGET_TRIPLE: ${{ matrix.target }}
+        run: pnpm build:sidecar
+
+      - name: Build and publish Tauri bundles
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          SIDECAR_TARGET_TRIPLE: ${{ matrix.target }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Mind Flayer v__VERSION__
+          generateReleaseNotes: true
+          releaseDraft: false
+          prerelease: false
+          tauriScript: pnpm tauri
+          releaseAssetNamePattern: 'mind-flayer_[version]_${{ matrix.asset_platform }}_${{ matrix.asset_arch }}[ext]'
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true
+          args: --target ${{ matrix.target }}

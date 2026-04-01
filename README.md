@@ -70,6 +70,12 @@ pnpm build            # Build for production
 
 <br>
 
+## Releasing
+
+The macOS release pipeline and updater setup are documented in [docs/releasing.md](docs/releasing.md).
+
+<br>
+
 ## Tech Stack
 
 ### Frontend

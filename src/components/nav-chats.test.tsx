@@ -78,7 +78,7 @@ describe("NavChats", () => {
       previousResizeObserver
   })
 
-  it("uses the notification status color for unread and replying badges", async () => {
+  it("uses the sidebar highlight color for unread and replying badges", async () => {
     await act(async () => {
       root.render(
         <I18nextProvider i18n={i18n}>
@@ -110,7 +110,7 @@ describe("NavChats", () => {
     })
 
     const notificationIcons = Array.from(container.querySelectorAll("svg")).filter(icon =>
-      icon.getAttribute("class")?.includes("text-status-notification")
+      icon.getAttribute("class")?.includes("text-sidebar-primary")
     )
 
     expect(container.textContent).toContain("Replying chat")

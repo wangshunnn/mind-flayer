@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/wangshunnn/mind-flayer/compare/v0.1.1...v0.2.0) (2026-04-03)
+
+### Features
+
+* enhance command execution with trusted user-managed path discovery ([cc86e0d](https://github.com/wangshunnn/mind-flayer/commit/cc86e0db7a393eb9414e5ccd9c498833b0c3a7d7))
+* use new icon for write tool ([74f11b2](https://github.com/wangshunnn/mind-flayer/commit/74f11b24fa8f7bf85ef7bd0f91279b1f6d69930e))
+
+### Bug Fixes
+
+* update version to 0.1.1 and clean up tauri configuration ([bc56b40](https://github.com/wangshunnn/mind-flayer/commit/bc56b40414be12ccb0da5ac550ff46545164c46d))
+
 ## [0.1.1](https://github.com/wangshunnn/mind-flayer/compare/v0.1.0...v0.1.1) (2026-04-01)
 
 ### Bug Fixes

@@ -4,15 +4,18 @@
  */
 
 import { execFile, spawn } from "node:child_process"
+import { existsSync, readdirSync } from "node:fs"
 import { homedir } from "node:os"
-import { dirname } from "node:path"
+import { delimiter, dirname, isAbsolute, join, relative } from "node:path"
 import { promisify } from "node:util"
 
 const execFileAsync = promisify(execFile)
+const USER_HOME = homedir()
 
 // Keep PATH restriction consistent across resolution and execution.
-// Include common system locations plus the current Node runtime bin directory
-// so node/npm/pnpm from nvm/asdf style installs can be resolved.
+// Start with common system locations, then append trusted user-managed runtime
+// directories so node/npm/pnpm from nvm/asdf/volta-style installs stay usable
+// without opening execution to arbitrary PATH entries.
 const BASE_RESTRICTED_PATH_ENTRIES = [
   "/usr/bin",
   "/bin",
@@ -23,9 +26,28 @@ const BASE_RESTRICTED_PATH_ENTRIES = [
   "/opt/homebrew/sbin"
 ] as const
 
-const RESTRICTED_PATH = Array.from(
-  new Set([...BASE_RESTRICTED_PATH_ENTRIES, dirname(process.execPath)])
-).join(":")
+const TRUSTED_USER_PATH_PREFIXES = [
+  join(USER_HOME, ".asdf"),
+  join(USER_HOME, ".bun"),
+  join(USER_HOME, ".fnm"),
+  join(USER_HOME, ".local", "bin"),
+  join(USER_HOME, ".local", "share", "fnm"),
+  join(USER_HOME, ".local", "share", "mise"),
+  join(USER_HOME, ".mise"),
+  join(USER_HOME, ".nvm"),
+  join(USER_HOME, ".volta"),
+  join(USER_HOME, "Library", "pnpm")
+] as const
+
+const DISCOVERED_USER_PATH_CANDIDATES = [
+  join(USER_HOME, ".asdf", "shims"),
+  join(USER_HOME, ".bun", "bin"),
+  join(USER_HOME, ".local", "bin"),
+  join(USER_HOME, ".local", "share", "mise", "shims"),
+  join(USER_HOME, ".mise", "shims"),
+  join(USER_HOME, ".volta", "bin"),
+  join(USER_HOME, "Library", "pnpm")
+] as const
 
 const GRAPHICS_ENV_KEYS = [
   "DISPLAY",
@@ -52,11 +74,6 @@ export interface ExecutionResult {
 const commandPathCache = new Map<string, string>()
 
 /**
- * Real user's home directory (cached)
- */
-const USER_HOME = homedir()
-
-/**
  * Expands tilde (~) in a path to the user's real home directory
  * @param path - Path that may contain tilde
  * @returns Expanded path
@@ -69,6 +86,62 @@ function expandTilde(path: string): string {
     return USER_HOME
   }
   return path
+}
+
+function isPathWithinPrefix(pathEntry: string, prefix: string): boolean {
+  const relativePath = relative(prefix, pathEntry)
+  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath))
+}
+
+function isTrustedUserPathEntry(pathEntry: string): boolean {
+  return TRUSTED_USER_PATH_PREFIXES.some(prefix => isPathWithinPrefix(pathEntry, prefix))
+}
+
+function listExistingPathEntries(pathEntries: readonly string[]): string[] {
+  return pathEntries.filter(pathEntry => existsSync(pathEntry))
+}
+
+function discoverVersionedBinDirectories(
+  rootDir: string,
+  suffixParts: readonly string[]
+): string[] {
+  if (!existsSync(rootDir)) {
+    return []
+  }
+
+  try {
+    return readdirSync(rootDir, { withFileTypes: true })
+      .filter(entry => entry.isDirectory())
+      .map(entry => join(rootDir, entry.name, ...suffixParts))
+      .filter(pathEntry => existsSync(pathEntry))
+  } catch {
+    return []
+  }
+}
+
+function getInheritedTrustedPathEntries(): string[] {
+  return (process.env.PATH?.split(delimiter) ?? [])
+    .map(entry => expandTilde(entry.trim()))
+    .filter(Boolean)
+    .filter(isAbsolute)
+    .filter(isTrustedUserPathEntry)
+}
+
+function getRestrictedPath(): string {
+  const discoveredUserPathEntries = [
+    ...listExistingPathEntries(DISCOVERED_USER_PATH_CANDIDATES),
+    ...discoverVersionedBinDirectories(join(USER_HOME, ".nvm", "versions", "node"), ["bin"]),
+    ...discoverVersionedBinDirectories(join(USER_HOME, ".nvm", "versions", "io.js"), ["bin"])
+  ]
+
+  return Array.from(
+    new Set([
+      ...BASE_RESTRICTED_PATH_ENTRIES,
+      dirname(process.execPath),
+      ...discoveredUserPathEntries,
+      ...getInheritedTrustedPathEntries()
+    ])
+  ).join(delimiter)
 }
 
 /**
@@ -88,7 +161,7 @@ async function resolveCommandPath(command: string): Promise<string> {
     const { stdout } = await execFileAsync("which", [command], {
       timeout: 5000,
       env: {
-        PATH: RESTRICTED_PATH
+        PATH: getRestrictedPath()
       }
     })
     const resolvedPath = stdout.trim()
@@ -109,7 +182,7 @@ async function resolveCommandPath(command: string): Promise<string> {
 
 function buildExecutionEnv(workingDir: string): NodeJS.ProcessEnv {
   const executionEnv: NodeJS.ProcessEnv = {
-    PATH: RESTRICTED_PATH,
+    PATH: getRestrictedPath(),
     LANG: "en_US.UTF-8",
     HOME: USER_HOME,
     MIND_FLAYER_SESSION_DIR: workingDir

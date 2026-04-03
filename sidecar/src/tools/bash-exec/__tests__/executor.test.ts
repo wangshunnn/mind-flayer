@@ -2,7 +2,9 @@
  * Tests for command executor
  */
 
-import { homedir } from "node:os"
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { homedir, tmpdir } from "node:os"
+import { delimiter, join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { executeCommand } from "../executor"
 
@@ -107,6 +109,62 @@ describeIfSupported("executeCommand", () => {
       } else {
         process.env[key] = previousValue
       }
+    }
+  })
+
+  it("should discover commands from trusted user-managed runtime directories", async () => {
+    const nvmVersionsDir = join(homedir(), ".nvm", "versions", "node")
+    mkdirSync(nvmVersionsDir, { recursive: true })
+
+    const versionRoot = mkdtempSync(join(nvmVersionsDir, "mind-flayer-path-"))
+    const allowedDir = join(versionRoot, "bin")
+    const commandName = `mind-flayer-path-${Date.now()}`
+    const commandPath = join(allowedDir, commandName)
+    const previousPath = process.env.PATH
+
+    mkdirSync(allowedDir, { recursive: true })
+    writeFileSync(commandPath, '#!/bin/sh\nprintf "%s\\n" "$PATH"\n')
+    chmodSync(commandPath, 0o755)
+    delete process.env.PATH
+
+    try {
+      const result = await executeCommand(commandName, [], "/tmp", new AbortController().signal)
+
+      expect(result.exitCode).toBe(0)
+      expect(result.stdout.trim().split(delimiter)).toContain(allowedDir)
+    } finally {
+      if (previousPath === undefined) {
+        delete process.env.PATH
+      } else {
+        process.env.PATH = previousPath
+      }
+
+      rmSync(versionRoot, { recursive: true, force: true })
+    }
+  })
+
+  it("should ignore non-whitelisted inherited PATH entries during command resolution", async () => {
+    const disallowedDir = mkdtempSync(join(tmpdir(), "mind-flayer-path-"))
+    const commandName = `mind-flayer-blocked-${Date.now()}`
+    const commandPath = join(disallowedDir, commandName)
+    const previousPath = process.env.PATH
+
+    writeFileSync(commandPath, '#!/bin/sh\nprintf "blocked\\n"\n')
+    chmodSync(commandPath, 0o755)
+    process.env.PATH = disallowedDir
+
+    try {
+      await expect(
+        executeCommand(commandName, [], "/tmp", new AbortController().signal)
+      ).rejects.toThrow(`Command '${commandName}' not found in PATH`)
+    } finally {
+      if (previousPath === undefined) {
+        delete process.env.PATH
+      } else {
+        process.env.PATH = previousPath
+      }
+
+      rmSync(disallowedDir, { recursive: true, force: true })
     }
   })
 })

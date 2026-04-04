@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { formatBytes, formatUpdateDate, toErrorMessage } from "@/lib/updater"
+import {
+  APP_GITHUB_RELEASES_URL,
+  formatBytes,
+  formatUpdateDate,
+  getAppReleaseUrl,
+  toErrorMessage
+} from "@/lib/updater"
 
 describe("updater helpers", () => {
   it("formats byte sizes for display", () => {
@@ -11,6 +17,16 @@ describe("updater helpers", () => {
   it("returns null for invalid update dates", () => {
     expect(formatUpdateDate(null, "en-US")).toBeNull()
     expect(formatUpdateDate("not-a-date", "en-US")).toBeNull()
+  })
+
+  it("builds GitHub release URLs from versions", () => {
+    expect(getAppReleaseUrl()).toBe(APP_GITHUB_RELEASES_URL)
+    expect(getAppReleaseUrl("0.3.0")).toBe(
+      "https://github.com/wangshunnn/mind-flayer/releases/tag/v0.3.0"
+    )
+    expect(getAppReleaseUrl("v0.3.0")).toBe(
+      "https://github.com/wangshunnn/mind-flayer/releases/tag/v0.3.0"
+    )
   })
 
   it("extracts displayable error messages", () => {

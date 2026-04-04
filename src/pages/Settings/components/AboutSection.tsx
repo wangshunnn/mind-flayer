@@ -1,10 +1,13 @@
+import { isTauri } from "@tauri-apps/api/core"
+import { openUrl } from "@tauri-apps/plugin-opener"
+import { ArrowUpRightIcon } from "lucide-react"
 import { useCallback } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useAppUpdater } from "@/hooks/use-app-updater"
-import { formatBytes, formatUpdateDate, toErrorMessage } from "@/lib/updater"
+import { formatBytes, formatUpdateDate, getAppReleaseUrl, toErrorMessage } from "@/lib/updater"
 import { SettingGroup } from "./shared"
 
 export function AboutSection() {
@@ -52,6 +55,23 @@ export function AboutSection() {
       })
     }
   }, [relaunchApp, t])
+
+  const handleOpenReleasePage = useCallback(async () => {
+    const releaseUrl = getAppReleaseUrl(availableUpdate?.version)
+
+    try {
+      if (isTauri()) {
+        await openUrl(releaseUrl)
+        return
+      }
+
+      window.open(releaseUrl, "_blank", "noopener,noreferrer")
+    } catch (nextError) {
+      toast.error(t("about.updater.toast.openReleasePageFailed"), {
+        description: toErrorMessage(nextError) ?? undefined
+      })
+    }
+  }, [availableUpdate?.version, t])
 
   const statusLabel = (() => {
     switch (status) {
@@ -174,7 +194,17 @@ export function AboutSection() {
               )}
 
               <div className="space-y-2">
-                <div className="text-sm font-medium">{t("about.updater.releaseNotesLabel")}</div>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-sm font-medium">{t("about.updater.releaseNotesLabel")}</div>
+                  <Button
+                    className="h-auto px-0 py-0 text-sm"
+                    variant="link"
+                    onClick={() => void handleOpenReleasePage()}
+                  >
+                    {t("about.updater.releasePageLink")}
+                    <ArrowUpRightIcon className="size-4" />
+                  </Button>
+                </div>
                 <p className="text-sm leading-6 whitespace-pre-wrap text-muted-foreground">
                   {availableUpdate.body?.trim() || t("about.updater.noReleaseNotes")}
                 </p>

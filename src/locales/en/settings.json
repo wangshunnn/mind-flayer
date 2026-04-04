@@ -91,6 +91,7 @@
       "availableVersionLabel": "Available version",
       "releaseDateLabel": "Release date",
       "releaseNotesLabel": "Release notes",
+      "releasePageLink": "View on GitHub Releases",
       "noReleaseNotes": "No release notes were provided for this release.",
       "downloadProgress": "Downloaded {{downloaded}} of {{total}}",
       "downloadProgressUnknownTotal": "Downloaded {{downloaded}}",
@@ -121,7 +122,8 @@
       "toast": {
         "checkFailed": "Failed to check for updates",
         "installFailed": "Failed to install the update",
-        "restartFailed": "Failed to restart the app"
+        "restartFailed": "Failed to restart the app",
+        "openReleasePageFailed": "Failed to open the release page"
       }
     }
   },

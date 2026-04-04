@@ -45,6 +45,7 @@ export interface AppUpdaterResponse {
 export const APP_UPDATER_REQUEST_EVENT = "app-updater:request"
 export const APP_UPDATER_RESPONSE_EVENT_PREFIX = "app-updater:response"
 export const APP_UPDATER_STATE_CHANGED_EVENT = "app-updater:state-changed"
+export const APP_GITHUB_RELEASES_URL = "https://github.com/wangshunnn/mind-flayer/releases"
 
 export function canUseAppUpdater() {
   return isTauri() && !import.meta.env.DEV
@@ -84,6 +85,17 @@ export function toAppUpdateInfo(update: Update): AppUpdateInfo {
     date: update.date ?? null,
     version: update.version
   }
+}
+
+export function getAppReleaseUrl(version?: string | null) {
+  const normalizedVersion = version?.trim()
+
+  if (!normalizedVersion) {
+    return APP_GITHUB_RELEASES_URL
+  }
+
+  const tagName = normalizedVersion.startsWith("v") ? normalizedVersion : `v${normalizedVersion}`
+  return `${APP_GITHUB_RELEASES_URL}/tag/${encodeURIComponent(tagName)}`
 }
 
 export function formatUpdateDate(date: string | null, locale: string) {

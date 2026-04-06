@@ -1,6 +1,6 @@
 import { isTauri } from "@tauri-apps/api/core"
 import { openUrl } from "@tauri-apps/plugin-opener"
-import { ArrowUpRightIcon } from "lucide-react"
+import { SquareArrowOutUpRightIcon } from "lucide-react"
 import { useCallback } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -202,12 +202,14 @@ export function AboutSection() {
                     onClick={() => void handleOpenReleasePage()}
                   >
                     {t("about.updater.releasePageLink")}
-                    <ArrowUpRightIcon className="size-4" />
+                    <SquareArrowOutUpRightIcon className="size-3.5" />
                   </Button>
                 </div>
-                <p className="text-sm leading-6 whitespace-pre-wrap text-muted-foreground">
-                  {availableUpdate.body?.trim() || t("about.updater.noReleaseNotes")}
-                </p>
+                {availableUpdate.body?.trim() && (
+                  <p className="text-sm leading-6 whitespace-pre-wrap text-muted-foreground">
+                    {availableUpdate.body?.trim()}
+                  </p>
+                )}
               </div>
             </div>
           </>

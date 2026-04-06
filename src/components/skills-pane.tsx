@@ -1,9 +1,9 @@
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import {
-  ArrowUpRightIcon,
   BadgeInfoIcon,
   MoreHorizontalIcon,
   RefreshCwIcon,
+  SquareArrowOutUpRightIcon,
   Trash2Icon,
   XIcon
 } from "lucide-react"
@@ -605,7 +605,7 @@ export function SkillsPane({ disabledSkillIds, setDisabledSkillIds }: SkillsPane
                 disabled={!selectedSkillDetail?.filePath}
               >
                 {t("skills.openFolder")}
-                <ArrowUpRightIcon className="size-4" />
+                <SquareArrowOutUpRightIcon className="size-3" />
               </Button>
             </div>
 

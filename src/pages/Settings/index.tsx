@@ -1,6 +1,6 @@
 import { useSearch } from "@tanstack/react-router"
 import { emit, listen } from "@tauri-apps/api/event"
-import { BadgeInfo, Bolt, Cable, Keyboard, Layers, Search, SparklesIcon } from "lucide-react"
+import { BadgeInfo, Bolt, Cable, Keyboard, Layers, Search } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -323,7 +323,7 @@ export default function Settings() {
               { id: SettingsSection.WEB_SEARCH, icon: Search },
               { id: SettingsSection.GENERAL, icon: Bolt },
               { id: SettingsSection.KEYBOARD, icon: Keyboard },
-              { id: SettingsSection.ADVANCED, icon: SparklesIcon },
+              // { id: SettingsSection.ADVANCED, icon: SparklesIcon },
               { id: SettingsSection.ABOUT, icon: BadgeInfo }
             ].map(section => {
               const Icon = section.icon

@@ -12,16 +12,10 @@ import { toolService } from "./services/tool-service"
 import { cleanupTransientSandboxes } from "./tools/bash-exec/sandbox"
 import type { ConfigUpdateMessage } from "./type"
 import { createShutdownHandler, setupStdinListener } from "./utils/lifecycle"
+import { getConfiguredProxyUrl } from "./utils/proxy-url"
 
 function setupGlobalProxyIfConfigured() {
-  const proxyUrl =
-    process.env.MINDFLAYER_PROXY_URL ||
-    process.env.HTTPS_PROXY ||
-    process.env.HTTP_PROXY ||
-    process.env.ALL_PROXY ||
-    process.env.https_proxy ||
-    process.env.http_proxy ||
-    process.env.all_proxy
+  const { rawProxyUrl, proxyUrl } = getConfiguredProxyUrl()
 
   if (!proxyUrl) {
     return
@@ -30,9 +24,17 @@ function setupGlobalProxyIfConfigured() {
   try {
     const dispatcher = new ProxyAgent(proxyUrl)
     setGlobalDispatcher(dispatcher)
+
+    if (rawProxyUrl !== proxyUrl) {
+      console.log(`[sidecar] Normalized proxy URL: ${rawProxyUrl} -> ${proxyUrl}`)
+    }
+
     console.log(`[sidecar] Global HTTP proxy enabled: ${proxyUrl}`)
   } catch (error) {
     console.error("[sidecar] Failed to initialize proxy agent:", error)
+    console.error(
+      `[sidecar] Invalid proxy configuration: ${rawProxyUrl}. Use a full URL like http://127.0.0.1:7897.`
+    )
   }
 }
 

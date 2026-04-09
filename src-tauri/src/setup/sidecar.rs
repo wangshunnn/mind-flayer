@@ -28,6 +28,8 @@ const SIDECAR_RETRY_DELAY_MS: u64 = 200;
 const SIDECAR_SERVICE_NAME: &str = "mind-flayer-sidecar";
 const SIDECAR_STARTUP_TOKEN_ENV_KEY: &str = "SIDECAR_STARTUP_TOKEN";
 const MINDFLAYER_APP_SUPPORT_DIR_ENV_KEY: &str = "MINDFLAYER_APP_SUPPORT_DIR";
+const MINDFLAYER_PROXY_URL_ENV_KEY: &str = "MINDFLAYER_PROXY_URL";
+const SETTINGS_STORE_FILE_NAME: &str = "settings.json";
 const GLOBAL_SKILLS_DIR_NAME: &str = "skills";
 const BUNDLED_SKILLS_DIR_NAME: &str = "builtin";
 const USER_SKILLS_DIR_NAME: &str = "user";
@@ -104,6 +106,66 @@ fn is_shutting_down(shutting_down: &AtomicBool) -> bool {
 
 pub fn is_sidecar_shutdown_error(error: &str) -> bool {
     error == SIDECAR_SHUTDOWN_MESSAGE
+}
+
+#[derive(Debug, Deserialize)]
+struct PersistedSidecarSettings {
+    #[serde(rename = "proxyUrl", default)]
+    proxy_url: String,
+}
+
+fn resolve_settings_store_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .resolve(
+            SETTINGS_STORE_FILE_NAME,
+            tauri::path::BaseDirectory::AppData,
+        )
+        .map_err(|e| format!("Failed to resolve settings store path: {}", e))
+}
+
+fn parse_sidecar_proxy_url_from_settings_json(
+    settings_json: &str,
+) -> Result<Option<String>, String> {
+    let settings: PersistedSidecarSettings = serde_json::from_str(settings_json)
+        .map_err(|e| format!("Failed to parse settings store: {}", e))?;
+    let trimmed_proxy_url = settings.proxy_url.trim();
+
+    if trimmed_proxy_url.is_empty() {
+        return Ok(None);
+    }
+
+    Ok(Some(trimmed_proxy_url.to_string()))
+}
+
+fn load_sidecar_proxy_url(app: &tauri::AppHandle) -> Option<String> {
+    let settings_path = match resolve_settings_store_path(app) {
+        Ok(path) => path,
+        Err(error) => {
+            warn!("{}", error);
+            return None;
+        }
+    };
+
+    let settings_json = match fs::read_to_string(&settings_path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return None,
+        Err(error) => {
+            warn!(
+                "Failed to read settings store '{}': {}",
+                settings_path.display(),
+                error
+            );
+            return None;
+        }
+    };
+
+    match parse_sidecar_proxy_url_from_settings_json(&settings_json) {
+        Ok(proxy_url) => proxy_url,
+        Err(error) => {
+            warn!("{} at '{}'", error, settings_path.display());
+            None
+        }
+    }
 }
 
 /// Push API keys configuration to sidecar via stdin
@@ -884,6 +946,7 @@ async fn start_sidecar_internal(
     shutting_down: Arc<AtomicBool>,
 ) -> Result<u16, String> {
     clear_sidecar_port(&port_ref);
+    let configured_proxy_url = load_sidecar_proxy_url(&app);
 
     if is_shutting_down(shutting_down.as_ref()) {
         return Err(sidecar_shutdown_error());
@@ -952,6 +1015,12 @@ async fn start_sidecar_internal(
             .env("SIDECAR_PORT", port.to_string())
             .env(SIDECAR_STARTUP_TOKEN_ENV_KEY, startup_token.clone())
             .env(MINDFLAYER_APP_SUPPORT_DIR_ENV_KEY, app_support_dir.clone());
+        let sidecar_command = if let Some(proxy_url) = configured_proxy_url.as_deref() {
+            info!("Using proxy from app settings for sidecar startup");
+            sidecar_command.env(MINDFLAYER_PROXY_URL_ENV_KEY, proxy_url)
+        } else {
+            sidecar_command
+        };
 
         debug!("Sidecar command created for port {}", port);
 
@@ -1296,6 +1365,39 @@ mod tests {
         });
 
         assert!(!is_expected_health_payload(&payload, "token-1"));
+    }
+
+    #[test]
+    fn parses_proxy_url_from_settings_store() {
+        let settings_json = r#"{"theme":"system","proxyUrl":"localhost:7897"}"#;
+
+        assert_eq!(
+            parse_sidecar_proxy_url_from_settings_json(settings_json)
+                .expect("settings should parse"),
+            Some("localhost:7897".to_string())
+        );
+    }
+
+    #[test]
+    fn treats_blank_proxy_url_as_disabled() {
+        let settings_json = r#"{"proxyUrl":"   "}"#;
+
+        assert_eq!(
+            parse_sidecar_proxy_url_from_settings_json(settings_json)
+                .expect("settings should parse"),
+            None
+        );
+    }
+
+    #[test]
+    fn treats_missing_proxy_url_as_disabled() {
+        let settings_json = r#"{"theme":"system"}"#;
+
+        assert_eq!(
+            parse_sidecar_proxy_url_from_settings_json(settings_json)
+                .expect("settings should parse"),
+            None
+        );
     }
 
     #[test]

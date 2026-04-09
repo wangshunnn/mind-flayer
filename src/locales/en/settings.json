@@ -81,7 +81,16 @@
       "newChat": "New chat"
     }
   },
-  "advanced": {},
+  "advanced": {
+    "groups": {
+      "network": "Network"
+    },
+    "proxyUrl": "HTTP Proxy",
+    "proxyUrlPlaceholder": "Examples: 7897, localhost:7897, http://127.0.0.1:7897",
+    "proxyUrlDescription": "Route sidecar network requests through this proxy. Leave empty to disable.",
+    "proxyUrlRestartHint": "Restart Mind Flayer after changing this setting.",
+    "unsavedChanges": "Unsaved changes"
+  },
   "about": {
     "loading": "Loading",
     "versionLabel": "App version",

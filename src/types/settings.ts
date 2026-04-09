@@ -64,6 +64,7 @@ export interface AppSettings {
 
   // App settings
   autoLaunch: boolean
+  proxyUrl: string
 
   // Keyboard shortcuts
   shortcuts: Record<ShortcutAction, ShortcutConfig>
@@ -89,6 +90,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   reasoningEnabled: true,
   reasoningEffort: "default",
   autoLaunch: false,
+  proxyUrl: "",
   shortcuts: {
     [ShortcutAction.TOGGLE_WINDOW]: {
       id: ShortcutAction.TOGGLE_WINDOW,

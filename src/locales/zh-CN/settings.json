@@ -82,7 +82,16 @@
       "newChat": "新建聊天"
     }
   },
-  "advanced": {},
+  "advanced": {
+    "groups": {
+      "network": "网络"
+    },
+    "proxyUrl": "HTTP 代理",
+    "proxyUrlPlaceholder": "例如：7897、localhost:7897、http://127.0.0.1:7897",
+    "proxyUrlDescription": "让 sidecar 的网络请求走这个代理。留空则禁用。",
+    "proxyUrlRestartHint": "修改后请重启 Mind Flayer。",
+    "unsavedChanges": "有未保存的更改"
+  },
   "about": {
     "loading": "加载中",
     "versionLabel": "当前版本",

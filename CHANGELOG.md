@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/wangshunnn/mind-flayer/compare/v0.6.0...v0.7.0) (2026-04-10)
+
+### Features
+
+* **proxy:** implement proxy URL configuration and normalization functions ([7644739](https://github.com/wangshunnn/mind-flayer/commit/76447397837e635df8a8d852c8454be768961707))
+* **settings:** add proxy URL configuration and update UI components for settings ([af734be](https://github.com/wangshunnn/mind-flayer/commit/af734be06e33355d278149677a6f27e34477b068))
+* **settings:** enhance action feedback handling in settings components ([f690fdc](https://github.com/wangshunnn/mind-flayer/commit/f690fdca0bd3288ebc7efe713683971dadc16016))
+
 ## [0.6.0](https://github.com/wangshunnn/mind-flayer/compare/v0.5.0...v0.6.0) (2026-04-06)
 
 ### Features

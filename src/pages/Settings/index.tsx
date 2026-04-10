@@ -24,6 +24,7 @@ import { ChannelSection } from "./components/ChannelSection"
 import { GeneralSection } from "./components/GeneralSection"
 import { KeyboardSection } from "./components/KeyboardSection"
 import { ProviderSection } from "./components/ProviderSection"
+import type { SettingActionFeedback, SettingActionType } from "./components/shared"
 import { WebSearchSection } from "./components/WebSearchSection"
 
 const CHANNEL_PROVIDER_IDS = new Set(CHANNEL_PROVIDERS.map(provider => provider.id))
@@ -35,7 +36,10 @@ export default function Settings() {
   const [activeProvider, setActiveProvider] = useState(MODEL_PROVIDERS[0].id)
   const [activeWebSearchProvider, setActiveWebSearchProvider] = useState(WEB_SEARCH_PROVIDERS[0].id)
   const activeChannelProvider = CHANNEL_PROVIDERS[0].id
-  const [saveStatus, setSaveStatus] = useState<"idle" | "submitting" | "success" | "error">("idle")
+  const [saveFeedback, setSaveFeedback] = useState<SettingActionFeedback>({
+    action: null,
+    status: "idle"
+  })
   const [channelTestStatus, setChannelTestStatus] = useState<
     "idle" | "testing" | "success" | "error"
   >("idle")
@@ -51,13 +55,26 @@ export default function Settings() {
   const [telegramAllowedUserIds, setTelegramAllowedUserIds] = useSetting("telegramAllowedUserIds")
 
   const resetSaveFeedback = useCallback(() => {
-    setSaveStatus("idle")
+    setSaveFeedback({
+      action: null,
+      status: "idle"
+    })
     setChannelTestStatus("idle")
     setSaveError(null)
     if (successTimeoutRef.current) {
       clearTimeout(successTimeoutRef.current)
     }
   }, [])
+
+  const setActionFeedback = useCallback(
+    (action: SettingActionType, status: SettingActionFeedback["status"]) => {
+      setSaveFeedback({
+        action,
+        status
+      })
+    },
+    []
+  )
 
   // Initialize activeSection from router search params
   useEffect(() => {
@@ -172,20 +189,20 @@ export default function Settings() {
     resetSaveFeedback()
     const data = formData[providerId]
     if (!data.apiKey.trim()) {
-      setSaveStatus("error")
+      setActionFeedback("save", "error")
       setSaveError("API Key is required")
       return
     }
 
     try {
-      setSaveStatus("submitting")
+      setActionFeedback("save", "submitting")
       setSaveError(null)
       if (successTimeoutRef.current) {
         clearTimeout(successTimeoutRef.current)
       }
       await saveConfig(providerId, data.apiKey.trim(), data.baseUrl.trim() || undefined)
       setStoredProviders(prev => ({ ...prev, [providerId]: true }))
-      setSaveStatus("success")
+      setActionFeedback("save", "success")
       toast.success(t("providers.toast.saved"))
 
       await emit("provider-config-changed", {
@@ -194,11 +211,14 @@ export default function Settings() {
       })
 
       successTimeoutRef.current = setTimeout(() => {
-        setSaveStatus("idle")
+        setSaveFeedback({
+          action: null,
+          status: "idle"
+        })
       }, 1500)
     } catch (err) {
       toast.error(t("providers.toast.saveError"))
-      setSaveStatus("error")
+      setActionFeedback("save", "error")
       setSaveError(
         `Failed to save configuration: ${err instanceof Error ? err.message : "Unknown error"}`
       )
@@ -213,7 +233,7 @@ export default function Settings() {
     }
 
     try {
-      setSaveStatus("submitting")
+      setActionFeedback("clear", "submitting")
       setSaveError(null)
       if (successTimeoutRef.current) {
         clearTimeout(successTimeoutRef.current)
@@ -242,7 +262,7 @@ export default function Settings() {
         })
       }
       setStoredProviders(prev => ({ ...prev, [providerId]: false }))
-      setSaveStatus("success")
+      setActionFeedback("clear", "success")
       toast.success(t("providers.toast.deleted"))
 
       await emit("provider-config-changed", {
@@ -251,11 +271,14 @@ export default function Settings() {
       })
 
       successTimeoutRef.current = setTimeout(() => {
-        setSaveStatus("idle")
+        setSaveFeedback({
+          action: null,
+          status: "idle"
+        })
       }, 1500)
     } catch (err) {
       toast.error(t("providers.toast.deleteError"))
-      setSaveStatus("error")
+      setActionFeedback("clear", "error")
       setSaveError(
         `Failed to delete configuration: ${err instanceof Error ? err.message : "Unknown error"}`
       )
@@ -298,7 +321,7 @@ export default function Settings() {
   }
 
   const activeError = saveError || error
-  const isSaveBusy = saveStatus === "submitting" || saveStatus === "success"
+  const isSaveBusy = saveFeedback.status === "submitting" || saveFeedback.status === "success"
   const currentData = formData[activeProvider]
   const isSaveDisabled = isSaveBusy || isLoading || !currentData?.apiKey.trim()
   const isClearDisabled = isSaveBusy || isLoading || !currentData?.apiKey.trim()
@@ -369,7 +392,7 @@ export default function Settings() {
                   setFormData={setFormData}
                   onSave={handleSave}
                   onClear={handleClear}
-                  saveStatus={saveStatus}
+                  saveFeedback={saveFeedback}
                   activeError={activeError}
                   isLoading={isLoading}
                   enabledProviders={enabledProviders}
@@ -389,7 +412,7 @@ export default function Settings() {
                   setFormData={setFormData}
                   onSave={handleSave}
                   onClear={handleClear}
-                  saveStatus={saveStatus}
+                  saveFeedback={saveFeedback}
                   activeError={activeError}
                   enabledProviders={enabledProviders}
                   setEnabledProviders={setEnabledProviders}
@@ -407,7 +430,7 @@ export default function Settings() {
                   onSave={handleSave}
                   onClear={handleClear}
                   onTest={handleChannelTest}
-                  saveStatus={saveStatus}
+                  saveFeedback={saveFeedback}
                   testStatus={channelTestStatus}
                   activeError={activeError}
                   enabledChannels={enabledChannels}

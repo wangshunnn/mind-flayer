@@ -1,4 +1,3 @@
-import { CheckIcon, Loader2Icon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
@@ -6,13 +5,21 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { useSettingWithLoaded } from "@/hooks/use-settings-store"
-import { SettingGroup, SettingLabel } from "./shared"
+import {
+  SettingActionButtonContent,
+  type SettingActionFeedback,
+  SettingGroup,
+  SettingLabel
+} from "./shared"
 
 export function AdvancedSection() {
   const { t } = useTranslation("settings")
   const [storedProxyUrl, setStoredProxyUrl, isLoaded] = useSettingWithLoaded("proxyUrl")
   const [draftProxyUrl, setDraftProxyUrl] = useState("")
-  const [saveStatus, setSaveStatus] = useState<"idle" | "submitting" | "success">("idle")
+  const [actionFeedback, setActionFeedback] = useState<SettingActionFeedback>({
+    action: null,
+    status: "idle"
+  })
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -35,12 +42,23 @@ export function AdvancedSection() {
   const normalizedDraftProxyUrl = draftProxyUrl.trim()
   const hasChanges = normalizedDraftProxyUrl !== normalizedStoredProxyUrl
   const canClear = normalizedDraftProxyUrl.length > 0 || normalizedStoredProxyUrl.length > 0
+  const showSaveCheckIcon =
+    actionFeedback.action === "save" &&
+    actionFeedback.status !== "idle" &&
+    actionFeedback.status !== "error"
+  const showClearCheckIcon =
+    actionFeedback.action === "clear" &&
+    actionFeedback.status !== "idle" &&
+    actionFeedback.status !== "error"
 
   const resetSaveStatus = () => {
     if (successTimeoutRef.current) {
       clearTimeout(successTimeoutRef.current)
     }
-    setSaveStatus("idle")
+    setActionFeedback({
+      action: null,
+      status: "idle"
+    })
   }
 
   const handleSave = async () => {
@@ -49,12 +67,21 @@ export function AdvancedSection() {
     }
 
     resetSaveStatus()
-    setSaveStatus("submitting")
+    setActionFeedback({
+      action: "save",
+      status: "submitting"
+    })
     await setStoredProxyUrl(normalizedDraftProxyUrl)
     setDraftProxyUrl(normalizedDraftProxyUrl)
-    setSaveStatus("success")
+    setActionFeedback({
+      action: "save",
+      status: "success"
+    })
     successTimeoutRef.current = setTimeout(() => {
-      setSaveStatus("idle")
+      setActionFeedback({
+        action: null,
+        status: "idle"
+      })
     }, 1500)
   }
 
@@ -64,12 +91,21 @@ export function AdvancedSection() {
     }
 
     resetSaveStatus()
-    setSaveStatus("submitting")
+    setActionFeedback({
+      action: "clear",
+      status: "submitting"
+    })
     await setStoredProxyUrl("")
     setDraftProxyUrl("")
-    setSaveStatus("success")
+    setActionFeedback({
+      action: "clear",
+      status: "success"
+    })
     successTimeoutRef.current = setTimeout(() => {
-      setSaveStatus("idle")
+      setActionFeedback({
+        action: null,
+        status: "idle"
+      })
     }, 1500)
   }
 
@@ -108,24 +144,22 @@ export function AdvancedSection() {
                   type="button"
                   variant="outline"
                   onClick={handleClear}
-                  disabled={!canClear || saveStatus === "submitting"}
+                  disabled={!canClear || actionFeedback.status === "submitting"}
                 >
-                  {t("providers.clear")}
+                  <SettingActionButtonContent
+                    label={t("providers.clear")}
+                    showCheckIcon={showClearCheckIcon}
+                  />
                 </Button>
                 <Button
                   type="button"
                   onClick={handleSave}
-                  disabled={!hasChanges || saveStatus === "submitting"}
+                  disabled={!hasChanges || actionFeedback.status === "submitting"}
                 >
-                  {saveStatus === "submitting" && (
-                    <Loader2Icon className="mr-2 size-4 animate-spin" />
-                  )}
-                  {saveStatus === "success" ? <CheckIcon className="size-4" /> : null}
-                  {saveStatus === "success"
-                    ? t("providers.saved")
-                    : saveStatus === "submitting"
-                      ? t("providers.saving")
-                      : t("providers.save")}
+                  <SettingActionButtonContent
+                    label={t("providers.save")}
+                    showCheckIcon={showSaveCheckIcon}
+                  />
                 </Button>
               </div>
             </div>

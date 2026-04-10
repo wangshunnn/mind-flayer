@@ -1,4 +1,4 @@
-import { CheckIcon, Eye, EyeOff, Loader2Icon, Zap } from "lucide-react"
+import { Eye, EyeOff, Loader2Icon, Zap } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import type { ProviderFormData } from "@/types/settings"
+import { SettingActionButtonContent, type SettingActionFeedback } from "./shared"
 
 interface ChannelSectionProps {
   formData: Record<string, ProviderFormData>
@@ -24,7 +25,7 @@ interface ChannelSectionProps {
   onSave: (providerId: string) => Promise<void>
   onClear: (providerId: string) => Promise<void>
   onTest: () => Promise<void>
-  saveStatus: "idle" | "submitting" | "success" | "error"
+  saveFeedback: SettingActionFeedback
   testStatus: "idle" | "testing" | "success" | "error"
   activeError: string | null
   enabledChannels: Record<string, boolean>
@@ -45,7 +46,7 @@ export function ChannelSection({
   onSave,
   onClear,
   onTest,
-  saveStatus,
+  saveFeedback,
   testStatus,
   activeError,
   enabledChannels,
@@ -60,6 +61,14 @@ export function ChannelSection({
   const { t } = useTranslation("settings")
   const [showToken, setShowToken] = useState(false)
   const [allowedUserIdsDraft, setAllowedUserIdsDraft] = useState(telegramAllowedUserIds.join("\n"))
+  const showSaveCheckIcon =
+    saveFeedback.action === "save" &&
+    saveFeedback.status !== "idle" &&
+    saveFeedback.status !== "error"
+  const showClearCheckIcon =
+    saveFeedback.action === "clear" &&
+    saveFeedback.status !== "idle" &&
+    saveFeedback.status !== "error"
   const data = formData[TELEGRAM_PROVIDER_ID]
 
   useEffect(() => {
@@ -79,7 +88,7 @@ export function ChannelSection({
             variant="outline"
             size="sm"
             onClick={onTest}
-            disabled={testStatus === "testing" || saveStatus === "submitting"}
+            disabled={testStatus === "testing" || saveFeedback.status === "submitting"}
             className="mr-2"
           >
             {testStatus === "testing" ? (
@@ -223,7 +232,10 @@ export function ChannelSection({
             disabled={isClearDisabled}
             className="w-18"
           >
-            {t("providers.clear")}
+            <SettingActionButtonContent
+              label={t("providers.clear")}
+              showCheckIcon={showClearCheckIcon}
+            />
           </Button>
           <Button
             type="button"
@@ -231,13 +243,10 @@ export function ChannelSection({
             disabled={isSaveDisabled}
             className="w-18"
           >
-            {saveStatus === "success" ? (
-              <CheckIcon className="size-4 text-brand" />
-            ) : saveStatus === "submitting" ? (
-              <Loader2Icon className="mr-2 size-4 animate-spin" />
-            ) : (
-              t("providers.save")
-            )}
+            <SettingActionButtonContent
+              label={t("providers.save")}
+              showCheckIcon={showSaveCheckIcon}
+            />
           </Button>
         </Field>
       </div>

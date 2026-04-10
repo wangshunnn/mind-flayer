@@ -1,4 +1,4 @@
-import { CircleIcon, Eye, EyeOff, Loader2Icon } from "lucide-react"
+import { CircleIcon, Eye, EyeOff } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch"
 import { WEB_SEARCH_PROVIDERS } from "@/lib/provider-constants"
 import { cn } from "@/lib/utils"
 import type { ProviderFormData } from "@/types/settings"
+import { SettingActionButtonContent, type SettingActionFeedback } from "./shared"
 
 interface WebSearchSectionProps {
   activeProvider: string
@@ -23,7 +24,7 @@ interface WebSearchSectionProps {
   setFormData: React.Dispatch<React.SetStateAction<Record<string, ProviderFormData>>>
   onSave: (providerId: string) => Promise<void>
   onClear: (providerId: string) => Promise<void>
-  saveStatus: "idle" | "submitting" | "success" | "error"
+  saveFeedback: SettingActionFeedback
   activeError: string | null
   enabledProviders: Record<string, boolean>
   setEnabledProviders: (value: Record<string, boolean>) => Promise<void>
@@ -40,7 +41,7 @@ export function WebSearchSection({
   setFormData,
   onSave,
   onClear,
-  saveStatus,
+  saveFeedback,
   activeError,
   enabledProviders,
   setEnabledProviders,
@@ -51,6 +52,14 @@ export function WebSearchSection({
 }: WebSearchSectionProps) {
   const { t } = useTranslation("settings")
   const [showPassword, setShowPassword] = useState(false)
+  const showSaveCheckIcon =
+    saveFeedback.action === "save" &&
+    saveFeedback.status !== "idle" &&
+    saveFeedback.status !== "error"
+  const showClearCheckIcon =
+    saveFeedback.action === "clear" &&
+    saveFeedback.status !== "idle" &&
+    saveFeedback.status !== "error"
 
   return (
     <div className="flex flex-col bg-setting-background-highlight space-y-6 py-6 px-4 rounded-md">
@@ -173,17 +182,16 @@ export function WebSearchSection({
                 onClick={() => onClear(provider.id)}
                 disabled={isClearDisabled}
               >
-                {t("providers.clear")}
+                <SettingActionButtonContent
+                  label={t("providers.clear")}
+                  showCheckIcon={showClearCheckIcon}
+                />
               </Button>
               <Button type="button" onClick={() => onSave(provider.id)} disabled={isSaveDisabled}>
-                {saveStatus === "submitting" && (
-                  <Loader2Icon className="mr-2 size-4 animate-spin" />
-                )}
-                {saveStatus === "success"
-                  ? t("providers.saved")
-                  : saveStatus === "submitting"
-                    ? t("providers.saving")
-                    : t("providers.save")}
+                <SettingActionButtonContent
+                  label={t("providers.save")}
+                  showCheckIcon={showSaveCheckIcon}
+                />
               </Button>
             </Field>
           </div>

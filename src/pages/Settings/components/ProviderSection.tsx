@@ -1,4 +1,4 @@
-import { CheckIcon, CircleIcon, Eye, EyeOff, Loader2Icon, Lock } from "lucide-react"
+import { CircleIcon, Eye, EyeOff, Lock } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -21,6 +21,7 @@ import {
 } from "@/lib/provider-constants"
 import { cn } from "@/lib/utils"
 import type { ProviderFormData } from "@/types/settings"
+import { SettingActionButtonContent, type SettingActionFeedback } from "./shared"
 
 interface ProviderSectionProps {
   activeProvider: string
@@ -29,7 +30,7 @@ interface ProviderSectionProps {
   setFormData: React.Dispatch<React.SetStateAction<Record<string, ProviderFormData>>>
   onSave: (providerId: string) => Promise<void>
   onClear: (providerId: string) => Promise<void>
-  saveStatus: "idle" | "submitting" | "success" | "error"
+  saveFeedback: SettingActionFeedback
   activeError: string | null
   isLoading: boolean
   enabledProviders: Record<string, boolean>
@@ -47,7 +48,7 @@ export function ProviderSection({
   setFormData,
   onSave,
   onClear,
-  saveStatus,
+  saveFeedback,
   activeError,
   enabledProviders,
   setEnabledProviders,
@@ -58,6 +59,14 @@ export function ProviderSection({
 }: ProviderSectionProps) {
   const { t } = useTranslation("settings")
   const [showPassword, setShowPassword] = useState(false)
+  const showSaveCheckIcon =
+    saveFeedback.action === "save" &&
+    saveFeedback.status !== "idle" &&
+    saveFeedback.status !== "error"
+  const showClearCheckIcon =
+    saveFeedback.action === "clear" &&
+    saveFeedback.status !== "idle" &&
+    saveFeedback.status !== "error"
   const sortedProviders = [
     ...sortProvidersByAvailabilityAndName(MODEL_PROVIDERS, enabledProviders),
     ...sortProvidersByAvailabilityAndName(UPCOMING_PROVIDERS, enabledProviders)
@@ -223,7 +232,10 @@ export function ProviderSection({
                 disabled={isClearDisabled}
                 className="w-18"
               >
-                {t("providers.clear")}
+                <SettingActionButtonContent
+                  label={t("providers.clear")}
+                  showCheckIcon={showClearCheckIcon}
+                />
               </Button>
               <Button
                 type="button"
@@ -231,13 +243,10 @@ export function ProviderSection({
                 disabled={isSaveDisabled}
                 className="w-18"
               >
-                {saveStatus === "success" ? (
-                  <CheckIcon className="size-4 text-brand" />
-                ) : saveStatus === "submitting" ? (
-                  <Loader2Icon className="mr-2 size-4 animate-spin" />
-                ) : (
-                  t("providers.save")
-                )}
+                <SettingActionButtonContent
+                  label={t("providers.save")}
+                  showCheckIcon={showSaveCheckIcon}
+                />
               </Button>
             </Field>
           </div>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Claude Code">
+  <rect width="64" height="64" rx="14" fill="#F4EEE5"/>
+  <path d="M18 20h28v6H18zM14 31h36v6H14zM18 42h28v6H18z" fill="#C15F3C"/>
+  <circle cx="48" cy="18" r="6" fill="#2F6F73"/>
+</svg>

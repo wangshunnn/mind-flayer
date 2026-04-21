@@ -1,3 +1,11 @@
+import {
+  AgentSessionReadTool,
+  AgentSessionStartTool,
+  AgentSessionStopTool,
+  agentSessionReadTool,
+  agentSessionStartTool,
+  agentSessionStopTool
+} from "./agent-session"
 import { AppendDailyMemoryTool, appendDailyMemoryTool } from "./append-daily-memory"
 import { AppendWorkspaceSectionTool, appendWorkspaceSectionTool } from "./append-workspace-section"
 import { BashExecutionTool, bashExecutionTool } from "./bash-exec"
@@ -28,6 +36,9 @@ toolRegistry.register(new AppendDailyMemoryTool())
 toolRegistry.register(new DeleteWorkspaceFileTool())
 toolRegistry.register(new MemorySearchTool())
 toolRegistry.register(new MemoryGetTool())
+toolRegistry.register(new AgentSessionStartTool())
+toolRegistry.register(new AgentSessionReadTool())
+toolRegistry.register(new AgentSessionStopTool())
 
 export type { ITool } from "./base-tool"
 // Export types and classes for external use
@@ -35,6 +46,9 @@ export { ToolRegistry } from "./registry"
 
 // Keep exporting tool factories for backward compatibility during refactoring
 export {
+  agentSessionReadTool,
+  agentSessionStartTool,
+  agentSessionStopTool,
   appendDailyMemoryTool,
   appendWorkspaceSectionTool,
   bashExecutionTool,
@@ -57,4 +71,7 @@ export type AllTools = {
   read?: ReturnType<typeof readTool>
   memorySearch?: ReturnType<typeof memorySearchTool>
   memoryGet?: ReturnType<typeof memoryGetTool>
+  agentSessionStart?: ReturnType<typeof agentSessionStartTool>
+  agentSessionRead?: ReturnType<typeof agentSessionReadTool>
+  agentSessionStop?: ReturnType<typeof agentSessionStopTool>
 }

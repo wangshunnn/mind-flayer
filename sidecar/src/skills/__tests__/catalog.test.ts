@@ -184,6 +184,56 @@ description: omega description
     ])
   })
 
+  it("discovers nested bundled and user skills using directory paths as ids", async () => {
+    const appSupportDir = await mkdtemp(join(tmpdir(), "mind-flayer-nested-skills-"))
+    tempDirs.push(appSupportDir)
+
+    await writeSkill(
+      appSupportDir,
+      "builtin",
+      "coding-agent-skills/claude-code",
+      `---
+name: claude-code
+description: Claude Code delegation
+---
+
+# Claude Code
+`
+    )
+
+    await writeSkill(
+      appSupportDir,
+      "user",
+      "coding-agent-skills/codex",
+      `---
+name: codex
+description: Codex delegation
+---
+
+# Codex
+`
+    )
+
+    const skills = await discoverSkills({ appSupportDir })
+
+    expect(skills.map(skill => skill.id)).toEqual([
+      "bundled:coding-agent-skills/claude-code",
+      "user:coding-agent-skills/codex"
+    ])
+    expect(
+      skills.find(skill => skill.id === "bundled:coding-agent-skills/claude-code")
+    ).toMatchObject({
+      name: "claude-code",
+      source: "bundled",
+      canUninstall: false
+    })
+    expect(skills.find(skill => skill.id === "user:coding-agent-skills/codex")).toMatchObject({
+      name: "codex",
+      source: "user",
+      canUninstall: true
+    })
+  })
+
   it("returns detail markdown without frontmatter", async () => {
     const appSupportDir = await mkdtemp(join(tmpdir(), "mind-flayer-skill-detail-"))
     tempDirs.push(appSupportDir)
@@ -209,6 +259,46 @@ Body content
 
     expect(detail?.bodyMarkdown).toBe("# Detail\n\nBody content")
     expect(detail?.source).toBe("bundled")
+  })
+
+  it("returns nested skill detail and uninstalls nested user skills safely", async () => {
+    const appSupportDir = await mkdtemp(join(tmpdir(), "mind-flayer-nested-skill-detail-"))
+    tempDirs.push(appSupportDir)
+
+    await writeSkill(
+      appSupportDir,
+      "user",
+      "coding-agent-skills/codex",
+      `---
+name: codex
+description: Codex delegation
+---
+
+# Codex
+
+Nested body
+`
+    )
+
+    const detail = await getSkillDetailById("user:coding-agent-skills/codex", {
+      appSupportDir
+    })
+
+    expect(detail?.bodyMarkdown).toBe("# Codex\n\nNested body")
+    expect(detail?.skillDir.replaceAll("\\", "/")).toContain(
+      "/skills/user/coding-agent-skills/codex"
+    )
+
+    expect(detail).not.toBeNull()
+    if (!detail) {
+      throw new Error("Nested skill detail should exist")
+    }
+
+    await uninstallUserSkill(detail, { appSupportDir })
+
+    await expect(getSkillById("user:coding-agent-skills/codex", { appSupportDir })).resolves.toBe(
+      null
+    )
   })
 
   it("resolves explicit and default skill icons", async () => {

@@ -31,6 +31,68 @@ export type ToolBashExecution = ToolUIPart & {
   }
 }
 
+export type AgentSessionOutput = {
+  sessionId: string
+  agent: "claude-code" | "codex"
+  mode: "print" | "interactive" | "exec" | "review"
+  cwd: string
+  status: "running" | "exited" | "failed" | "stopped"
+  exitCode: number | null
+  startedAt: string
+  updatedAt: string
+  output: string
+  nextOffset: number | null
+  commandPreview: string
+}
+
+export type AgentSessionStartInput = {
+  agent: "claude-code" | "codex"
+  mode: "print" | "interactive" | "exec" | "review"
+  cwd: string
+  prompt?: string
+  runMode?: "foreground" | "background"
+  timeoutSeconds?: number
+  permissionPreset?: "default" | "read-only" | "workspace-write" | "plan"
+  extraAllowedDirs?: string[]
+  skipGitRepoCheck?: boolean
+}
+
+export type AgentSessionReadInput = {
+  sessionId: string
+  offset?: number
+  maxBytes?: number
+}
+
+export type AgentSessionSendInput = {
+  sessionId: string
+  text?: string
+  key?: "Enter" | "Down" | "Up" | "CtrlC" | "CtrlD" | "Esc"
+}
+
+export type AgentSessionStopInput = {
+  sessionId: string
+}
+
+export type ToolAgentSessionStart = ToolUIPart & {
+  input?: AgentSessionStartInput
+  output?: AgentSessionOutput
+}
+
+export type ToolAgentSessionRead = ToolUIPart & {
+  input?: AgentSessionReadInput
+  output?: AgentSessionOutput
+}
+
+export type ToolAgentSessionSend = ToolUIPart & {
+  input?: AgentSessionSendInput
+  output?: AgentSessionOutput
+}
+
+export type ToolAgentSessionStop = ToolUIPart & {
+  input?: AgentSessionStopInput
+  output?: AgentSessionOutput
+}
+
 export type ReadToolInput = {
   filePath: string
   offset?: number
@@ -185,6 +247,34 @@ export const isBashExecutionToolUIPart = (
   tool: ToolUIPart | DynamicToolUIPart
 ): tool is ToolBashExecution => tool.type === "tool-bashExecution"
 
+export const isAgentSessionStartToolUIPart = (
+  tool: ToolUIPart | DynamicToolUIPart
+): tool is ToolAgentSessionStart => tool.type === "tool-agentSessionStart"
+
+export const isAgentSessionReadToolUIPart = (
+  tool: ToolUIPart | DynamicToolUIPart
+): tool is ToolAgentSessionRead => tool.type === "tool-agentSessionRead"
+
+export const isAgentSessionSendToolUIPart = (
+  tool: ToolUIPart | DynamicToolUIPart
+): tool is ToolAgentSessionSend => tool.type === "tool-agentSessionSend"
+
+export const isAgentSessionStopToolUIPart = (
+  tool: ToolUIPart | DynamicToolUIPart
+): tool is ToolAgentSessionStop => tool.type === "tool-agentSessionStop"
+
+export const isAgentSessionToolUIPart = (
+  tool: ToolUIPart | DynamicToolUIPart
+): tool is
+  | ToolAgentSessionStart
+  | ToolAgentSessionRead
+  | ToolAgentSessionSend
+  | ToolAgentSessionStop =>
+  isAgentSessionStartToolUIPart(tool) ||
+  isAgentSessionReadToolUIPart(tool) ||
+  isAgentSessionSendToolUIPart(tool) ||
+  isAgentSessionStopToolUIPart(tool)
+
 export const isReadToolUIPart = (tool: ToolUIPart | DynamicToolUIPart): tool is ToolRead =>
   tool.type === "tool-read"
 
@@ -246,6 +336,28 @@ export function getToolCallMeta(
       content: `${tool.input.command} ${tool.input.args?.join(" ")}`
     }
   }
+  if (isAgentSessionToolUIPart(tool)) {
+    if (isAgentSessionStartToolUIPart(tool) && tool.input) {
+      return {
+        content: `${tool.input.agent} ${tool.input.mode}: ${tool.input.cwd}`
+      }
+    }
+
+    if (
+      (isAgentSessionReadToolUIPart(tool) ||
+        isAgentSessionSendToolUIPart(tool) ||
+        isAgentSessionStopToolUIPart(tool)) &&
+      tool.input
+    ) {
+      return {
+        content: tool.output?.sessionId || tool.input.sessionId
+      }
+    }
+
+    return {
+      content: tool.output?.sessionId || ""
+    }
+  }
   if (isReadToolUIPart(tool) && tool.input) {
     return {
       content:
@@ -293,7 +405,7 @@ export function getToolResultText(
   tool: ToolUIPart | DynamicToolUIPart,
   toolConstants: ReturnType<typeof useToolConstants>
 ): string {
-  const { read, skillRead, states, webSearch } = toolConstants
+  const { agentSession, read, skillRead, states, webSearch } = toolConstants
 
   switch (tool.state) {
     case "output-available": {
@@ -303,6 +415,9 @@ export function getToolResultText(
         }
         if (isBashExecutionToolUIPart(tool) && tool.output.exitCode !== undefined) {
           return toolConstants.bashExecution.exitCode(tool.output.exitCode)
+        }
+        if (isAgentSessionToolUIPart(tool) && tool.output.status) {
+          return agentSession.status(tool.output.status)
         }
         if (isReadToolUIPart(tool) && typeof tool.output.filePath === "string") {
           if (tool.output.displayContext?.kind === "skill") {

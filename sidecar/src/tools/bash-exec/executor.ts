@@ -127,7 +127,7 @@ function getInheritedTrustedPathEntries(): string[] {
     .filter(isTrustedUserPathEntry)
 }
 
-function getRestrictedPath(): string {
+export function getRestrictedPath(): string {
   const discoveredUserPathEntries = [
     ...listExistingPathEntries(DISCOVERED_USER_PATH_CANDIDATES),
     ...discoverVersionedBinDirectories(join(USER_HOME, ".nvm", "versions", "node"), ["bin"]),

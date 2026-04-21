@@ -1,6 +1,7 @@
 import {
   BookOpenTextIcon,
   BookSearchIcon,
+  BotIcon,
   GlobeIcon,
   LibraryBigIcon,
   Pencil,
@@ -15,6 +16,11 @@ export function getToolIcon(toolName: string, className: string) {
       return <GlobeIcon className={className} />
     case "bashexecution":
       return <TerminalIcon className={className} />
+    case "agentsessionstart":
+    case "agentsessionread":
+    case "agentsessionsend":
+    case "agentsessionstop":
+      return <BotIcon className={className} />
     case "read":
       return <BookOpenTextIcon className={className} />
     case "skillread":

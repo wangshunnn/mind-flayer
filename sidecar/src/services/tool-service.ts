@@ -87,6 +87,18 @@ export class ToolService {
       tools.bashExecution = bashInstance
     }
 
+    if (source === "desktop") {
+      tools.agentSessionStart = toolRegistry
+        .get("agentSessionStart")
+        .createInstance("") as AllTools["agentSessionStart"]
+      tools.agentSessionRead = toolRegistry
+        .get("agentSessionRead")
+        .createInstance("") as AllTools["agentSessionRead"]
+      tools.agentSessionStop = toolRegistry
+        .get("agentSessionStop")
+        .createInstance("") as AllTools["agentSessionStop"]
+    }
+
     return tools
   }
 

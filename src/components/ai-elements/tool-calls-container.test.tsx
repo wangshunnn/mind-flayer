@@ -111,6 +111,32 @@ const createBashDeniedPart = (toolCallId: string) =>
     }
   }) as unknown as ToolUIPart
 
+const createAgentSessionPart = (toolCallId: string) =>
+  ({
+    type: "tool-agentSessionStart",
+    toolCallId,
+    state: "output-available",
+    input: {
+      agent: "codex",
+      mode: "exec",
+      cwd: "/tmp/project",
+      prompt: "Fix tests"
+    },
+    output: {
+      sessionId: "session-1",
+      agent: "codex",
+      mode: "exec",
+      cwd: "/tmp/project",
+      status: "running",
+      exitCode: null,
+      startedAt: "2026-03-17T12:00:00.000Z",
+      updatedAt: "2026-03-17T12:00:01.000Z",
+      output: "Codex is working",
+      nextOffset: null,
+      commandPreview: "codex exec --cd /tmp/project 'Fix tests'"
+    }
+  }) as unknown as ToolUIPart
+
 const createSkillReadPart = (toolCallId: string, skillName: string) =>
   ({
     type: "tool-read",
@@ -407,5 +433,30 @@ describe("ToolCallsSummary", () => {
     expect(container.querySelector('[data-terminal="true"]')).not.toBeNull()
     expect(container.textContent).toContain("$ rm -rf /tmp/demo")
     expect(container.textContent).toContain("Execution denied")
+  })
+
+  it("renders agent session output in a terminal transcript", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en")
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ToolCallTimelineItem
+            duration={0.25}
+            onToolApprovalResponse={vi.fn()}
+            part={createAgentSessionPart("tool-agent-session")}
+          />
+        </I18nextProvider>
+      )
+    })
+
+    const trigger = container.querySelector("button[aria-controls]")
+    expect(trigger).not.toBeNull()
+
+    await click(trigger as HTMLElement)
+
+    expect(container.querySelector('[data-terminal="true"]')).not.toBeNull()
+    expect(container.textContent).toContain("codex exec --cd /tmp/project")
+    expect(container.textContent).toContain("session-1")
+    expect(container.textContent).toContain("Codex is working")
   })
 })

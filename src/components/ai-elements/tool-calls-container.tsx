@@ -4,10 +4,12 @@ import {
   getToolName,
   type ToolUIPart
 } from "ai"
-import { LibraryBigIcon, TerminalIcon, WandSparklesIcon, WrenchIcon } from "lucide-react"
+import { BotIcon, LibraryBigIcon, TerminalIcon, WandSparklesIcon, WrenchIcon } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { memo } from "react"
 import { useTranslation } from "react-i18next"
+import { Shimmer } from "@/components/ai-elements/shimmer"
+import { Terminal } from "@/components/ai-elements/terminal"
 import {
   BashExecCommandLine,
   type BashExecInput,
@@ -26,7 +28,16 @@ import {
 } from "@/components/ai-elements/tool-call"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
-import type { ReadToolDisplayContext, ReadToolInput, ReadToolOutput } from "@/lib/tool-helpers"
+import type {
+  AgentSessionOutput,
+  AgentSessionReadInput,
+  AgentSessionSendInput,
+  AgentSessionStartInput,
+  AgentSessionStopInput,
+  ReadToolDisplayContext,
+  ReadToolInput,
+  ReadToolOutput
+} from "@/lib/tool-helpers"
 import { cn } from "@/lib/utils"
 import { Separator } from "../ui/separator"
 
@@ -70,6 +81,72 @@ const ToolCallStructuredBlock = ({ value }: { value: unknown }) => {
       {formatted}
     </pre>
   )
+}
+
+type AgentSessionInput =
+  | AgentSessionStartInput
+  | AgentSessionReadInput
+  | AgentSessionSendInput
+  | AgentSessionStopInput
+
+const AGENT_SESSION_TERMINAL_STATUSES = new Set(["failed", "stopped", "timeout"])
+const FINAL_TOOL_STATES = new Set(["output-available", "output-error", "output-denied"])
+
+const getAgentSessionStatusClassName = (status: string) =>
+  cn(
+    "text-[10px] font-normal",
+    AGENT_SESSION_TERMINAL_STATUSES.has(status)
+      ? "text-red-600 dark:text-red-400"
+      : "text-muted-foreground/80"
+  )
+
+const formatAgentSessionInput = (toolName: string, input: AgentSessionInput | undefined) => {
+  if (!input) {
+    return toolName
+  }
+
+  if ("agent" in input) {
+    return `${input.agent} ${input.mode} ${input.cwd}`
+  }
+
+  if ("key" in input || "text" in input) {
+    const parts = [input.sessionId]
+    if (input.text) {
+      parts.push(JSON.stringify(input.text))
+    }
+    if (input.key) {
+      parts.push(input.key)
+    }
+    return parts.join(" ")
+  }
+
+  return input.sessionId
+}
+
+const formatAgentSessionTranscript = (
+  input: AgentSessionInput | undefined,
+  output: AgentSessionOutput,
+  labels: {
+    session: string
+    status: string
+    exit: (code: number) => string
+    nextOffset: (nextOffset: number) => string
+  }
+) => {
+  const lines = [
+    `$ ${output.commandPreview || formatAgentSessionInput("agent session", input)}`,
+    `[${labels.session}] ${output.sessionId}`,
+    `[${labels.status}] ${output.status}${
+      output.exitCode === null ? "" : `, ${labels.exit(output.exitCode)}`
+    }`,
+    output.output
+  ]
+
+  if (output.nextOffset !== null) {
+    lines.push(`[${labels.nextOffset(output.nextOffset)}]`)
+  }
+
+  return lines.filter(Boolean).join("\n")
 }
 
 type ToolCallFrameProps = {
@@ -226,6 +303,61 @@ export const ToolCallTimelineItem = memo(
           outputContent={output ? <ToolCallBashExecResults input={input} result={output} /> : null}
           errorContent={<ToolCallOutputError input={input} errorText={part.errorText} />}
           deniedContent={<ToolCallOutputDenied input={input} message={part.errorText} />}
+        />
+      )
+    }
+
+    if (
+      part.type === "tool-agentSessionStart" ||
+      part.type === "tool-agentSessionRead" ||
+      part.type === "tool-agentSessionSend" ||
+      part.type === "tool-agentSessionStop"
+    ) {
+      const input = part.input as AgentSessionInput | undefined
+      const output = part.state === "output-available" ? (part.output as AgentSessionOutput) : null
+      const inputText = formatAgentSessionInput(toolName, input)
+
+      return (
+        <ToolCallFrame
+          part={part}
+          toolName={toolName}
+          onToolApprovalResponse={onToolApprovalResponse}
+          duration={duration}
+          triggerProps={{
+            icon: <BotIcon className="size-3.5 transition-colors" />,
+            getToolMessage: (agentToolName, state) => {
+              const displayName = t(`names.${agentToolName}`, { defaultValue: agentToolName })
+              return FINAL_TOOL_STATES.has(state) ? (
+                displayName
+              ) : (
+                <Shimmer duration={1}>{displayName}</Shimmer>
+              )
+            },
+            trailingContent:
+              output?.status !== undefined ? (
+                <span className={getAgentSessionStatusClassName(output.status)}>
+                  {t(`agentSession.status.${output.status}`)}
+                </span>
+              ) : null
+          }}
+          inputContent={<ToolCallCopyablePre displayText={inputText} />}
+          approvalContent={<ToolCallCopyablePre displayText={inputText} />}
+          outputContent={
+            output ? (
+              <Terminal
+                className="max-w-full"
+                isStreaming={output.status === "running"}
+                output={formatAgentSessionTranscript(input, output, {
+                  session: t("agentSession.session"),
+                  status: t("agentSession.statusLabel"),
+                  exit: code => t("agentSession.exitCode", { code }),
+                  nextOffset: nextOffset => t("agentSession.nextOffset", { nextOffset })
+                })}
+              />
+            ) : null
+          }
+          errorContent={<ToolCallOutputError errorText={part.errorText} />}
+          deniedContent={<ToolCallOutputDenied message={part.errorText} />}
         />
       )
     }

@@ -153,4 +153,31 @@ description: smoke test
       fileKind: "skill-md"
     })
   })
+
+  it("should tag nested skill files with the nested skill name", async () => {
+    const appSupportDir = await mkdtemp(join(tmpdir(), "mind-flayer-read-nested-skill-"))
+    tempDirs.push(appSupportDir)
+    process.env.MINDFLAYER_APP_SUPPORT_DIR = appSupportDir
+
+    const skillDir = join(appSupportDir, "skills", "builtin", "coding-agent-skills", "codex")
+    const filePath = join(skillDir, "SKILL.md")
+    await mkdir(skillDir, { recursive: true })
+    await writeFile(
+      filePath,
+      `---
+name: codex
+description: Codex delegation
+---
+`,
+      "utf8"
+    )
+
+    const result = await executeReadTool({ filePath, offset: 0 })
+
+    expect(result.displayContext).toEqual({
+      kind: "skill",
+      skillName: "codex",
+      fileKind: "skill-md"
+    })
+  })
 })

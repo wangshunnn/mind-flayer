@@ -18,7 +18,10 @@
     "appendDailyMemory": "Append daily memory",
     "deleteWorkspaceFile": "Delete workspace file",
     "memorySearch": "Search memory",
-    "memoryGet": "Read memory"
+    "memoryGet": "Read memory",
+    "agentSessionStart": "Start agent session",
+    "agentSessionRead": "Read agent session",
+    "agentSessionStop": "Stop agent session"
   },
   "states": {
     "running": "Running...",
@@ -30,6 +33,19 @@
   "bashExecution": {
     "exitCode": "Exit {{code}}",
     "stderr": "stderr"
+  },
+  "agentSession": {
+    "commandFallback": "Agent session",
+    "session": "session",
+    "statusLabel": "status",
+    "exitCode": "exit {{code}}",
+    "nextOffset": "Next offset: {{nextOffset}}",
+    "status": {
+      "running": "Running",
+      "exited": "Completed",
+      "failed": "Failed",
+      "stopped": "Stopped"
+    }
   },
   "webSearch": {
     "searching": "Searching...",

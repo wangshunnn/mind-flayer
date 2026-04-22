@@ -1,13 +1,5 @@
 import { useControllableState } from "@radix-ui/react-use-controllable-state"
-import {
-  CheckIcon,
-  ChevronRightIcon,
-  CircleXIcon,
-  CopyIcon,
-  Loader2Icon,
-  TimerIcon,
-  XIcon
-} from "lucide-react"
+import { CheckIcon, ChevronRightIcon, CircleXIcon, CopyIcon, TimerIcon, XIcon } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -284,17 +276,14 @@ export const ToolCallContent = memo(
 // Sub-components for different tool states
 
 export type ToolCallInputStreamingProps = {
-  description: ReactNode
+  description?: ReactNode
 }
 
 export const ToolCallInputStreaming = memo(({ description }: ToolCallInputStreamingProps) => {
   const toolConstants = useToolConstants()
   return (
-    <div className="flex items-start gap-2 py-1">
-      <Loader2Icon className="mt-0.5 size-3.5 shrink-0 animate-spin" />
-      <div className="min-w-0 flex-1 text-xs text-muted-foreground">
-        {description ?? toolConstants.states.running}
-      </div>
+    <div className="py-1 text-xs text-muted-foreground">
+      {description ?? <Shimmer duration={1}>{toolConstants.states.running}</Shimmer>}
     </div>
   )
 })

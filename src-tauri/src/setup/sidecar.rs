@@ -1485,6 +1485,57 @@ mod tests {
     }
 
     #[test]
+    fn installs_nested_bundled_skill_group_and_removes_nested_stale_files() {
+        let app_support_dir = create_temp_dir("mind-flayer-bundled-nested-skills");
+        let nested_skill = app_support_dir
+            .join(GLOBAL_SKILLS_DIR_NAME)
+            .join(BUNDLED_SKILLS_DIR_NAME)
+            .join("coding-agent-skills")
+            .join("claude-code")
+            .join("SKILL.md");
+        let nested_stale_file = app_support_dir
+            .join(GLOBAL_SKILLS_DIR_NAME)
+            .join(BUNDLED_SKILLS_DIR_NAME)
+            .join("coding-agent-skills")
+            .join("claude-code")
+            .join("stale.txt");
+
+        fs::create_dir_all(
+            nested_skill
+                .parent()
+                .expect("nested skill file should have a parent"),
+        )
+        .expect("failed to create nested skill directory");
+        fs::write(&nested_skill, "custom nested skill content")
+            .expect("failed to seed nested skill file");
+        fs::write(&nested_stale_file, "stale nested skill content")
+            .expect("failed to seed nested stale skill file");
+
+        install_bundled_skills(
+            app_support_dir
+                .to_str()
+                .expect("temp dir should be valid utf-8"),
+        )
+        .expect("bundled skill installation should succeed");
+
+        let contents =
+            fs::read_to_string(&nested_skill).expect("nested skill file should still be readable");
+        assert!(contents.contains("name: claude-code"));
+        assert!(contents.contains("agentSessionStart"));
+        assert!(!nested_stale_file.exists());
+
+        let nested_codex_skill = app_support_dir
+            .join(GLOBAL_SKILLS_DIR_NAME)
+            .join(BUNDLED_SKILLS_DIR_NAME)
+            .join("coding-agent-skills")
+            .join("codex")
+            .join("SKILL.md");
+        assert!(nested_codex_skill.exists());
+
+        let _ = fs::remove_dir_all(app_support_dir);
+    }
+
+    #[test]
     fn migrates_legacy_bundled_skill_directory() {
         let app_support_dir = create_temp_dir("mind-flayer-bundled-skill-migration");
         let legacy_skill = app_support_dir

@@ -14,7 +14,10 @@
     "appendDailyMemory": "追加每日记忆",
     "deleteWorkspaceFile": "删除工作区文件",
     "memorySearch": "搜索记忆",
-    "memoryGet": "读取记忆"
+    "memoryGet": "读取记忆",
+    "agentSessionStart": "启动 Agent 会话",
+    "agentSessionRead": "读取 Agent 会话",
+    "agentSessionStop": "停止 Agent 会话"
   },
   "states": {
     "running": "运行中...",
@@ -26,6 +29,19 @@
   "bashExecution": {
     "exitCode": "退出码 {{code}}",
     "stderr": "stderr"
+  },
+  "agentSession": {
+    "commandFallback": "Agent 会话",
+    "session": "会话",
+    "statusLabel": "状态",
+    "exitCode": "退出码 {{code}}",
+    "nextOffset": "下一偏移：{{nextOffset}}",
+    "status": {
+      "running": "运行中",
+      "exited": "已完成",
+      "failed": "失败",
+      "stopped": "已停止"
+    }
   },
   "webSearch": {
     "searching": "正在搜索...",

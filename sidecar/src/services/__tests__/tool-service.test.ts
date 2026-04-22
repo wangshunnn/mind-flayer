@@ -61,6 +61,12 @@ describe("ToolService", () => {
       expect(tools.memoryGet).toBeDefined()
       expect(tools).toHaveProperty("bashExecution")
       expect(tools.bashExecution).toBeDefined()
+      expect(tools).toHaveProperty("agentSessionStart")
+      expect(tools.agentSessionStart).toBeDefined()
+      expect(tools).toHaveProperty("agentSessionRead")
+      expect(tools.agentSessionRead).toBeDefined()
+      expect(tools).toHaveProperty("agentSessionStop")
+      expect(tools.agentSessionStop).toBeDefined()
     })
 
     it("should return web search tool when enabled and available", () => {
@@ -102,6 +108,20 @@ describe("ToolService", () => {
       )
 
       consoleSpy.mockRestore()
+    })
+
+    it("should not expose coding agent session tools to channel requests", () => {
+      const tools = service.getRequestTools({
+        useWebSearch: false,
+        source: "channel"
+      })
+
+      expect(tools).toHaveProperty("read")
+      expect(tools).toHaveProperty("bashExecution")
+      expect(tools).not.toHaveProperty("agentSessionStart")
+      expect(tools).not.toHaveProperty("agentSessionRead")
+      expect(tools).not.toHaveProperty("agentSessionSend")
+      expect(tools).not.toHaveProperty("agentSessionStop")
     })
   })
 

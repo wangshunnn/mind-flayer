@@ -24,6 +24,10 @@ const toolConstants = {
   bashExecution: {
     exitCode: (code: number) => `Exit ${code}`
   },
+  agentSession: {
+    status: (status: string) => status,
+    nextOffset: (nextOffset: number) => `Next offset: ${nextOffset}`
+  },
   skillRead: {
     badge: "Skill",
     loaded: (skillName: string) => `Loaded skill ${skillName}`,
@@ -158,5 +162,22 @@ describe("getToolCallMeta", () => {
     } as unknown as ToolUIPart
 
     expect(getToolCallMeta(part, toolConstants)?.content).toBe("memory/2026-03-26.md")
+  })
+
+  it("shows agent session start context", () => {
+    const part = {
+      type: "tool-agentSessionStart",
+      toolCallId: "tool-7",
+      state: "output-available",
+      input: {
+        agent: "codex",
+        mode: "exec",
+        cwd: "/Users/USERNAME/project"
+      }
+    } as unknown as ToolUIPart
+
+    expect(getToolCallMeta(part, toolConstants)?.content).toBe(
+      "codex exec: /Users/USERNAME/project"
+    )
   })
 })

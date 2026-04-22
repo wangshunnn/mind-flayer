@@ -21,7 +21,10 @@ export function useToolConstants() {
         appendDailyMemory: t("names.appendDailyMemory"),
         deleteWorkspaceFile: t("names.deleteWorkspaceFile"),
         memorySearch: t("names.memorySearch"),
-        memoryGet: t("names.memoryGet")
+        memoryGet: t("names.memoryGet"),
+        agentSessionStart: t("names.agentSessionStart"),
+        agentSessionRead: t("names.agentSessionRead"),
+        agentSessionStop: t("names.agentSessionStop")
       },
       states: {
         running: t("states.running"),
@@ -49,6 +52,10 @@ export function useToolConstants() {
       },
       bashExecution: {
         exitCode: (code: number) => t("bashExecution.exitCode", { code })
+      },
+      agentSession: {
+        status: (status: string) => t(`agentSession.status.${status}`, { defaultValue: status }),
+        nextOffset: (nextOffset: number) => t("agentSession.nextOffset", { nextOffset })
       },
       skillRead: {
         badge: t("skillRead.badge"),

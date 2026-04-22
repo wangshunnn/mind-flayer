@@ -203,6 +203,11 @@ export async function getSkillFileDisplayContext(
   filePath: string,
   options?: { appSupportDir?: string }
 ): Promise<SkillFileDisplayContext | null> {
+  let resolvedFilePath = filePath
+  try {
+    resolvedFilePath = await realpath(filePath)
+  } catch {}
+
   for (const root of getSkillRoots(options)) {
     let resolvedSkillsRoot = root.absolutePath
     try {
@@ -215,18 +220,47 @@ export async function getSkillFileDisplayContext(
       )
     }
 
-    const relativePath = relative(resolvedSkillsRoot, filePath)
+    const relativePath = relative(resolvedSkillsRoot, resolvedFilePath)
     if (!relativePath || relativePath.startsWith("..") || isAbsolute(relativePath)) {
       continue
     }
 
     const pathSegments = relativePath.split(/[/\\]+/).filter(Boolean)
-    const skillName = pathSegments[0]
+    if (pathSegments.length === 1 && pathSegments[0] === SKILL_FILE_NAME) {
+      return {
+        kind: "skill",
+        skillName: "__root__",
+        fileKind: "skill-md"
+      }
+    }
+
+    let skillDirSegmentCount =
+      pathSegments[pathSegments.length - 1] === SKILL_FILE_NAME ? pathSegments.length - 1 : 0
+
+    if (skillDirSegmentCount === 0) {
+      for (let count = pathSegments.length - 1; count >= 1; count -= 1) {
+        const candidateSkillFile = resolve(
+          resolvedSkillsRoot,
+          ...pathSegments.slice(0, count),
+          SKILL_FILE_NAME
+        )
+        if (await pathExists(candidateSkillFile)) {
+          skillDirSegmentCount = count
+          break
+        }
+      }
+    }
+
+    if (skillDirSegmentCount === 0) {
+      continue
+    }
+
+    const skillName = pathSegments[skillDirSegmentCount - 1]
     if (!skillName) {
       continue
     }
 
-    const nestedSegments = pathSegments.slice(1)
+    const nestedSegments = pathSegments.slice(skillDirSegmentCount)
     const nestedPath = nestedSegments.join("/")
     let fileKind: SkillFileKind = "other"
 

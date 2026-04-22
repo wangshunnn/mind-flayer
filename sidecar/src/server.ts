@@ -4,6 +4,7 @@ import { ProxyAgent, setGlobalDispatcher } from "undici"
 import { createCorsMiddleware } from "./middleware/cors"
 import { errorHandler } from "./middleware/error-handler"
 import { registerRoutes } from "./routes"
+import { agentSessionService } from "./services/agent-session-service"
 import { ChannelRuntimeConfigService } from "./services/channel-runtime-config-service"
 import { providerService } from "./services/provider-service"
 import { TelegramBotService } from "./services/telegram-bot-service"
@@ -108,6 +109,7 @@ export async function startSidecar() {
 
   // Register shutdown handlers
   const shutdown = createShutdownHandler(globalAbortController, server, async () => {
+    await agentSessionService.stopAll()
     await telegramBotService.stop()
     await cleanupTransientSandboxes()
   })

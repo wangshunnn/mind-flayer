@@ -38,7 +38,7 @@
     "nextOffset": "下一偏移：{{nextOffset}}",
     "status": {
       "running": "运行中",
-      "exited": "已退出",
+      "exited": "已完成",
       "failed": "失败",
       "stopped": "已停止"
     }

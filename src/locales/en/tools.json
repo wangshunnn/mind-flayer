@@ -42,7 +42,7 @@
     "nextOffset": "Next offset: {{nextOffset}}",
     "status": {
       "running": "Running",
-      "exited": "Exited",
+      "exited": "Completed",
       "failed": "Failed",
       "stopped": "Stopped"
     }

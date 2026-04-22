@@ -31,7 +31,6 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import type {
   AgentSessionOutput,
   AgentSessionReadInput,
-  AgentSessionSendInput,
   AgentSessionStartInput,
   AgentSessionStopInput,
   ReadToolDisplayContext,
@@ -83,11 +82,7 @@ const ToolCallStructuredBlock = ({ value }: { value: unknown }) => {
   )
 }
 
-type AgentSessionInput =
-  | AgentSessionStartInput
-  | AgentSessionReadInput
-  | AgentSessionSendInput
-  | AgentSessionStopInput
+type AgentSessionInput = AgentSessionStartInput | AgentSessionReadInput | AgentSessionStopInput
 
 const AGENT_SESSION_TERMINAL_STATUSES = new Set(["failed", "stopped", "timeout"])
 const FINAL_TOOL_STATES = new Set(["output-available", "output-error", "output-denied"])
@@ -109,17 +104,6 @@ const formatAgentSessionInput = (toolName: string, input: AgentSessionInput | un
     return `${input.agent} ${input.mode} ${input.cwd}`
   }
 
-  if ("key" in input || "text" in input) {
-    const parts = [input.sessionId]
-    if (input.text) {
-      parts.push(JSON.stringify(input.text))
-    }
-    if (input.key) {
-      parts.push(input.key)
-    }
-    return parts.join(" ")
-  }
-
   return input.sessionId
 }
 
@@ -127,6 +111,7 @@ const formatAgentSessionTranscript = (
   input: AgentSessionInput | undefined,
   output: AgentSessionOutput,
   labels: {
+    commandFallback: string
     session: string
     status: string
     exit: (code: number) => string
@@ -134,7 +119,7 @@ const formatAgentSessionTranscript = (
   }
 ) => {
   const lines = [
-    `$ ${output.commandPreview || formatAgentSessionInput("agent session", input)}`,
+    `$ ${output.commandPreview || formatAgentSessionInput(labels.commandFallback, input)}`,
     `[${labels.session}] ${output.sessionId}`,
     `[${labels.status}] ${output.status}${
       output.exitCode === null ? "" : `, ${labels.exit(output.exitCode)}`
@@ -192,7 +177,7 @@ const ToolCallFrame = ({
         {(part.state === "input-streaming" ||
           part.state === "input-available" ||
           part.state === "approval-responded") && (
-          <ToolCallInputStreaming description={inputContent ?? toolName} />
+          <ToolCallInputStreaming description={inputContent} />
         )}
         {part.state === "approval-requested" && approvalId && (
           <ToolCallApprovalRequested
@@ -310,12 +295,12 @@ export const ToolCallTimelineItem = memo(
     if (
       part.type === "tool-agentSessionStart" ||
       part.type === "tool-agentSessionRead" ||
-      part.type === "tool-agentSessionSend" ||
       part.type === "tool-agentSessionStop"
     ) {
       const input = part.input as AgentSessionInput | undefined
       const output = part.state === "output-available" ? (part.output as AgentSessionOutput) : null
-      const inputText = formatAgentSessionInput(toolName, input)
+      const translatedToolName = t(`names.${toolName}`, { defaultValue: toolName })
+      const inputText = formatAgentSessionInput(translatedToolName, input)
 
       return (
         <ToolCallFrame
@@ -348,6 +333,7 @@ export const ToolCallTimelineItem = memo(
                 className="max-w-full"
                 isStreaming={output.status === "running"}
                 output={formatAgentSessionTranscript(input, output, {
+                  commandFallback: t("agentSession.commandFallback"),
                   session: t("agentSession.session"),
                   status: t("agentSession.statusLabel"),
                   exit: code => t("agentSession.exitCode", { code }),

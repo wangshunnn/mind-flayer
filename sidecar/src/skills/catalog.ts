@@ -203,6 +203,11 @@ export async function getSkillFileDisplayContext(
   filePath: string,
   options?: { appSupportDir?: string }
 ): Promise<SkillFileDisplayContext | null> {
+  let resolvedFilePath = filePath
+  try {
+    resolvedFilePath = await realpath(filePath)
+  } catch {}
+
   for (const root of getSkillRoots(options)) {
     let resolvedSkillsRoot = root.absolutePath
     try {
@@ -215,12 +220,20 @@ export async function getSkillFileDisplayContext(
       )
     }
 
-    const relativePath = relative(resolvedSkillsRoot, filePath)
+    const relativePath = relative(resolvedSkillsRoot, resolvedFilePath)
     if (!relativePath || relativePath.startsWith("..") || isAbsolute(relativePath)) {
       continue
     }
 
     const pathSegments = relativePath.split(/[/\\]+/).filter(Boolean)
+    if (pathSegments.length === 1 && pathSegments[0] === SKILL_FILE_NAME) {
+      return {
+        kind: "skill",
+        skillName: "__root__",
+        fileKind: "skill-md"
+      }
+    }
+
     let skillDirSegmentCount =
       pathSegments[pathSegments.length - 1] === SKILL_FILE_NAME ? pathSegments.length - 1 : 0
 
@@ -239,7 +252,7 @@ export async function getSkillFileDisplayContext(
     }
 
     if (skillDirSegmentCount === 0) {
-      skillDirSegmentCount = 1
+      continue
     }
 
     const skillName = pathSegments[skillDirSegmentCount - 1]

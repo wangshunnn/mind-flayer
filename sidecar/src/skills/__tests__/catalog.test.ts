@@ -2,7 +2,13 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
-import { discoverSkills, getSkillById, getSkillDetailById, uninstallUserSkill } from "../catalog"
+import {
+  discoverSkills,
+  getSkillById,
+  getSkillDetailById,
+  getSkillFileDisplayContext,
+  uninstallUserSkill
+} from "../catalog"
 
 async function writeSkill(
   appSupportDir: string,
@@ -299,6 +305,47 @@ Nested body
     await expect(getSkillById("user:coding-agent-skills/codex", { appSupportDir })).resolves.toBe(
       null
     )
+  })
+
+  it("returns null for grouping files without a containing skill", async () => {
+    const appSupportDir = await mkdtemp(join(tmpdir(), "mind-flayer-skill-display-context-"))
+    tempDirs.push(appSupportDir)
+
+    const groupingFile = join(
+      appSupportDir,
+      "skills",
+      "builtin",
+      "coding-agent-skills",
+      "README.md"
+    )
+    await writeSkillAsset(appSupportDir, "builtin", "coding-agent-skills/README.md", "# Grouping")
+
+    await expect(getSkillFileDisplayContext(groupingFile, { appSupportDir })).resolves.toBeNull()
+  })
+
+  it("treats root SKILL.md as a root skill file", async () => {
+    const appSupportDir = await mkdtemp(join(tmpdir(), "mind-flayer-root-skill-"))
+    tempDirs.push(appSupportDir)
+
+    await writeSkill(
+      appSupportDir,
+      "builtin",
+      "",
+      `---
+name: root-skill
+description: Root skill
+---
+
+# Root
+`
+    )
+
+    const filePath = join(appSupportDir, "skills", "builtin", "SKILL.md")
+    await expect(getSkillFileDisplayContext(filePath, { appSupportDir })).resolves.toEqual({
+      kind: "skill",
+      skillName: "__root__",
+      fileKind: "skill-md"
+    })
   })
 
   it("resolves explicit and default skill icons", async () => {

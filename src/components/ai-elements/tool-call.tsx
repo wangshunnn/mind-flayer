@@ -276,14 +276,14 @@ export const ToolCallContent = memo(
 // Sub-components for different tool states
 
 export type ToolCallInputStreamingProps = {
-  description: ReactNode
+  description?: ReactNode
 }
 
 export const ToolCallInputStreaming = memo(({ description }: ToolCallInputStreamingProps) => {
   const toolConstants = useToolConstants()
   return (
     <div className="py-1 text-xs text-muted-foreground">
-      {description ?? toolConstants.states.running}
+      {description ?? <Shimmer duration={1}>{toolConstants.states.running}</Shimmer>}
     </div>
   )
 })

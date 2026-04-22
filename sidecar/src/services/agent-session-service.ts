@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto"
 import { constants as fsConstants } from "node:fs"
 import { access, mkdir, readFile, realpath, rm, stat } from "node:fs/promises"
 import { homedir, tmpdir } from "node:os"
-import { delimiter, isAbsolute, relative, resolve } from "node:path"
+import { delimiter, isAbsolute, normalize, parse, relative, resolve } from "node:path"
 import { getRestrictedPath } from "../tools/bash-exec/executor"
 
 export type AgentSessionAgent = "claude-code" | "codex"
@@ -11,7 +11,6 @@ export type AgentSessionMode = "print" | "interactive" | "exec" | "review"
 export type AgentSessionRunMode = "foreground" | "background"
 export type AgentSessionPermissionPreset = "default" | "read-only" | "workspace-write" | "plan"
 export type AgentSessionStatus = "running" | "exited" | "failed" | "stopped"
-export type AgentSessionSendKey = "Enter" | "Down" | "Up" | "CtrlC" | "CtrlD" | "Esc"
 
 export interface AgentSessionStartInput {
   agent: AgentSessionAgent
@@ -23,12 +22,6 @@ export interface AgentSessionStartInput {
   permissionPreset?: AgentSessionPermissionPreset
   extraAllowedDirs?: string[]
   skipGitRepoCheck?: boolean
-}
-
-export interface AgentSessionSendInput {
-  sessionId: string
-  text?: string
-  key?: AgentSessionSendKey
 }
 
 export interface AgentSessionReadInput {
@@ -71,10 +64,11 @@ type SessionRecord = {
   startedAt: Date
   updatedAt: Date
   commandPreview: string
-  output: string
+  outputBuffer: Buffer
   outputBaseOffset: number
   child: ChildProcessWithoutNullStreams
   timeoutHandle: NodeJS.Timeout | null
+  cleanupHandle: NodeJS.Timeout | null
   outputLastMessagePath: string | null
   finalizeOutputPromise: Promise<void> | null
 }
@@ -89,9 +83,12 @@ const DEFAULT_READ_BYTES = 50 * 1024
 const MAX_READ_BYTES = 100 * 1024
 const DEFAULT_FOREGROUND_TIMEOUT_SECONDS = 300
 const MAX_TIMEOUT_SECONDS = 3600
+const COMPLETED_SESSION_TTL_MS = 30 * 60 * 1000
+const MAX_RETAINED_COMPLETED_SESSIONS = 50
 const CRITICAL_CWD_PREFIXES = ["/System", "/usr", "/bin", "/sbin", "/etc"]
 const CRITICAL_CWD_EXACT = new Set(["/", "/private", "/var"])
 const AGENT_SESSION_TEMP_DIR_NAME = "mind-flayer-agent-sessions"
+const WINDOWS_DEFAULT_PATHEXT = [".COM", ".EXE", ".BAT", ".CMD"]
 
 interface BuildAgentSessionCommandOptions {
   outputLastMessagePath?: string
@@ -107,12 +104,47 @@ function expandUserPath(path: string): string {
   return path
 }
 
-function normalizePath(path: string): string {
-  return resolve(expandUserPath(path))
+function isWindowsPlatform(): boolean {
+  return process.platform === "win32"
+}
+
+function stripTrailingSeparators(path: string): string {
+  const resolvedPath = normalize(resolve(path))
+  const { root } = parse(resolvedPath)
+  return resolvedPath === root ? resolvedPath : resolvedPath.replace(/[\\/]+$/, "")
+}
+
+function normalizePathForComparison(path: string): string {
+  const normalizedPath = stripTrailingSeparators(path)
+  return isWindowsPlatform() ? normalizedPath.toLowerCase() : normalizedPath
+}
+
+function isSameOrDescendantPath(parent: string, child: string): boolean {
+  const normalizedParent = normalizePathForComparison(parent)
+  const normalizedChild = normalizePathForComparison(child)
+
+  if (normalizedParent === normalizedChild) {
+    return true
+  }
+
+  const separator = isWindowsPlatform() ? "\\" : "/"
+  return normalizedChild.startsWith(`${normalizedParent}${separator}`)
+}
+
+function normalizePath(path: string, label: string): string {
+  const expandedPath = expandUserPath(path)
+  if (!isAbsolute(expandedPath)) {
+    throw new Error(`${label} '${path}' must be an absolute path`)
+  }
+
+  return resolve(expandedPath)
 }
 
 function isPathInside(parent: string, child: string): boolean {
-  const relativePath = relative(parent, child)
+  const relativePath = relative(
+    normalizePathForComparison(parent),
+    normalizePathForComparison(child)
+  )
   return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath))
 }
 
@@ -328,18 +360,36 @@ async function createOutputLastMessagePath(
 
 async function assertExecutableExists(executable: string): Promise<void> {
   const searchPath = getRestrictedPath().split(delimiter).filter(Boolean)
+  const isWindows = isWindowsPlatform()
+  const accessMode = isWindows ? fsConstants.F_OK : fsConstants.X_OK
+  const hasExtension = /\.[^\\/]+$/.test(executable)
+  const executableCandidates = isWindows
+    ? hasExtension
+      ? [executable]
+      : [
+          executable,
+          ...(process.env.PATHEXT ?? WINDOWS_DEFAULT_PATHEXT.join(";"))
+            .split(";")
+            .map(extension => extension.trim())
+            .filter(Boolean)
+            .map(extension => `${executable}${extension}`)
+        ]
+    : [executable]
+
   for (const pathEntry of searchPath) {
-    try {
-      await access(resolve(pathEntry, executable), fsConstants.X_OK)
-      return
-    } catch {}
+    for (const candidate of executableCandidates) {
+      try {
+        await access(resolve(pathEntry, candidate), accessMode)
+        return
+      } catch {}
+    }
   }
 
   throw new Error(`Required CLI '${executable}' was not found in PATH`)
 }
 
 async function resolveDirectory(path: string, label: string): Promise<string> {
-  const normalizedPath = normalizePath(path)
+  const normalizedPath = normalizePath(path, label)
   let resolvedPath: string
   let fileInfo: Awaited<ReturnType<typeof stat>>
 
@@ -362,12 +412,42 @@ async function resolveDirectory(path: string, label: string): Promise<string> {
 }
 
 function assertSafeWorkingDirectory(cwd: string): void {
-  const home = homedir()
-  if (cwd === home || CRITICAL_CWD_EXACT.has(cwd)) {
+  if (normalizePathForComparison(cwd) === normalizePathForComparison(homedir())) {
     throw new Error("cwd must be a specific project directory, not a filesystem root")
   }
 
-  if (CRITICAL_CWD_PREFIXES.some(prefix => cwd === prefix || cwd.startsWith(`${prefix}/`))) {
+  if (isWindowsPlatform()) {
+    const normalizedCwd = stripTrailingSeparators(cwd)
+    const { root } = parse(normalizedCwd)
+    const windowsCriticalPrefixes = [
+      process.env.SystemRoot,
+      process.env.ProgramFiles,
+      process.env["ProgramFiles(x86)"],
+      process.env.ProgramW6432
+    ]
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      .map(prefix => stripTrailingSeparators(prefix))
+
+    if (normalizePathForComparison(normalizedCwd) === normalizePathForComparison(root)) {
+      throw new Error("cwd must be a specific project directory, not a filesystem root")
+    }
+
+    if (windowsCriticalPrefixes.some(prefix => isSameOrDescendantPath(prefix, normalizedCwd))) {
+      throw new Error(`Refusing to run an external coding agent in critical directory '${cwd}'`)
+    }
+
+    return
+  }
+
+  if (
+    Array.from(CRITICAL_CWD_EXACT).some(
+      criticalPath => normalizePathForComparison(cwd) === normalizePathForComparison(criticalPath)
+    )
+  ) {
+    throw new Error("cwd must be a specific project directory, not a filesystem root")
+  }
+
+  if (CRITICAL_CWD_PREFIXES.some(prefix => isSameOrDescendantPath(prefix, cwd))) {
     throw new Error(`Refusing to run an external coding agent in critical directory '${cwd}'`)
   }
 }
@@ -446,23 +526,6 @@ async function normalizeStartInput(input: AgentSessionStartInput): Promise<{
   }
 }
 
-function getSendKeySequence(key: AgentSessionSendKey): string {
-  switch (key) {
-    case "Enter":
-      return "\n"
-    case "Down":
-      return "\u001b[B"
-    case "Up":
-      return "\u001b[A"
-    case "CtrlC":
-      return "\u0003"
-    case "CtrlD":
-      return "\u0004"
-    case "Esc":
-      return "\u001b"
-  }
-}
-
 export class AgentSessionService {
   private sessions = new Map<string, SessionRecord>()
 
@@ -498,10 +561,11 @@ export class AgentSessionService {
       startedAt: now,
       updatedAt: now,
       commandPreview,
-      output: "",
+      outputBuffer: Buffer.alloc(0),
       outputBaseOffset: 0,
       child,
       timeoutHandle: null,
+      cleanupHandle: null,
       outputLastMessagePath,
       finalizeOutputPromise: null
     }
@@ -525,29 +589,15 @@ export class AgentSessionService {
     }
 
     await this.waitForExit(session)
-    return this.toToolOutput(session)
+    const output = this.toToolOutput(session)
+    this.removeSession(session.sessionId)
+    return output
   }
 
-  read(input: AgentSessionReadInput): AgentSessionToolOutput {
+  async read(input: AgentSessionReadInput): Promise<AgentSessionToolOutput> {
     const session = this.getSession(input.sessionId)
+    await session.finalizeOutputPromise
     return this.toToolOutput(session, input.offset, input.maxBytes)
-  }
-
-  send(input: AgentSessionSendInput): AgentSessionToolOutput {
-    const session = this.getSession(input.sessionId)
-    if (session.status !== "running") {
-      throw new Error(`Agent session '${input.sessionId}' is not running`)
-    }
-
-    const text = input.text ?? ""
-    const keySequence = input.key ? getSendKeySequence(input.key) : ""
-    if (!text && !keySequence) {
-      throw new Error("Either text or key is required")
-    }
-
-    session.child.stdin.write(`${text}${keySequence}`)
-    session.updatedAt = new Date()
-    return this.toToolOutput(session)
   }
 
   stop(input: AgentSessionStopInput): AgentSessionToolOutput {
@@ -585,6 +635,7 @@ export class AgentSessionService {
       session.status = "failed"
       session.updatedAt = new Date()
       this.clearSessionTimeout(session)
+      this.scheduleSessionCleanup(session)
     })
     session.child.on("close", code => {
       if (session.status === "running") {
@@ -594,6 +645,7 @@ export class AgentSessionService {
       session.updatedAt = new Date()
       this.clearSessionTimeout(session)
       session.finalizeOutputPromise = this.finalizeOutput(session)
+      this.scheduleSessionCleanup(session)
     })
   }
 
@@ -614,7 +666,7 @@ export class AgentSessionService {
       const lastMessage = await readFile(session.outputLastMessagePath, "utf8")
       const trimmedMessage = lastMessage.trimEnd()
       if (trimmedMessage) {
-        session.output = trimmedMessage
+        session.outputBuffer = Buffer.from(trimmedMessage, "utf8")
         session.outputBaseOffset = 0
         session.updatedAt = new Date()
       }
@@ -632,12 +684,12 @@ export class AgentSessionService {
   }
 
   private appendOutput(session: SessionRecord, text: string): void {
-    session.output += text
+    session.outputBuffer = Buffer.concat([session.outputBuffer, Buffer.from(text, "utf8")])
 
-    while (Buffer.byteLength(session.output, "utf8") > MAX_SESSION_OUTPUT_BYTES) {
-      const removeLength = Math.ceil(session.output.length / 4)
-      session.output = session.output.slice(removeLength)
-      session.outputBaseOffset += removeLength
+    if (session.outputBuffer.byteLength > MAX_SESSION_OUTPUT_BYTES) {
+      const bytesToTrim = session.outputBuffer.byteLength - MAX_SESSION_OUTPUT_BYTES
+      session.outputBuffer = session.outputBuffer.subarray(bytesToTrim)
+      session.outputBaseOffset += bytesToTrim
     }
 
     session.updatedAt = new Date()
@@ -648,6 +700,53 @@ export class AgentSessionService {
       clearTimeout(session.timeoutHandle)
       session.timeoutHandle = null
     }
+  }
+
+  private clearSessionCleanup(session: SessionRecord): void {
+    if (session.cleanupHandle) {
+      clearTimeout(session.cleanupHandle)
+      session.cleanupHandle = null
+    }
+  }
+
+  private removeSession(sessionId: string): void {
+    const session = this.sessions.get(sessionId)
+    if (!session) {
+      return
+    }
+
+    this.clearSessionTimeout(session)
+    this.clearSessionCleanup(session)
+    session.finalizeOutputPromise = null
+    this.sessions.delete(sessionId)
+  }
+
+  private pruneCompletedSessions(): void {
+    const completedSessions = Array.from(this.sessions.values())
+      .filter(session => session.status !== "running")
+      .sort((left, right) => left.updatedAt.getTime() - right.updatedAt.getTime())
+
+    while (completedSessions.length > MAX_RETAINED_COMPLETED_SESSIONS) {
+      const oldestSession = completedSessions.shift()
+      if (!oldestSession) {
+        return
+      }
+
+      this.removeSession(oldestSession.sessionId)
+    }
+  }
+
+  private scheduleSessionCleanup(session: SessionRecord): void {
+    if (session.status === "running" || !this.sessions.has(session.sessionId)) {
+      return
+    }
+
+    this.clearSessionCleanup(session)
+    session.cleanupHandle = setTimeout(() => {
+      this.removeSession(session.sessionId)
+    }, COMPLETED_SESSION_TTL_MS)
+
+    this.pruneCompletedSessions()
   }
 
   private stopSessionRecord(session: SessionRecord, status: AgentSessionStatus): void {
@@ -667,14 +766,15 @@ export class AgentSessionService {
   }
 
   private waitForExit(session: SessionRecord): Promise<void> {
-    if (session.status !== "running") {
-      return Promise.resolve()
-    }
+    const waitForProcess =
+      session.status !== "running"
+        ? Promise.resolve()
+        : new Promise<void>(resolvePromise => {
+            session.child.once("close", () => resolvePromise())
+            session.child.once("error", () => resolvePromise())
+          })
 
-    return new Promise<void>(resolvePromise => {
-      session.child.once("close", () => resolvePromise())
-      session.child.once("error", () => resolvePromise())
-    }).then(async () => {
+    return waitForProcess.then(async () => {
       await session.finalizeOutputPromise
     })
   }
@@ -687,9 +787,12 @@ export class AgentSessionService {
     const requestedOffset = Math.max(session.outputBaseOffset, offset ?? session.outputBaseOffset)
     const relativeOffset = Math.max(0, requestedOffset - session.outputBaseOffset)
     const normalizedMaxBytes = Math.min(Math.max(1, maxBytes ?? DEFAULT_READ_BYTES), MAX_READ_BYTES)
-    const content = session.output.slice(relativeOffset, relativeOffset + normalizedMaxBytes)
-    const absoluteEndOffset = session.outputBaseOffset + relativeOffset + content.length
-    const totalEndOffset = session.outputBaseOffset + session.output.length
+    const contentBuffer = session.outputBuffer.subarray(
+      relativeOffset,
+      relativeOffset + normalizedMaxBytes
+    )
+    const absoluteEndOffset = session.outputBaseOffset + relativeOffset + contentBuffer.byteLength
+    const totalEndOffset = session.outputBaseOffset + session.outputBuffer.byteLength
 
     return {
       sessionId: session.sessionId,
@@ -700,7 +803,7 @@ export class AgentSessionService {
       exitCode: session.exitCode,
       startedAt: session.startedAt.toISOString(),
       updatedAt: session.updatedAt.toISOString(),
-      output: content,
+      output: contentBuffer.toString("utf8"),
       nextOffset: absoluteEndOffset < totalEndOffset ? absoluteEndOffset : null,
       commandPreview: session.commandPreview
     }

@@ -6,7 +6,7 @@
 import { execFile, spawn } from "node:child_process"
 import { existsSync, readdirSync } from "node:fs"
 import { homedir } from "node:os"
-import { delimiter, dirname, isAbsolute, join, relative } from "node:path"
+import { delimiter, dirname, isAbsolute, join, normalize, relative } from "node:path"
 import { promisify } from "node:util"
 
 const execFileAsync = promisify(execFile)
@@ -16,38 +16,72 @@ const USER_HOME = homedir()
 // Start with common system locations, then append trusted user-managed runtime
 // directories so node/npm/pnpm from nvm/asdf/volta-style installs stay usable
 // without opening execution to arbitrary PATH entries.
-const BASE_RESTRICTED_PATH_ENTRIES = [
-  "/usr/bin",
-  "/bin",
-  "/usr/local/bin",
-  "/usr/sbin",
-  "/sbin",
-  "/opt/homebrew/bin",
-  "/opt/homebrew/sbin"
-] as const
+const BASE_RESTRICTED_PATH_ENTRIES =
+  process.platform === "win32"
+    ? [
+        process.env.SystemRoot ? join(process.env.SystemRoot, "System32") : undefined,
+        process.env.SystemRoot,
+        process.env.ProgramFiles ? join(process.env.ProgramFiles, "nodejs") : undefined,
+        process.env["ProgramFiles(x86)"]
+          ? join(process.env["ProgramFiles(x86)"], "nodejs")
+          : undefined,
+        process.env.LOCALAPPDATA
+          ? join(process.env.LOCALAPPDATA, "Microsoft", "WindowsApps")
+          : undefined,
+        process.env.APPDATA ? join(process.env.APPDATA, "npm") : undefined
+      ]
+    : [
+        "/usr/bin",
+        "/bin",
+        "/usr/local/bin",
+        "/usr/sbin",
+        "/sbin",
+        "/opt/homebrew/bin",
+        "/opt/homebrew/sbin"
+      ]
 
-const TRUSTED_USER_PATH_PREFIXES = [
-  join(USER_HOME, ".asdf"),
-  join(USER_HOME, ".bun"),
-  join(USER_HOME, ".fnm"),
-  join(USER_HOME, ".local", "bin"),
-  join(USER_HOME, ".local", "share", "fnm"),
-  join(USER_HOME, ".local", "share", "mise"),
-  join(USER_HOME, ".mise"),
-  join(USER_HOME, ".nvm"),
-  join(USER_HOME, ".volta"),
-  join(USER_HOME, "Library", "pnpm")
-] as const
+const TRUSTED_USER_PATH_PREFIXES =
+  process.platform === "win32"
+    ? [
+        process.env.APPDATA ? join(process.env.APPDATA, "npm") : undefined,
+        process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Programs") : undefined,
+        process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Volta") : undefined,
+        process.env.LOCALAPPDATA
+          ? join(process.env.LOCALAPPDATA, "Microsoft", "WinGet", "Links")
+          : undefined
+      ]
+    : [
+        join(USER_HOME, ".asdf"),
+        join(USER_HOME, ".bun"),
+        join(USER_HOME, ".fnm"),
+        join(USER_HOME, ".local", "bin"),
+        join(USER_HOME, ".local", "share", "fnm"),
+        join(USER_HOME, ".local", "share", "mise"),
+        join(USER_HOME, ".mise"),
+        join(USER_HOME, ".nvm"),
+        join(USER_HOME, ".volta"),
+        join(USER_HOME, "Library", "pnpm")
+      ]
 
-const DISCOVERED_USER_PATH_CANDIDATES = [
-  join(USER_HOME, ".asdf", "shims"),
-  join(USER_HOME, ".bun", "bin"),
-  join(USER_HOME, ".local", "bin"),
-  join(USER_HOME, ".local", "share", "mise", "shims"),
-  join(USER_HOME, ".mise", "shims"),
-  join(USER_HOME, ".volta", "bin"),
-  join(USER_HOME, "Library", "pnpm")
-] as const
+const DISCOVERED_USER_PATH_CANDIDATES =
+  process.platform === "win32"
+    ? [
+        process.env.APPDATA ? join(process.env.APPDATA, "npm") : undefined,
+        process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Programs", "pnpm") : undefined,
+        process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Volta", "bin") : undefined,
+        process.env.LOCALAPPDATA
+          ? join(process.env.LOCALAPPDATA, "Microsoft", "WinGet", "Links")
+          : undefined
+      ]
+    : [
+        join(USER_HOME, ".asdf", "shims"),
+        join(USER_HOME, ".bun", "bin"),
+        join(USER_HOME, ".local", "bin"),
+        join(USER_HOME, ".local", "share", "mise", "shims"),
+        join(USER_HOME, ".mise", "shims"),
+        join(USER_HOME, ".volta", "bin"),
+        join(USER_HOME, "Library", "pnpm")
+      ]
 
 const GRAPHICS_ENV_KEYS = [
   "DISPLAY",
@@ -88,13 +122,25 @@ function expandTilde(path: string): string {
   return path
 }
 
+function normalizePathEntry(pathEntry: string): string {
+  const expandedPath = expandTilde(pathEntry)
+  const normalizedPath = normalize(expandedPath)
+  return process.platform === "win32" ? normalizedPath.toLowerCase() : normalizedPath
+}
+
+function compactPaths(pathEntries: Array<string | undefined>): string[] {
+  return pathEntries.filter((pathEntry): pathEntry is string => Boolean(pathEntry?.trim()))
+}
+
 function isPathWithinPrefix(pathEntry: string, prefix: string): boolean {
-  const relativePath = relative(prefix, pathEntry)
+  const relativePath = relative(normalizePathEntry(prefix), normalizePathEntry(pathEntry))
   return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath))
 }
 
 function isTrustedUserPathEntry(pathEntry: string): boolean {
-  return TRUSTED_USER_PATH_PREFIXES.some(prefix => isPathWithinPrefix(pathEntry, prefix))
+  return compactPaths(TRUSTED_USER_PATH_PREFIXES).some(prefix =>
+    isPathWithinPrefix(pathEntry, prefix)
+  )
 }
 
 function listExistingPathEntries(pathEntries: readonly string[]): string[] {
@@ -129,14 +175,18 @@ function getInheritedTrustedPathEntries(): string[] {
 
 export function getRestrictedPath(): string {
   const discoveredUserPathEntries = [
-    ...listExistingPathEntries(DISCOVERED_USER_PATH_CANDIDATES),
-    ...discoverVersionedBinDirectories(join(USER_HOME, ".nvm", "versions", "node"), ["bin"]),
-    ...discoverVersionedBinDirectories(join(USER_HOME, ".nvm", "versions", "io.js"), ["bin"])
+    ...listExistingPathEntries(compactPaths(DISCOVERED_USER_PATH_CANDIDATES)),
+    ...(process.platform === "win32"
+      ? []
+      : discoverVersionedBinDirectories(join(USER_HOME, ".nvm", "versions", "node"), ["bin"])),
+    ...(process.platform === "win32"
+      ? []
+      : discoverVersionedBinDirectories(join(USER_HOME, ".nvm", "versions", "io.js"), ["bin"]))
   ]
 
   return Array.from(
     new Set([
-      ...BASE_RESTRICTED_PATH_ENTRIES,
+      ...compactPaths(BASE_RESTRICTED_PATH_ENTRIES),
       dirname(process.execPath),
       ...discoveredUserPathEntries,
       ...getInheritedTrustedPathEntries()

@@ -17,7 +17,6 @@
     "memoryGet": "读取记忆",
     "agentSessionStart": "启动 Agent 会话",
     "agentSessionRead": "读取 Agent 会话",
-    "agentSessionSend": "发送到 Agent 会话",
     "agentSessionStop": "停止 Agent 会话"
   },
   "states": {
@@ -32,6 +31,7 @@
     "stderr": "stderr"
   },
   "agentSession": {
+    "commandFallback": "Agent 会话",
     "session": "会话",
     "statusLabel": "状态",
     "exitCode": "退出码 {{code}}",

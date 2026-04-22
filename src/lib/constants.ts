@@ -24,7 +24,6 @@ export function useToolConstants() {
         memoryGet: t("names.memoryGet"),
         agentSessionStart: t("names.agentSessionStart"),
         agentSessionRead: t("names.agentSessionRead"),
-        agentSessionSend: t("names.agentSessionSend"),
         agentSessionStop: t("names.agentSessionStop")
       },
       states: {

@@ -63,12 +63,6 @@ export type AgentSessionReadInput = {
   maxBytes?: number
 }
 
-export type AgentSessionSendInput = {
-  sessionId: string
-  text?: string
-  key?: "Enter" | "Down" | "Up" | "CtrlC" | "CtrlD" | "Esc"
-}
-
 export type AgentSessionStopInput = {
   sessionId: string
 }
@@ -80,11 +74,6 @@ export type ToolAgentSessionStart = ToolUIPart & {
 
 export type ToolAgentSessionRead = ToolUIPart & {
   input?: AgentSessionReadInput
-  output?: AgentSessionOutput
-}
-
-export type ToolAgentSessionSend = ToolUIPart & {
-  input?: AgentSessionSendInput
   output?: AgentSessionOutput
 }
 
@@ -255,24 +244,15 @@ export const isAgentSessionReadToolUIPart = (
   tool: ToolUIPart | DynamicToolUIPart
 ): tool is ToolAgentSessionRead => tool.type === "tool-agentSessionRead"
 
-export const isAgentSessionSendToolUIPart = (
-  tool: ToolUIPart | DynamicToolUIPart
-): tool is ToolAgentSessionSend => tool.type === "tool-agentSessionSend"
-
 export const isAgentSessionStopToolUIPart = (
   tool: ToolUIPart | DynamicToolUIPart
 ): tool is ToolAgentSessionStop => tool.type === "tool-agentSessionStop"
 
 export const isAgentSessionToolUIPart = (
   tool: ToolUIPart | DynamicToolUIPart
-): tool is
-  | ToolAgentSessionStart
-  | ToolAgentSessionRead
-  | ToolAgentSessionSend
-  | ToolAgentSessionStop =>
+): tool is ToolAgentSessionStart | ToolAgentSessionRead | ToolAgentSessionStop =>
   isAgentSessionStartToolUIPart(tool) ||
   isAgentSessionReadToolUIPart(tool) ||
-  isAgentSessionSendToolUIPart(tool) ||
   isAgentSessionStopToolUIPart(tool)
 
 export const isReadToolUIPart = (tool: ToolUIPart | DynamicToolUIPart): tool is ToolRead =>
@@ -343,12 +323,7 @@ export function getToolCallMeta(
       }
     }
 
-    if (
-      (isAgentSessionReadToolUIPart(tool) ||
-        isAgentSessionSendToolUIPart(tool) ||
-        isAgentSessionStopToolUIPart(tool)) &&
-      tool.input
-    ) {
+    if ((isAgentSessionReadToolUIPart(tool) || isAgentSessionStopToolUIPart(tool)) && tool.input) {
       return {
         content: tool.output?.sessionId || tool.input.sessionId
       }

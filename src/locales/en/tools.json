@@ -21,7 +21,6 @@
     "memoryGet": "Read memory",
     "agentSessionStart": "Start agent session",
     "agentSessionRead": "Read agent session",
-    "agentSessionSend": "Send to agent session",
     "agentSessionStop": "Stop agent session"
   },
   "states": {
@@ -36,6 +35,7 @@
     "stderr": "stderr"
   },
   "agentSession": {
+    "commandFallback": "Agent session",
     "session": "session",
     "statusLabel": "status",
     "exitCode": "exit {{code}}",

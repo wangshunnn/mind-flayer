@@ -18,7 +18,6 @@ export function getToolIcon(toolName: string, className: string) {
       return <TerminalIcon className={className} />
     case "agentsessionstart":
     case "agentsessionread":
-    case "agentsessionsend":
     case "agentsessionstop":
       return <BotIcon className={className} />
     case "read":

@@ -1,7 +1,7 @@
 import type { LanguageModelUsage } from "ai"
 import { describe, expect, it } from "vitest"
 import { computeMessageUsageCost, getMessageUsageTokenBreakdown } from "@/lib/message-usage-cost"
-import type { ModelPricing } from "@/lib/provider-constants"
+import { findModelPricing, type ModelPricing } from "@/lib/provider-constants"
 
 function createUsage(overrides?: Partial<LanguageModelUsage>): LanguageModelUsage {
   return {
@@ -177,5 +177,27 @@ describe("computeMessageUsageCost", () => {
     expect(result.isEstimated).toBe(false)
     expect(result.hasAnyPricing).toBe(false)
     expect(result.missingPricingFields).toEqual(["input", "output", "cachedRead", "cachedWrite"])
+  })
+
+  it("treats DeepSeek cache write tokens as cache miss input", () => {
+    const usage = createUsage({
+      inputTokens: 3_000_000,
+      inputTokenDetails: {
+        noCacheTokens: 1_000_000,
+        cacheReadTokens: 1_000_000,
+        cacheWriteTokens: 1_000_000
+      },
+      outputTokens: 1_000_000,
+      totalTokens: 4_000_000
+    })
+
+    const result = computeMessageUsageCost(usage, findModelPricing("deepseek", "deepseek-v4-flash"))
+
+    expect(result.costs.input).toBeCloseTo(0.14, 10)
+    expect(result.costs.cachedRead).toBeCloseTo(0.028, 10)
+    expect(result.costs.cachedWrite).toBeCloseTo(0.14, 10)
+    expect(result.costs.output).toBeCloseTo(0.28, 10)
+    expect(result.costs.total).toBeCloseTo(0.588, 10)
+    expect(result.isEstimated).toBe(false)
   })
 })

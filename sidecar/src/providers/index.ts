@@ -1,4 +1,5 @@
 import { AnthropicProvider } from "./anthropic-provider"
+import { DeepSeekProvider } from "./deepseek-provider"
 import { MinimaxProvider } from "./minimax-provider"
 import { OpenAIProvider } from "./openai-provider"
 import { ProviderRegistry } from "./registry"
@@ -11,6 +12,7 @@ export const providerRegistry = new ProviderRegistry()
 
 // Register built-in providers
 providerRegistry.register(new AnthropicProvider())
+providerRegistry.register(new DeepSeekProvider())
 providerRegistry.register(new MinimaxProvider())
 providerRegistry.register(new OpenAIProvider())
 

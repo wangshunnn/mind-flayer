@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react"
 import { Bot, Search } from "lucide-react"
 import {
   AnthropicIcon,
+  DeepSeekIcon,
   GeminiIcon,
   KimiIcon,
   MinimaxIcon,
@@ -202,6 +203,40 @@ export const MODEL_PROVIDERS: Provider[] = [
           output: 15,
           cachedRead: 0.3,
           cachedWrite: 3.75
+        }
+      }
+    ]
+  },
+  {
+    id: "deepseek",
+    name: "DeepSeek",
+    defaultBaseUrl: "https://api.deepseek.com",
+    apiKeyUrl: "https://platform.deepseek.com/api_keys",
+    icon: Bot,
+    logo: DeepSeekIcon,
+    models: [
+      {
+        label: "DeepSeek-V4-Flash",
+        api_id: "deepseek-v4-flash",
+        contextWindow: 1_000_000,
+        pricing: {
+          currency: "USD",
+          input: 0.14,
+          output: 0.28,
+          cachedRead: 0.028,
+          cachedWrite: 0.14
+        }
+      },
+      {
+        label: "DeepSeek-V4-Pro",
+        api_id: "deepseek-v4-pro",
+        contextWindow: 1_000_000,
+        pricing: {
+          currency: "USD",
+          input: 1.74,
+          output: 3.48,
+          cachedRead: 0.145,
+          cachedWrite: 1.74
         }
       }
     ]

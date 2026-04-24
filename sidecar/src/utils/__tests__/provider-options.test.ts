@@ -94,4 +94,55 @@ describe("buildProviderOptions", () => {
       }
     })
   })
+
+  it("returns deepseek thinking enabled for v4 models", () => {
+    expect(
+      buildProviderOptions({
+        modelProvider: "deepseek",
+        modelId: "deepseek-v4-pro",
+        reasoningEnabled: true,
+        reasoningEffort: "xhigh"
+      })
+    ).toEqual({
+      deepseek: {
+        thinking: {
+          type: "enabled"
+        }
+      }
+    })
+  })
+
+  it("returns deepseek thinking disabled when reasoning is off", () => {
+    expect(
+      buildProviderOptions({
+        modelProvider: "deepseek",
+        modelId: "deepseek-v4-flash",
+        reasoningEnabled: false,
+        reasoningEffort: "high"
+      })
+    ).toEqual({
+      deepseek: {
+        thinking: {
+          type: "disabled"
+        }
+      }
+    })
+  })
+
+  it("does not pass deepseek reasoning effort until the AI SDK provider supports it", () => {
+    expect(
+      buildProviderOptions({
+        modelProvider: "deepseek",
+        modelId: "deepseek-v4-flash",
+        reasoningEnabled: true,
+        reasoningEffort: "low"
+      })
+    ).toEqual({
+      deepseek: {
+        thinking: {
+          type: "enabled"
+        }
+      }
+    })
+  })
 })

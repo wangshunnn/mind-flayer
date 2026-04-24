@@ -38,6 +38,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
+    "@ai-sdk/deepseek": "^2.0.29",
     "@ai-sdk/openai": "^3.0.41",
     "@ai-sdk/provider": "^3.0.8",
     "@ai-sdk/provider-utils": "^4.0.19",
@@ -116,6 +117,7 @@
     "overrides": {
       "ai": "$ai",
       "@ai-sdk/anthropic": "$@ai-sdk/anthropic",
+      "@ai-sdk/deepseek": "$@ai-sdk/deepseek",
       "@ai-sdk/openai": "$@ai-sdk/openai",
       "@ai-sdk/provider": "$@ai-sdk/provider",
       "@ai-sdk/provider-utils": "$@ai-sdk/provider-utils"

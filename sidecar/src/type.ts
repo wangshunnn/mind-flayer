@@ -26,7 +26,7 @@ export type ChannelRuntimeConfig = RuntimeConfig
 export type WebSearchMode = "auto" | "always"
 export type ReasoningEffort = "default" | "low" | "medium" | "high" | "xhigh"
 
-export type ProviderType = "minimax" | "anthropic" | "openai"
+export type ProviderType = "minimax" | "anthropic" | "deepseek" | "openai"
 
 export interface ConfigUpdateMessage {
   type: "config_update"

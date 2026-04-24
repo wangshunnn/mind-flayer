@@ -1,4 +1,5 @@
 export { AnthropicIcon } from "./anthropic-icon"
+export { DeepSeekIcon } from "./deepseek-icon"
 export { GeminiIcon } from "./gemini-icon"
 export { KimiIcon } from "./kimi-icon"
 export { MinimaxIcon } from "./minimax-icon"

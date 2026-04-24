@@ -78,6 +78,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     minimax: false,
     openai: false,
     anthropic: false,
+    deepseek: false,
     parallel: false
   },
   enabledChannels: {

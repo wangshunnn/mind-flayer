@@ -10,6 +10,9 @@ export const MODEL_PROVIDERS = {
   },
   anthropic: {
     defaultBaseUrl: "https://api.anthropic.com/v1"
+  },
+  deepseek: {
+    defaultBaseUrl: "https://api.deepseek.com"
   }
 } as const
 

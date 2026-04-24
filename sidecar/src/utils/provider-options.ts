@@ -1,4 +1,5 @@
 import type { AnthropicLanguageModelOptions } from "@ai-sdk/anthropic"
+import type { DeepSeekLanguageModelOptions } from "@ai-sdk/deepseek"
 import type { OpenAILanguageModelChatOptions } from "@ai-sdk/openai"
 import type { ProviderType, ReasoningEffort } from "../type"
 
@@ -14,6 +15,7 @@ const ANTHROPIC_REASONING_MODEL_PATTERNS = [
   /^claude-(sonnet|opus)-4-5(?:[.-]|$)/u,
   /^claude-(sonnet|opus)-4-6(?:[.-]|$)/u
 ] as const
+const DEEPSEEK_REASONING_MODEL_PREFIXES = ["deepseek-v4"] as const
 
 export interface ProviderOptionsConfig {
   modelProvider: string
@@ -32,6 +34,10 @@ function supportsAdjustableReasoningEffort(
 
   if (provider === "anthropic") {
     return ANTHROPIC_REASONING_MODEL_PATTERNS.some(pattern => pattern.test(modelId))
+  }
+
+  if (provider === "deepseek") {
+    return DEEPSEEK_REASONING_MODEL_PREFIXES.some(prefix => modelId.startsWith(prefix))
   }
 
   return false
@@ -90,6 +96,14 @@ function mapAnthropicReasoningEffort(
   } satisfies AnthropicLanguageModelOptions
 }
 
+function mapDeepSeekThinking(reasoningEnabled: boolean): DeepSeekLanguageModelOptions {
+  return {
+    thinking: {
+      type: reasoningEnabled ? "enabled" : "disabled"
+    }
+  } satisfies DeepSeekLanguageModelOptions
+}
+
 export function buildProviderOptions({
   modelProvider,
   modelId,
@@ -108,6 +122,10 @@ export function buildProviderOptions({
   if (modelProvider === "anthropic") {
     const anthropic = mapAnthropicReasoningEffort(reasoningEnabled, reasoningEffort)
     return Object.keys(anthropic).length ? { anthropic } : undefined
+  }
+
+  if (modelProvider === "deepseek") {
+    return { deepseek: mapDeepSeekThinking(reasoningEnabled) }
   }
 
   return undefined

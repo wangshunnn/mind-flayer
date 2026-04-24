@@ -34,11 +34,12 @@ describe("MODEL_PROVIDERS minimax pricing", () => {
 })
 
 describe("MODEL_PROVIDERS supported providers", () => {
-  it("includes openai and anthropic as active model providers", () => {
+  it("includes openai, anthropic, and deepseek as active model providers", () => {
     const providerIds = MODEL_PROVIDERS.map(provider => provider.id)
 
     expect(providerIds).toContain("openai")
     expect(providerIds).toContain("anthropic")
+    expect(providerIds).toContain("deepseek")
   })
 
   it("each active provider has name, defaultBaseUrl, and at least one model", () => {
@@ -91,23 +92,64 @@ describe("MODEL_PROVIDERS supported providers", () => {
           ],
           "name": "Anthropic",
         },
+        {
+          "defaultBaseUrl": "https://api.deepseek.com",
+          "id": "deepseek",
+          "modelIds": [
+            "deepseek-v4-flash",
+            "deepseek-v4-pro",
+          ],
+          "name": "DeepSeek",
+        },
       ]
     `)
   })
 
-  it("does not keep openai or anthropic in upcoming providers", () => {
+  it("does not keep openai, anthropic, or deepseek in upcoming providers", () => {
     const upcomingProviderIds = UPCOMING_PROVIDERS.map(provider => provider.id)
 
     expect(upcomingProviderIds).not.toContain("openai")
     expect(upcomingProviderIds).not.toContain("anthropic")
+    expect(upcomingProviderIds).not.toContain("deepseek")
   })
 
-  it("does not mark openai or anthropic as disabled", () => {
+  it("does not mark openai, anthropic, or deepseek as disabled", () => {
     const openaiProvider = MODEL_PROVIDERS.find(provider => provider.id === "openai")
     const anthropicProvider = MODEL_PROVIDERS.find(provider => provider.id === "anthropic")
+    const deepSeekProvider = MODEL_PROVIDERS.find(provider => provider.id === "deepseek")
 
     expect(openaiProvider?.disabled ?? false).toBe(false)
     expect(anthropicProvider?.disabled ?? false).toBe(false)
+    expect(deepSeekProvider?.disabled ?? false).toBe(false)
+  })
+
+  it("uses current DeepSeek v4 pricing metadata", () => {
+    const deepSeekProvider = MODEL_PROVIDERS.find(provider => provider.id === "deepseek")
+
+    expect(deepSeekProvider?.models).toEqual([
+      expect.objectContaining({
+        api_id: "deepseek-v4-flash",
+        contextWindow: 1_000_000,
+        pricing: {
+          currency: "USD",
+          input: 0.14,
+          output: 0.28,
+          cachedRead: 0.028,
+          cachedWrite: 0.14
+        }
+      }),
+      expect.objectContaining({
+        api_id: "deepseek-v4-pro",
+        contextWindow: 1_000_000,
+        pricing: {
+          currency: "USD",
+          input: 1.74,
+          output: 3.48,
+          cachedRead: 0.145,
+          cachedWrite: 1.74
+        }
+      })
+    ])
   })
 })
 
@@ -150,6 +192,7 @@ describe("sortProvidersByAvailabilityAndName", () => {
 describe("findModelContextWindow", () => {
   it("returns the configured context window for a known model", () => {
     expect(findModelContextWindow("openai", "gpt-5.4")).toBe(1_050_000)
+    expect(findModelContextWindow("deepseek", "deepseek-v4-pro")).toBe(1_000_000)
   })
 
   it("returns undefined for unknown providers or models", () => {

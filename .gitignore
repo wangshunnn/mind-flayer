@@ -25,3 +25,5 @@ dist-ssr
 !.env.example
 compose.env*
 !compose.env.example
+
+.claude/telemetry/

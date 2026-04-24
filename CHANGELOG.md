@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0](https://github.com/wangshunnn/mind-flayer/compare/v0.7.0...v0.8.0) (2026-04-24)
+
+### Features
+
+* add .claude/telemetry/ to .gitignore ([df331be](https://github.com/wangshunnn/mind-flayer/commit/df331be9cfc2a5d48b699d700c7dc2e634a66db9))
+* add agent session tools for Claude Code and Codex delegation ([da17931](https://github.com/wangshunnn/mind-flayer/commit/da17931a44299c2f9f0a3052932247761a187ff7))
+* **provider:** introduce DeepSeek provider and new model v4 ([1ab80ce](https://github.com/wangshunnn/mind-flayer/commit/1ab80ce848378214708e7b79709157ed7ff7e6a6))
+* review commonts ([2409f7b](https://github.com/wangshunnn/mind-flayer/commit/2409f7b1eec2b5e7c350281d9b8c7b7cf1eee4fc))
+
+### Bug Fixes
+
+* **i18n:** rename agent session exited status ([5b3eaba](https://github.com/wangshunnn/mind-flayer/commit/5b3eaba9617aecf6ff1215f2ae2d74f0e4ce5bae))
+
 ## [0.7.0](https://github.com/wangshunnn/mind-flayer/compare/v0.6.0...v0.7.0) (2026-04-10)
 
 ### Features

@@ -1,5 +1,9 @@
-import type { LanguageModel } from "ai"
+import type { LanguageModel, UIMessage } from "ai"
 import type { ProviderConfig } from "../type"
+
+export interface ProviderRuntimeOptions {
+  deepSeekReasoningReplayMessages?: UIMessage[]
+}
 
 /**
  * Base interface for AI provider plugins.
@@ -16,7 +20,12 @@ export interface IProvider {
    *
    * @param modelId - The specific model ID to use (e.g., "abab6.5s-chat")
    * @param config - Provider configuration including API key and optional base URL
+   * @param options - Request-scoped runtime options
    * @returns Language model instance ready for use with AI SDK
    */
-  createModel(modelId: string, config: ProviderConfig): LanguageModel
+  createModel(
+    modelId: string,
+    config: ProviderConfig,
+    options?: ProviderRuntimeOptions
+  ): LanguageModel
 }

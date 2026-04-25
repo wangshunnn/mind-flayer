@@ -1,26 +1,7 @@
-import {
-  convertToModelMessages,
-  type ModelMessage,
-  pruneMessages,
-  type ToolSet,
-  type UIMessage
-} from "ai"
+import { convertToModelMessages, pruneMessages, type ToolSet, type UIMessage } from "ai"
 
 /** Default number of recent user turns to keep unpruned */
 const DEFAULT_WINDOW_SIZE = 3
-
-export interface CompactMessagesOptions {
-  pruneAllReasoningAndToolCalls?: boolean
-}
-
-function pruneReasoningAndToolCalls(messages: ModelMessage[]) {
-  return pruneMessages({
-    messages,
-    reasoning: "all",
-    toolCalls: "all",
-    emptyMessages: "remove"
-  })
-}
 
 /**
  * Find the split index in UIMessages to separate older history from the recent window.
@@ -52,23 +33,13 @@ export function findWindowSplitIndex(messages: UIMessage[], windowSize: number):
  * @param messages - UI messages from the client
  * @param tools - Optional tools configuration for message conversion
  * @param windowSize - Number of recent user turns to keep unpruned (default: 3)
- * @param options - Provider-specific pruning options
  * @returns Compacted model messages ready for AI SDK
  */
 export async function compactMessages(
   messages: UIMessage[],
   tools: ToolSet = {},
-  windowSize: number = DEFAULT_WINDOW_SIZE,
-  options: CompactMessagesOptions = {}
+  windowSize: number = DEFAULT_WINDOW_SIZE
 ) {
-  if (options.pruneAllReasoningAndToolCalls) {
-    const modelMessages = await convertToModelMessages(messages, {
-      tools,
-      ignoreIncompleteToolCalls: true
-    })
-    return pruneReasoningAndToolCalls(modelMessages)
-  }
-
   const splitIndex = findWindowSplitIndex(messages, windowSize)
 
   // If all messages fall within the window, convert directly without pruning
@@ -89,7 +60,12 @@ export async function compactMessages(
   ])
 
   // Aggressively prune older history
-  const compactedOlderModelMessages = pruneReasoningAndToolCalls(olderModelMessages)
+  const compactedOlderModelMessages = pruneMessages({
+    messages: olderModelMessages,
+    reasoning: "all",
+    toolCalls: "all",
+    emptyMessages: "remove"
+  })
 
   return compactedOlderModelMessages.concat(recentModelMessages)
 }

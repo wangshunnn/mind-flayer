@@ -70,8 +70,13 @@ export async function handleChat(
       chatId
     })
 
+    const shouldReplayDeepSeekReasoning =
+      provider === "deepseek" && modelId.startsWith("deepseek-v4") && reasoningEnabled
+
     // Create model instance
-    const model = providerService.createModel(provider, modelId)
+    const model = providerService.createModel(provider, modelId, {
+      ...(shouldReplayDeepSeekReasoning ? { deepSeekReasoningReplayMessages: messages } : {})
+    })
 
     // Get tools
     const requestTools = toolService.getRequestTools({ useWebSearch, chatId })

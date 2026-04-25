@@ -1,5 +1,5 @@
 import type { LanguageModel } from "ai"
-import { providerRegistry } from "../providers"
+import { type ProviderRuntimeOptions, providerRegistry } from "../providers"
 import type { ConfigUpdateMessage, ProviderConfig } from "../type"
 
 /**
@@ -51,17 +51,18 @@ export class ProviderService {
    *
    * @param provider - Provider name (e.g., "minimax")
    * @param modelId - Model identifier (e.g., "abab6.5s-chat")
+   * @param options - Request-scoped runtime options
    * @returns Language model instance
    * @throws Error if provider not registered or configured
    */
-  createModel(provider: string, modelId: string): LanguageModel {
+  createModel(provider: string, modelId: string, options?: ProviderRuntimeOptions): LanguageModel {
     const config = this.getConfig(provider)
     if (!config) {
       throw new Error(`Provider '${provider}' is not configured`)
     }
 
     const providerPlugin = providerRegistry.get(provider)
-    return providerPlugin.createModel(modelId, config)
+    return providerPlugin.createModel(modelId, config, options)
   }
 }
 

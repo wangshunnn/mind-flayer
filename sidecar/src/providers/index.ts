@@ -16,6 +16,6 @@ providerRegistry.register(new DeepSeekProvider())
 providerRegistry.register(new MinimaxProvider())
 providerRegistry.register(new OpenAIProvider())
 
-export type { IProvider } from "./base"
+export type { IProvider, ProviderRuntimeOptions } from "./base"
 // Export types and classes for external use
 export { ProviderRegistry } from "./registry"

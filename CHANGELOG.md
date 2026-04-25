@@ -1,5 +1,11 @@
 # Changelog
 
+## [](https://github.com/wangshunnn/mind-flayer/compare/v0.8.0...vnull) (2026-04-25)
+
+### Bug Fixes
+
+* **deepseek:** replay reasoning_content for tool turns ([b4f259f](https://github.com/wangshunnn/mind-flayer/commit/b4f259f45ec730df332fa5407b18a6f32d11c00e))
+
 ## [0.8.0](https://github.com/wangshunnn/mind-flayer/compare/v0.7.0...v0.8.0) (2026-04-24)
 
 ### Features

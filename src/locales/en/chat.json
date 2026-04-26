@@ -130,5 +130,9 @@
   "timeline": {
     "label": "Conversation timeline",
     "jumpToMessage": "Jump to message {{index}}"
+  },
+  "activity": {
+    "expand": "Show details",
+    "collapse": "Hide details"
   }
 }

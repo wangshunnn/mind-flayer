@@ -137,6 +137,25 @@ const createAgentSessionPart = (toolCallId: string) =>
     }
   }) as unknown as ToolUIPart
 
+const createAppendWorkspaceSectionPart = (toolCallId: string) =>
+  ({
+    type: "tool-appendWorkspaceSection",
+    toolCallId,
+    state: "output-available",
+    input: {
+      path: "USER.md",
+      sectionTitle: "Identity",
+      content: "Prefers compact UI."
+    },
+    output: {
+      path: "USER.md",
+      sectionTitle: "Identity",
+      bytesWritten: 19,
+      createdFile: false,
+      createdSection: false
+    }
+  }) as unknown as ToolUIPart
+
 const createSkillReadPart = (toolCallId: string, skillName: string) =>
   ({
     type: "tool-read",
@@ -318,6 +337,10 @@ describe("ToolCallsSummary", () => {
       )
     })
 
+    expect(container.querySelector('[data-terminal="true"]')).toBeNull()
+    expect(container.textContent).toContain("0.25 s")
+    expect(container.textContent).not.toContain("250ms")
+
     const trigger = container.querySelector("button[aria-controls]")
     expect(trigger).not.toBeNull()
 
@@ -458,5 +481,31 @@ describe("ToolCallsSummary", () => {
     expect(container.textContent).toContain("codex exec --cd /tmp/project")
     expect(container.textContent).toContain("session-1")
     expect(container.textContent).toContain("Codex is working")
+  })
+
+  it("shows compact metadata and expands generic workspace tool details", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en")
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ToolCallTimelineItem
+            duration={0.25}
+            onToolApprovalResponse={vi.fn()}
+            part={createAppendWorkspaceSectionPart("tool-append-workspace-section")}
+          />
+        </I18nextProvider>
+      )
+    })
+
+    expect(container.textContent).toContain("USER.md: Identity")
+    expect(container.textContent).not.toContain("bytesWritten")
+
+    const trigger = container.querySelector("button[aria-controls]")
+    expect(trigger).not.toBeNull()
+
+    await click(trigger as HTMLElement)
+
+    expect(container.textContent).toContain("bytesWritten")
+    expect(container.textContent).toContain("createdSection")
   })
 })

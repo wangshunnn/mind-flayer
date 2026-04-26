@@ -129,5 +129,9 @@
   "timeline": {
     "label": "对话时间轴",
     "jumpToMessage": "跳转到第 {{index}} 条消息"
+  },
+  "activity": {
+    "expand": "展开详情",
+    "collapse": "收起详情"
   }
 }

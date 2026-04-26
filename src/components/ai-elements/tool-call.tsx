@@ -44,14 +44,15 @@ export type ToolCallProps = ComponentProps<typeof Collapsible> & {
   open?: boolean
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
+  autoOpenWhileActive?: boolean
   duration?: number
   toolName: string
   resultCount?: number
   state: ToolCallState
 }
 
-const MS_IN_S = 1000
 const FINAL_STATES: ToolCallState[] = ["output-available", "output-error", "output-denied"]
+const ACTIVE_STATES: ToolCallState[] = ["input-streaming", "input-available", "approval-responded"]
 const TOOL_CALL_STATUS_BADGE_BASE =
   "inline-flex items-center font-normal rounded-full px-2 py-1 text-[10px] min-w-max"
 const TOOL_CALL_STATUS_BADGE_VARIANTS = {
@@ -59,13 +60,12 @@ const TOOL_CALL_STATUS_BADGE_VARIANTS = {
   error: "bg-red-500/10 text-red-600 dark:text-red-400"
 } as const
 
-const formatDuration = (duration: number) => {
+export const formatToolCallDuration = (duration: number) => {
   const safeDuration = Math.max(0, duration)
-  if (safeDuration < 1) {
-    return `${Math.round(safeDuration * MS_IN_S)}ms`
-  }
   return `${safeDuration.toFixed(2)} s`
 }
+
+const isActiveToolState = (state: ToolCallState) => ACTIVE_STATES.includes(state)
 
 export const getToolCallStatusBadgeClass = (
   variant: keyof typeof TOOL_CALL_STATUS_BADGE_VARIANTS
@@ -77,6 +77,7 @@ export const ToolCall = memo(
     open,
     defaultOpen = false,
     onOpenChange,
+    autoOpenWhileActive = false,
     duration: durationProp,
     toolName,
     resultCount,
@@ -91,6 +92,7 @@ export const ToolCall = memo(
     })
     const hasUserToggledRef = useRef(false)
     const autoExpandedForApprovalRef = useRef(false)
+    const autoExpandedForActiveRef = useRef(false)
     const previousStateRef = useRef(state)
 
     useEffect(() => {
@@ -101,11 +103,27 @@ export const ToolCall = memo(
 
       const previousState = previousStateRef.current
 
+      const shouldAutoOpenForActive = autoOpenWhileActive && isActiveToolState(state)
+      const wasAutoOpenActive = isActiveToolState(previousState)
+
       if (state === "approval-requested") {
         if (!hasUserToggledRef.current && !isOpen) {
           autoExpandedForApprovalRef.current = true
           setIsOpen(true)
         }
+      } else if (shouldAutoOpenForActive) {
+        if (!hasUserToggledRef.current && !isOpen) {
+          autoExpandedForActiveRef.current = true
+          setIsOpen(true)
+        }
+      } else if (
+        wasAutoOpenActive &&
+        autoExpandedForActiveRef.current &&
+        !hasUserToggledRef.current &&
+        isOpen
+      ) {
+        autoExpandedForActiveRef.current = false
+        setIsOpen(false)
       } else if (
         previousState === "approval-requested" &&
         autoExpandedForApprovalRef.current &&
@@ -117,12 +135,13 @@ export const ToolCall = memo(
       }
 
       previousStateRef.current = state
-    }, [isOpen, open, setIsOpen, state])
+    }, [autoOpenWhileActive, isOpen, open, setIsOpen, state])
 
     const handleOpenChange = (newOpen: boolean) => {
       if (open === undefined) {
         hasUserToggledRef.current = true
         autoExpandedForApprovalRef.current = false
+        autoExpandedForActiveRef.current = false
       }
       setIsOpen(newOpen)
     }
@@ -131,7 +150,7 @@ export const ToolCall = memo(
       <ToolCallContext.Provider
         value={{ isOpen, setIsOpen, duration: durationProp, toolName, resultCount, state }}
       >
-        <div className={cn("rounded-lg border border-border/50 bg-muted/30 px-2 py-2", className)}>
+        <div className={cn("group/tool-call rounded-md text-muted-foreground", className)}>
           <Collapsible
             className="not-prose"
             onOpenChange={handleOpenChange}
@@ -157,7 +176,12 @@ export type ToolCallTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {
   ) => ReactNode
 }
 
-const defaultGetToolMessage = (toolName: string, state: ToolCallState, resultCount?: number) => {
+const defaultGetToolMessage = (
+  toolName: string,
+  state: ToolCallState,
+  _duration?: number,
+  resultCount?: number
+) => {
   const toolConstants = useToolConstants()
   const { t } = useTranslation("tools")
   const isCompleted = ["output-available", "output-error", "output-denied"].includes(state)
@@ -218,7 +242,7 @@ export const ToolCallTrigger = memo(
     const triggerContent = children ?? (
       <>
         {icon ?? getToolIcon(toolName, "size-3 transition-colors")}
-        {getToolMessage(toolName, state, resultCount)}
+        {getToolMessage(toolName, state, duration, resultCount)}
         {trailingContent}
       </>
     )
@@ -226,24 +250,32 @@ export const ToolCallTrigger = memo(
     return (
       <CollapsibleTrigger
         className={cn(
-          "group flex w-full items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground",
+          "group/activity-row flex min-h-7 w-full items-center gap-2 rounded-md pl-0 pr-1 py-1",
+          "text-muted-foreground text-xs transition-colors",
+          "hover:bg-muted/40 hover:text-foreground",
+          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           className
         )}
         {...props}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2">{triggerContent}</div>
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+          {triggerContent}
+        </div>
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {showDuration && (
             <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/90">
               <TimerIcon className="size-3" />
-              {formatDuration(duration)}
+              {formatToolCallDuration(duration)}
             </span>
           )}
           <ChevronRightIcon
             className={cn(
-              "size-3.5 transition-transform opacity-50",
-              isOpen ? "rotate-90" : "rotate-0"
+              "size-3.5 transition-all",
+              isOpen
+                ? "rotate-90 opacity-70"
+                : "rotate-0 opacity-0 group-hover/activity-row:opacity-60 group-focus-visible/activity-row:opacity-70"
             )}
+            data-activity-chevron="true"
           />
         </div>
       </CollapsibleTrigger>
@@ -256,17 +288,18 @@ export type ToolCallContentProps = ComponentProps<typeof CollapsibleContent> & {
 }
 
 export const ToolCallContent = memo(
-  ({ className, maxHeight = "16rem", children, ...props }: ToolCallContentProps) => (
+  ({ className, maxHeight = "28rem", children, style, ...props }: ToolCallContentProps) => (
     <CollapsibleContent
       className={cn(
-        "relative mt-3 text-xs leading-normal",
+        "relative mt-1 rounded-md bg-muted/70 px-2 py-2 text-xs leading-normal",
         "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2",
         "text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
         className
       )}
+      style={{ maxHeight, ...style }}
       {...props}
     >
-      <div className={cn("overflow-y-auto pr-2")}>
+      <div className={cn("max-h-full overflow-y-auto pr-1")}>
         <div className="space-y-2">{children}</div>
       </div>
     </CollapsibleContent>

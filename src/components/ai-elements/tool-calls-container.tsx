@@ -28,6 +28,7 @@ import {
 } from "@/components/ai-elements/tool-call"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
+import { useToolConstants } from "@/lib/constants"
 import type {
   AgentSessionOutput,
   AgentSessionReadInput,
@@ -37,6 +38,7 @@ import type {
   ReadToolInput,
   ReadToolOutput
 } from "@/lib/tool-helpers"
+import { getToolCallMeta, getToolResultText } from "@/lib/tool-helpers"
 import { cn } from "@/lib/utils"
 import { Separator } from "../ui/separator"
 
@@ -44,6 +46,8 @@ export type ToolCallTimelineItemProps = {
   part: ToolUIPart | DynamicToolUIPart
   onToolApprovalResponse: ChatAddToolApproveResponseFunction
   duration?: number
+  defaultOpen?: boolean
+  autoOpenWhileActive?: boolean
 }
 
 const formatStructuredValue = (value: unknown): string | null => {
@@ -140,6 +144,9 @@ type ToolCallFrameProps = {
   onToolApprovalResponse: ChatAddToolApproveResponseFunction
   duration?: number
   resultCount?: number
+  defaultOpen?: boolean
+  autoOpenWhileActive?: boolean
+  summaryContent?: ReactNode
   triggerProps?: ComponentProps<typeof ToolCallTrigger>
   inputContent?: ReactNode
   approvalContent?: ReactNode
@@ -154,6 +161,9 @@ const ToolCallFrame = ({
   onToolApprovalResponse,
   duration,
   resultCount,
+  defaultOpen = false,
+  autoOpenWhileActive = false,
+  summaryContent,
   triggerProps,
   inputContent,
   approvalContent,
@@ -162,6 +172,37 @@ const ToolCallFrame = ({
   deniedContent
 }: ToolCallFrameProps) => {
   const approvalId = part.approval?.id
+  const { t } = useTranslation("tools")
+
+  const mergedTriggerProps: ComponentProps<typeof ToolCallTrigger> = {
+    ...(summaryContent
+      ? {
+          getToolMessage: (triggerToolName, state, _duration, triggerResultCount) => {
+            const displayName = t(`names.${triggerToolName}`, { defaultValue: triggerToolName })
+            const isCompleted = FINAL_TOOL_STATES.has(state)
+            const resultLabel =
+              state === "output-available" && triggerResultCount !== undefined
+                ? t("results", { count: triggerResultCount })
+                : null
+
+            return (
+              <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                <span className="shrink-0">
+                  {isCompleted ? displayName : <Shimmer duration={1}>{displayName}</Shimmer>}
+                </span>
+                <span className="min-w-0 truncate text-muted-foreground/70">{summaryContent}</span>
+                {resultLabel ? (
+                  <span className="shrink-0 text-[10px] text-muted-foreground/80">
+                    {resultLabel}
+                  </span>
+                ) : null}
+              </span>
+            )
+          }
+        }
+      : {}),
+    ...triggerProps
+  }
 
   return (
     <ToolCall
@@ -170,9 +211,10 @@ const ToolCallFrame = ({
       state={part.state}
       duration={duration}
       resultCount={resultCount}
-      defaultOpen={false}
+      defaultOpen={defaultOpen}
+      autoOpenWhileActive={autoOpenWhileActive}
     >
-      <ToolCallTrigger {...triggerProps} />
+      <ToolCallTrigger {...mergedTriggerProps} />
       <ToolCallContent>
         {(part.state === "input-streaming" ||
           part.state === "input-available" ||
@@ -222,8 +264,15 @@ const ToolCallSkillBadge = ({
 )
 
 export const ToolCallTimelineItem = memo(
-  ({ part, onToolApprovalResponse, duration }: ToolCallTimelineItemProps) => {
+  ({
+    part,
+    onToolApprovalResponse,
+    duration,
+    defaultOpen,
+    autoOpenWhileActive
+  }: ToolCallTimelineItemProps) => {
     const { t } = useTranslation("tools")
+    const toolConstants = useToolConstants()
     const toolName = getToolName(part)
 
     if (part.type === "tool-webSearch") {
@@ -252,6 +301,9 @@ export const ToolCallTimelineItem = memo(
           onToolApprovalResponse={onToolApprovalResponse}
           duration={duration}
           resultCount={output?.totalResults}
+          defaultOpen={defaultOpen}
+          autoOpenWhileActive={autoOpenWhileActive}
+          summaryContent={input?.objective}
           inputContent={input?.objective}
           approvalContent={input?.objective ?? ""}
           outputContent={output ? <ToolCallWebSearchResults results={output.results} /> : null}
@@ -262,6 +314,7 @@ export const ToolCallTimelineItem = memo(
     if (part.type === "tool-bashExecution") {
       const input = part.input as BashExecInput
       const output = part.state === "output-available" ? (part.output as BashExecResult) : null
+      const commandText = `${input?.command ?? ""} ${input?.args?.join(" ") ?? ""}`.trim()
       const commandLine = <BashExecCommandLine input={input} />
 
       return (
@@ -270,6 +323,9 @@ export const ToolCallTimelineItem = memo(
           toolName={toolName}
           onToolApprovalResponse={onToolApprovalResponse}
           duration={duration}
+          defaultOpen={defaultOpen}
+          autoOpenWhileActive={autoOpenWhileActive}
+          summaryContent={commandText}
           triggerProps={{
             icon: <TerminalIcon className="size-3.5 transition-colors" />,
             trailingContent:
@@ -308,16 +364,11 @@ export const ToolCallTimelineItem = memo(
           toolName={toolName}
           onToolApprovalResponse={onToolApprovalResponse}
           duration={duration}
+          defaultOpen={defaultOpen}
+          autoOpenWhileActive={autoOpenWhileActive}
+          summaryContent={inputText}
           triggerProps={{
             icon: <BotIcon className="size-3.5 transition-colors" />,
-            getToolMessage: (agentToolName, state) => {
-              const displayName = t(`names.${agentToolName}`, { defaultValue: agentToolName })
-              return FINAL_TOOL_STATES.has(state) ? (
-                displayName
-              ) : (
-                <Shimmer duration={1}>{displayName}</Shimmer>
-              )
-            },
             trailingContent:
               output?.status !== undefined ? (
                 <span className={getAgentSessionStatusClassName(output.status)}>
@@ -367,6 +418,9 @@ export const ToolCallTimelineItem = memo(
           toolName={toolName}
           onToolApprovalResponse={onToolApprovalResponse}
           duration={duration}
+          defaultOpen={defaultOpen}
+          autoOpenWhileActive={autoOpenWhileActive}
+          summaryContent={skillContext?.skillName ?? inputFilePath}
           triggerProps={{
             children: skillContext ? (
               <ToolCallSkillBadge
@@ -404,6 +458,12 @@ export const ToolCallTimelineItem = memo(
 
     const input = formatStructuredValue(part.input)
     const output = formatStructuredValue(part.state === "output-available" ? part.output : null)
+    const toolMeta = getToolCallMeta(part, toolConstants)
+    const toolResult = getToolResultText(part, toolConstants)
+    const showResult =
+      part.state === "output-available" ||
+      part.state === "output-error" ||
+      part.state === "output-denied"
 
     return (
       <ToolCallFrame
@@ -411,6 +471,14 @@ export const ToolCallTimelineItem = memo(
         toolName={toolName}
         onToolApprovalResponse={onToolApprovalResponse}
         duration={duration}
+        defaultOpen={defaultOpen}
+        autoOpenWhileActive={autoOpenWhileActive}
+        summaryContent={toolMeta?.content ?? input ?? toolName}
+        triggerProps={{
+          trailingContent: showResult ? (
+            <span className="shrink-0 text-[10px] text-muted-foreground/80">{toolResult}</span>
+          ) : null
+        }}
         inputContent={input ?? toolName}
         approvalContent={<ToolCallStructuredBlock value={part.input} />}
         outputContent={output ? <ToolCallStructuredBlock value={output} /> : null}

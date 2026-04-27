@@ -389,7 +389,7 @@ export function getToolResultText(
           return webSearch.searchedResults(tool.output.totalResults)
         }
         if (isBashExecutionToolUIPart(tool) && tool.output.exitCode !== undefined) {
-          return toolConstants.bashExecution.exitCode(tool.output.exitCode)
+          return tool.output.exitCode === 0 ? states.done : states.failed
         }
         if (isAgentSessionToolUIPart(tool) && tool.output.status) {
           return agentSession.status(tool.output.status)

@@ -14,7 +14,6 @@ import {
   BashExecCommandLine,
   type BashExecInput,
   type BashExecResult,
-  getToolCallStatusBadgeClass,
   ToolCall,
   ToolCallApprovalRequested,
   ToolCallBashExecResults,
@@ -90,6 +89,7 @@ type AgentSessionInput = AgentSessionStartInput | AgentSessionReadInput | AgentS
 
 const AGENT_SESSION_TERMINAL_STATUSES = new Set(["failed", "stopped", "timeout"])
 const FINAL_TOOL_STATES = new Set(["output-available", "output-error", "output-denied"])
+const TOOL_CALL_RESULT_TEXT_CLASS = "shrink-0 text-[10px] text-muted-foreground/80"
 
 const getAgentSessionStatusClassName = (status: string) =>
   cn(
@@ -137,6 +137,10 @@ const formatAgentSessionTranscript = (
 
   return lines.filter(Boolean).join("\n")
 }
+
+const ToolCallResultText = ({ children }: { children: ReactNode }) => (
+  <span className={TOOL_CALL_RESULT_TEXT_CLASS}>{children}</span>
+)
 
 type ToolCallFrameProps = {
   part: ToolUIPart | DynamicToolUIPart
@@ -316,6 +320,8 @@ export const ToolCallTimelineItem = memo(
       const output = part.state === "output-available" ? (part.output as BashExecResult) : null
       const commandText = `${input?.command ?? ""} ${input?.args?.join(" ") ?? ""}`.trim()
       const commandLine = <BashExecCommandLine input={input} />
+      const resultText = getToolResultText(part, toolConstants)
+      const showResult = FINAL_TOOL_STATES.has(part.state)
 
       return (
         <ToolCallFrame
@@ -327,17 +333,10 @@ export const ToolCallTimelineItem = memo(
           autoOpenWhileActive={autoOpenWhileActive}
           summaryContent={commandText}
           triggerProps={{
-            icon: <TerminalIcon className="size-3.5 transition-colors" />,
-            trailingContent:
-              part.state === "output-available" && output?.exitCode !== undefined ? (
-                <span
-                  className={getToolCallStatusBadgeClass(
-                    output.exitCode === 0 ? "success" : "error"
-                  )}
-                >
-                  {t("bashExecution.exitCode", { code: output.exitCode })}
-                </span>
-              ) : null
+            icon: <TerminalIcon className="size-3 transition-colors" />,
+            trailingContent: showResult ? (
+              <ToolCallResultText>{resultText}</ToolCallResultText>
+            ) : null
           }}
           inputContent={commandLine}
           approvalContent={commandLine}
@@ -475,9 +474,7 @@ export const ToolCallTimelineItem = memo(
         autoOpenWhileActive={autoOpenWhileActive}
         summaryContent={toolMeta?.content ?? input ?? toolName}
         triggerProps={{
-          trailingContent: showResult ? (
-            <span className="shrink-0 text-[10px] text-muted-foreground/80">{toolResult}</span>
-          ) : null
+          trailingContent: showResult ? <ToolCallResultText>{toolResult}</ToolCallResultText> : null
         }}
         inputContent={input ?? toolName}
         approvalContent={<ToolCallStructuredBlock value={part.input} />}

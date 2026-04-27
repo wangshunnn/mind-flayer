@@ -26,6 +26,7 @@ import { toast } from "sonner"
 import type { StickToBottomContext } from "use-stick-to-bottom"
 import {
   AssistantActivityTimeline,
+  AssistantFallbackParts,
   buildAssistantMessageSegments
 } from "@/components/ai-elements/assistant-activity"
 import { ContextWindowUsageIndicator } from "@/components/ai-elements/context-window-usage-indicator"
@@ -679,7 +680,7 @@ const AppChatInner = ({
       // Track thinking/tool durations at the runtime level so background chats
       // (not rendered) still get accurate duration measurements.
       const thinkingStartTimes = new Map<MessageId, number>()
-      const reasoningStartTimes = new Map<string, number>()
+      const reasoningStartTimes = new Map<MessageId, Map<number, number>>()
       const toolStartTimes = new Map<string, number>()
       let prevIsThinking = false
       let prevLastMsgId: string | null = null
@@ -687,16 +688,33 @@ const AppChatInner = ({
       let prevIsReplying =
         runtime.chat.status === "submitted" || runtime.chat.status === "streaming"
 
-      const reasoningDurationKey = (messageId: MessageId, partIndex: number) =>
-        `${messageId}:${partIndex}`
+      const getReasoningStartTimesForMessage = (messageId: MessageId) => {
+        let messageStartTimes = reasoningStartTimes.get(messageId)
+        if (!messageStartTimes) {
+          messageStartTimes = new Map<number, number>()
+          reasoningStartTimes.set(messageId, messageStartTimes)
+        }
+
+        return messageStartTimes
+      }
+
+      const hasReasoningStartTime = (messageId: MessageId, partIndex: number) =>
+        reasoningStartTimes.get(messageId)?.has(partIndex) ?? false
+
+      const startReasoningDuration = (messageId: MessageId, partIndex: number) => {
+        const messageStartTimes = getReasoningStartTimesForMessage(messageId)
+        if (!messageStartTimes.has(partIndex)) {
+          messageStartTimes.set(partIndex, Date.now())
+        }
+      }
 
       const finishReasoningDuration = (
         messageId: MessageId,
         partIndex: number,
         endTime = Date.now()
       ) => {
-        const key = reasoningDurationKey(messageId, partIndex)
-        const startTime = reasoningStartTimes.get(key)
+        const messageStartTimes = reasoningStartTimes.get(messageId)
+        const startTime = messageStartTimes?.get(partIndex)
         if (startTime === undefined) {
           return
         }
@@ -704,21 +722,20 @@ const AppChatInner = ({
         const durationS = Math.round(((endTime - startTime) / 1000) * 10) / 10
         const prev = runtime.reasoningDurations.get(messageId) ?? {}
         runtime.reasoningDurations.set(messageId, { ...prev, [String(partIndex)]: durationS })
-        reasoningStartTimes.delete(key)
+        messageStartTimes?.delete(partIndex)
+        if (messageStartTimes?.size === 0) {
+          reasoningStartTimes.delete(messageId)
+        }
       }
 
       const finishReasoningDurationsForMessage = (messageId: MessageId, endTime = Date.now()) => {
-        for (const key of reasoningStartTimes.keys()) {
-          if (!key.startsWith(`${messageId}:`)) {
-            continue
-          }
+        const messageStartTimes = reasoningStartTimes.get(messageId)
+        if (!messageStartTimes) {
+          return
+        }
 
-          const partIndex = Number(key.slice(messageId.length + 1))
-          if (Number.isFinite(partIndex)) {
-            finishReasoningDuration(messageId, partIndex, endTime)
-          } else {
-            reasoningStartTimes.delete(key)
-          }
+        for (const partIndex of Array.from(messageStartTimes.keys())) {
+          finishReasoningDuration(messageId, partIndex, endTime)
         }
       }
 
@@ -791,14 +808,13 @@ const AppChatInner = ({
             continue
           }
 
-          const key = reasoningDurationKey(lastMsg.id, partIndex)
           const isActiveReasoning = activeReasoningPartIndex === partIndex
 
-          if (isActiveReasoning && !reasoningStartTimes.has(key)) {
-            reasoningStartTimes.set(key, Date.now())
+          if (isActiveReasoning) {
+            startReasoningDuration(lastMsg.id, partIndex)
           }
 
-          if (!isActiveReasoning && reasoningStartTimes.has(key)) {
+          if (!isActiveReasoning && hasReasoningStartTime(lastMsg.id, partIndex)) {
             finishReasoningDuration(lastMsg.id, partIndex)
           }
         }
@@ -1486,15 +1502,31 @@ const AppChatInner = ({
                             <div className="whitespace-pre-wrap wrap-break-word">{messageText}</div>
                           </MessageContent>
                         ) : (
-                          assistantSegments.map(segment =>
-                            segment.type === "text" ? (
-                              <MessageContent key={`text-${message.id}-${segment.startPartIndex}`}>
-                                <MessageResponse localImageProxyOrigin={sidecarOrigin}>
-                                  {segment.text}
-                                </MessageResponse>
-                              </MessageContent>
-                            ) : (
+                          assistantSegments.map(segment => {
+                            if (segment.type === "text") {
+                              return (
+                                <MessageContent
+                                  key={`text-${message.id}-${segment.startPartIndex}`}
+                                >
+                                  <MessageResponse localImageProxyOrigin={sidecarOrigin}>
+                                    {segment.text}
+                                  </MessageResponse>
+                                </MessageContent>
+                              )
+                            }
+
+                            if (segment.type === "fallback") {
+                              return (
+                                <AssistantFallbackParts
+                                  key={`fallback-${message.id}-${segment.startPartIndex}`}
+                                  parts={segment.parts}
+                                />
+                              )
+                            }
+
+                            return (
                               <AssistantActivityTimeline
+                                autoOpenWhileActive
                                 fallbackThinkingDurationPartIndex={
                                   firstReasoningPartIndex >= 0 ? firstReasoningPartIndex : undefined
                                 }
@@ -1508,7 +1540,7 @@ const AppChatInner = ({
                                 toolDurations={messageToolDurations}
                               />
                             )
-                          )
+                          })
                         )}
                         {isUserMessage && (
                           <UserMessageActionsBar

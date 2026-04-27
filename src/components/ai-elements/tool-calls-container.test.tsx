@@ -339,7 +339,19 @@ describe("ToolCallsSummary", () => {
 
     expect(container.querySelector('[data-terminal="true"]')).toBeNull()
     expect(container.textContent).toContain("0.25 s")
+    expect(container.textContent).toContain("Done")
+    expect(container.textContent).not.toContain("Exit 0")
     expect(container.textContent).not.toContain("250ms")
+    const chevron = container.querySelector('[data-activity-chevron="true"]')
+    const duration = container.querySelector('[data-activity-duration="true"]')
+    expect(chevron).not.toBeNull()
+    expect(duration).not.toBeNull()
+    expect(
+      Boolean(
+        (chevron as Element).compareDocumentPosition(duration as Element) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      )
+    ).toBe(true)
 
     const trigger = container.querySelector("button[aria-controls]")
     expect(trigger).not.toBeNull()
@@ -379,6 +391,36 @@ describe("ToolCallsSummary", () => {
     expect(container.textContent).toContain("stdout line")
     expect(container.textContent).toContain("stderr:")
     expect(container.textContent).toContain("stderr line")
+  })
+
+  it("shows failed text for non-zero bash output without a colored exit badge", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("en")
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ToolCallTimelineItem
+            duration={0.25}
+            onToolApprovalResponse={vi.fn()}
+            part={createBashPartWithOutput("tool-bash-nonzero", {
+              stdout: "",
+              stderr: "missing",
+              exitCode: 1
+            })}
+          />
+        </I18nextProvider>
+      )
+    })
+
+    expect(container.textContent).toContain("Failed")
+    expect(container.textContent).not.toContain("Exit 1")
+
+    const trigger = container.querySelector("button[aria-controls]")
+    expect(trigger).not.toBeNull()
+
+    await click(trigger as HTMLElement)
+
+    expect(container.textContent).toContain("stderr:")
+    expect(container.textContent).toContain("missing")
   })
 
   it("keeps approval actions while showing bash input with terminal styling", async () => {
@@ -423,6 +465,8 @@ describe("ToolCallsSummary", () => {
         </I18nextProvider>
       )
     })
+
+    expect(container.textContent).toContain("Failed")
 
     const trigger = container.querySelector("button[aria-controls]")
     expect(trigger).not.toBeNull()

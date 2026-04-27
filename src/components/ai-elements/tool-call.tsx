@@ -260,17 +260,9 @@ export const ToolCallTrigger = memo(
       >
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
           {triggerContent}
-        </div>
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          {showDuration && (
-            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/90">
-              <TimerIcon className="size-3" />
-              {formatToolCallDuration(duration)}
-            </span>
-          )}
           <ChevronRightIcon
             className={cn(
-              "size-3.5 transition-all",
+              "size-3.5 shrink-0 transition-all",
               isOpen
                 ? "rotate-90 opacity-70"
                 : "rotate-0 opacity-0 group-hover/activity-row:opacity-60 group-focus-visible/activity-row:opacity-70"
@@ -278,6 +270,17 @@ export const ToolCallTrigger = memo(
             data-activity-chevron="true"
           />
         </div>
+        {showDuration ? (
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <span
+              className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/90"
+              data-activity-duration="true"
+            >
+              <TimerIcon className="size-3" />
+              {formatToolCallDuration(duration)}
+            </span>
+          </div>
+        ) : null}
       </CollapsibleTrigger>
     )
   }

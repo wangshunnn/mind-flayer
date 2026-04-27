@@ -8,7 +8,7 @@ import {
   type ToolUIPart,
   type UIMessage
 } from "ai"
-import { BrainIcon, ChevronRightIcon, TimerIcon } from "lucide-react"
+import { BrainIcon, ChevronRightIcon, CircleAlertIcon, TimerIcon } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { memo, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -24,6 +24,10 @@ export type AssistantActivityPart = (ReasoningUIPart | ToolUIPart | DynamicToolU
   partIndex: number
 }
 
+export type AssistantFallbackPart = UIMessage["parts"][number] & {
+  partIndex: number
+}
+
 export type AssistantMessageSegment =
   | {
       type: "text"
@@ -35,6 +39,11 @@ export type AssistantMessageSegment =
       parts: AssistantActivityPart[]
       startPartIndex: number
     }
+  | {
+      type: "fallback"
+      parts: AssistantFallbackPart[]
+      startPartIndex: number
+    }
 
 export type AssistantActivityTimelineProps = ComponentProps<"div"> & {
   parts: AssistantActivityPart[]
@@ -42,10 +51,78 @@ export type AssistantActivityTimelineProps = ComponentProps<"div"> & {
   reasoningDurations?: Record<string, number>
   fallbackThinkingDurationPartIndex?: number
   toolDurations?: Record<string, number>
+  defaultOpen?: boolean
+  autoOpenWhileActive?: boolean
   onToolApprovalResponse: ChatAddToolApproveResponseFunction
 }
 
 const PREVIEW_LENGTH = 96
+const warnedFallbackPartTypes = new Set<string>()
+
+function getPartType(part: UIMessage["parts"][number]): string {
+  const type = (part as { type?: unknown }).type
+  return typeof type === "string" && type.length > 0 ? type : "unknown"
+}
+
+function warnUnsupportedPart(part: UIMessage["parts"][number]) {
+  const partType = getPartType(part)
+  if (warnedFallbackPartTypes.has(partType)) {
+    return
+  }
+
+  warnedFallbackPartTypes.add(partType)
+  console.warn(`[AssistantActivity] Unsupported assistant message part type "${partType}"`, part)
+}
+
+function isNonRenderablePart(part: UIMessage["parts"][number]): boolean {
+  return getPartType(part) === "step-start"
+}
+
+function stringifyFallbackValue(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value)
+  }
+
+  if (value == null) {
+    return null
+  }
+
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return null
+  }
+}
+
+function getFallbackPartContent(part: AssistantFallbackPart): string | null {
+  const record = part as unknown as Record<string, unknown>
+  const title = record.title
+  const url = record.url
+  const text = stringifyFallbackValue(record.text)
+
+  if (text && text.trim().length > 0) {
+    return text
+  }
+
+  if (typeof title === "string" && typeof url === "string") {
+    return `${title}\n${url}`
+  }
+
+  if (typeof url === "string") {
+    return url
+  }
+
+  const name = record.filename ?? record.name
+  if (typeof name === "string") {
+    return name
+  }
+
+  return stringifyFallbackValue(part)
+}
 
 function getReasoningPreview(text: string): string {
   const normalizedText = text.replace(/\s+/g, " ").trim()
@@ -68,6 +145,7 @@ export function buildAssistantMessageSegments(
   let textParts: string[] = []
   let textStartPartIndex = -1
   let activityParts: AssistantActivityPart[] = []
+  let fallbackParts: AssistantFallbackPart[] = []
 
   const flushText = () => {
     if (textParts.length === 0) {
@@ -100,9 +178,23 @@ export function buildAssistantMessageSegments(
     activityParts = []
   }
 
+  const flushFallback = () => {
+    if (fallbackParts.length === 0) {
+      return
+    }
+
+    segments.push({
+      type: "fallback",
+      parts: fallbackParts,
+      startPartIndex: fallbackParts[0].partIndex
+    })
+    fallbackParts = []
+  }
+
   parts.forEach((part, partIndex) => {
     if (isTextUIPart(part)) {
       flushActivity()
+      flushFallback()
       if (textStartPartIndex === -1) {
         textStartPartIndex = partIndex
       }
@@ -112,16 +204,70 @@ export function buildAssistantMessageSegments(
 
     if (isReasoningUIPart(part) || isToolUIPart(part)) {
       flushText()
+      flushFallback()
       activityParts.push({ ...part, partIndex })
       return
     }
+
+    if (isNonRenderablePart(part)) {
+      return
+    }
+
+    flushText()
+    flushActivity()
+    warnUnsupportedPart(part)
+    fallbackParts.push({ ...part, partIndex })
   })
 
   flushText()
   flushActivity()
+  flushFallback()
 
   return segments
 }
+
+export type AssistantFallbackPartsProps = ComponentProps<"div"> & {
+  parts: AssistantFallbackPart[]
+}
+
+export const AssistantFallbackParts = memo(
+  ({ className, parts, ...props }: AssistantFallbackPartsProps) => {
+    const { t } = useTranslation("chat")
+
+    if (parts.length === 0) {
+      return null
+    }
+
+    return (
+      <div
+        className={cn("not-prose mb-1 space-y-1 rounded-md bg-muted/50 px-2 py-1.5", className)}
+        data-assistant-fallback-parts="true"
+        {...props}
+      >
+        {parts.map(part => {
+          const partType = getPartType(part)
+          const content = getFallbackPartContent(part)
+
+          return (
+            <div className="flex min-w-0 gap-2" key={`${partType}-${part.partIndex}`}>
+              <CircleAlertIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/80" />
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="text-muted-foreground text-xs">
+                  {t("activity.fallbackPart", { type: partType })}
+                </div>
+                {content ? (
+                  <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded bg-background/60 px-2 py-1 text-[11px] text-muted-foreground/90 leading-normal">
+                    {content}
+                  </pre>
+                ) : null}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+)
 
 type ReasoningActivityRowProps = {
   part: ReasoningUIPart & { partIndex: number }
@@ -166,29 +312,20 @@ const ReasoningActivityRow = memo(({ part, duration }: ReasoningActivityRowProps
         )}
         disabled={!hasDetails}
       >
-        <BrainIcon className="size-3 shrink-0 transition-colors" />
-        <span className="shrink-0">{label}</span>
-        {preview ? (
-          <span
-            className="min-w-0 max-w-72 truncate text-muted-foreground/70 sm:max-w-80 md:max-w-96"
-            data-reasoning-preview="true"
-          >
-            {preview}
-          </span>
-        ) : null}
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          {durationLabel ? (
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+          <BrainIcon className="size-3 shrink-0 transition-colors" />
+          <span className="shrink-0">{label}</span>
+          {preview ? (
             <span
-              className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/90"
-              data-activity-duration="true"
+              className="min-w-0 max-w-72 truncate text-muted-foreground/70 sm:max-w-80 md:max-w-96"
+              data-reasoning-preview="true"
             >
-              <TimerIcon className="size-3" />
-              {durationLabel}
+              {preview}
             </span>
           ) : null}
           <ChevronRightIcon
             className={cn(
-              "size-3.5 transition-all",
+              "size-3.5 shrink-0 transition-all",
               isOpen
                 ? "rotate-90 opacity-70"
                 : "rotate-0 opacity-0 group-hover/activity-row:opacity-60 group-focus-visible/activity-row:opacity-70"
@@ -196,6 +333,17 @@ const ReasoningActivityRow = memo(({ part, duration }: ReasoningActivityRowProps
             data-activity-chevron="true"
           />
         </div>
+        {durationLabel ? (
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <span
+              className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/90"
+              data-activity-duration="true"
+            >
+              <TimerIcon className="size-3" />
+              {durationLabel}
+            </span>
+          </div>
+        ) : null}
       </CollapsibleTrigger>
       {hasDetails ? (
         <CollapsibleContent
@@ -220,6 +368,8 @@ export const AssistantActivityTimeline = memo(
     reasoningDurations,
     fallbackThinkingDurationPartIndex,
     toolDurations,
+    defaultOpen,
+    autoOpenWhileActive = true,
     onToolApprovalResponse,
     ...props
   }: AssistantActivityTimelineProps) => {
@@ -227,8 +377,7 @@ export const AssistantActivityTimeline = memo(
       return null
     }
 
-    const fallbackReasoningPartIndex =
-      fallbackThinkingDurationPartIndex ?? parts.find(isReasoningUIPart)?.partIndex
+    const fallbackReasoningPartIndex = fallbackThinkingDurationPartIndex
 
     return (
       <div className={cn("not-prose mb-1 space-y-0.5", className)} {...props}>
@@ -236,6 +385,8 @@ export const AssistantActivityTimeline = memo(
           if (isToolUIPart(part)) {
             return (
               <ToolCallTimelineItem
+                autoOpenWhileActive={autoOpenWhileActive}
+                defaultOpen={defaultOpen}
                 duration={toolDurations?.[part.toolCallId]}
                 key={`${part.type}-${part.toolCallId}-${part.partIndex}`}
                 onToolApprovalResponse={onToolApprovalResponse}
@@ -266,5 +417,6 @@ export const AssistantActivityTimeline = memo(
   }
 )
 
+AssistantFallbackParts.displayName = "AssistantFallbackParts"
 ReasoningActivityRow.displayName = "ReasoningActivityRow"
 AssistantActivityTimeline.displayName = "AssistantActivityTimeline"

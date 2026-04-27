@@ -1,4 +1,4 @@
-import type { ReasoningUIPart, TextUIPart, ToolUIPart } from "ai"
+import type { ReasoningUIPart, TextUIPart, ToolUIPart, UIMessage } from "ai"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { I18nextProvider } from "react-i18next"
@@ -6,6 +6,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import {
   type AssistantActivityPart,
   AssistantActivityTimeline,
+  type AssistantFallbackPart,
+  AssistantFallbackParts,
   buildAssistantMessageSegments
 } from "@/components/ai-elements/assistant-activity"
 import i18n from "@/lib/i18n"
@@ -65,6 +67,19 @@ const createStreamingBashPart = (partIndex: number) =>
     partIndex
   }) as unknown as ToolUIPart & { partIndex: number }
 
+const createSourceUrlPart = (type = "source-url-test") =>
+  ({
+    type,
+    sourceId: "source-1",
+    title: "Provider docs",
+    url: "https://example.com/provider-docs"
+  }) as unknown as UIMessage["parts"][number]
+
+const createStepStartPart = () =>
+  ({
+    type: "step-start"
+  }) as unknown as UIMessage["parts"][number]
+
 async function wait(ms: number) {
   await new Promise<void>(resolve => {
     setTimeout(resolve, ms)
@@ -111,6 +126,54 @@ describe("buildAssistantMessageSegments", () => {
     expect(segments[0]).toMatchObject({ type: "text", text: "First chunk." })
     expect(segments[1]).toMatchObject({ type: "activity" })
     expect(segments[2]).toMatchObject({ type: "text", text: "Second chunk." })
+  })
+
+  it("preserves unsupported parts as fallback segments and warns once", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+    const unsupportedPart = createSourceUrlPart()
+
+    try {
+      const segments = buildAssistantMessageSegments([
+        createTextPart("Intro."),
+        unsupportedPart,
+        createReasoningPart(2, "Need first check.")
+      ])
+
+      expect(segments.map(segment => segment.type)).toEqual(["text", "fallback", "activity"])
+      expect(segments[1]).toMatchObject({ type: "fallback", parts: expect.any(Array) })
+      if (segments[1].type === "fallback") {
+        expect(segments[1].parts).toHaveLength(1)
+        expect(segments[1].parts[0]).toMatchObject({
+          partIndex: 1,
+          type: "source-url-test"
+        })
+      }
+      expect(warnSpy).toHaveBeenCalledTimes(1)
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Unsupported assistant message part type "source-url-test"'),
+        unsupportedPart
+      )
+    } finally {
+      warnSpy.mockRestore()
+    }
+  })
+
+  it("ignores non-renderable step markers without warning", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
+    try {
+      const segments = buildAssistantMessageSegments([
+        createTextPart("First "),
+        createStepStartPart(),
+        createTextPart("chunk.")
+      ])
+
+      expect(segments).toHaveLength(1)
+      expect(segments[0]).toMatchObject({ type: "text", text: "First chunk." })
+      expect(warnSpy).not.toHaveBeenCalled()
+    } finally {
+      warnSpy.mockRestore()
+    }
   })
 })
 
@@ -203,7 +266,7 @@ describe("AssistantActivityTimeline", () => {
     }
   })
 
-  it("keeps streaming activity collapsed by default", async () => {
+  it("keeps streaming reasoning collapsed and opens active tool calls", async () => {
     const parts: AssistantActivityPart[] = [
       createStreamingReasoningPart(1, "Streaming reasoning.\n```ts\nconst answer = 42\n```"),
       createStreamingBashPart(2)
@@ -223,7 +286,7 @@ describe("AssistantActivityTimeline", () => {
     expect(triggers).toHaveLength(2)
     expect(triggers.map(trigger => trigger.getAttribute("aria-expanded"))).toEqual([
       "false",
-      "false"
+      "true"
     ])
     expect(container.querySelector('[data-streamdown="thinking-plain-text-block"]')).toBeNull()
 
@@ -259,5 +322,57 @@ describe("AssistantActivityTimeline", () => {
 
     expect(durationLabels).toEqual(["9.90 s", "2.40 s"])
     expect(container.textContent).not.toContain("Thought for")
+
+    const firstChevron = container.querySelector('[data-activity-chevron="true"]')
+    const firstDuration = container.querySelector('[data-activity-duration="true"]')
+    expect(firstChevron).not.toBeNull()
+    expect(firstDuration).not.toBeNull()
+    expect(
+      Boolean(
+        (firstChevron as Element).compareDocumentPosition(firstDuration as Element) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      )
+    ).toBe(true)
+  })
+
+  it("does not apply thinking duration without a message-level fallback index", async () => {
+    const parts: AssistantActivityPart[] = [createReasoningPart(3, "Segment-local reasoning.")]
+
+    await act(async () => {
+      await i18n.changeLanguage("en")
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <AssistantActivityTimeline
+            onToolApprovalResponse={vi.fn()}
+            parts={parts}
+            thinkingDuration={9.9}
+          />
+        </I18nextProvider>
+      )
+    })
+
+    expect(container.querySelector('[data-activity-duration="true"]')).toBeNull()
+  })
+
+  it("renders fallback parts with their available content", async () => {
+    const parts = [
+      {
+        ...createSourceUrlPart("source-url-render-test"),
+        partIndex: 4
+      } as AssistantFallbackPart
+    ]
+
+    await act(async () => {
+      await i18n.changeLanguage("en")
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <AssistantFallbackParts parts={parts} />
+        </I18nextProvider>
+      )
+    })
+
+    expect(container.textContent).toContain("Message part: source-url-render-test")
+    expect(container.textContent).toContain("Provider docs")
+    expect(container.textContent).toContain("https://example.com/provider-docs")
   })
 })

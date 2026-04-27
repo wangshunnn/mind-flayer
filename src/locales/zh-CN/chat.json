@@ -132,6 +132,7 @@
   },
   "activity": {
     "expand": "展开详情",
-    "collapse": "收起详情"
+    "collapse": "收起详情",
+    "fallbackPart": "消息片段：{{type}}"
   }
 }

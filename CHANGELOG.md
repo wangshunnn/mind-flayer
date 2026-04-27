@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.0](https://github.com/wangshunnn/mind-flayer/compare/v0.8.1...v0.9.0) (2026-04-27)
+
+### Features
+
+* enhance assistant activity timeline with detailed reasoning and tool call tracking ([9d63833](https://github.com/wangshunnn/mind-flayer/commit/9d63833aecc50a88a0c2e78d9b0e73bfddb6df8c))
+* implement fallback parts for unsupported message types and enhance tool call results ([6e66c24](https://github.com/wangshunnn/mind-flayer/commit/6e66c24c0f6919090e6a9ff9678da9828a3ce902))
+* refactor reasoning content components and remove deprecated thinking process files ([659de39](https://github.com/wangshunnn/mind-flayer/commit/659de39fa1e7343bf9994814bc8ce3b79bf57c05))
+* refine hover highlighting for activity rows ([097dffe](https://github.com/wangshunnn/mind-flayer/commit/097dffe23252b15140e21045aebf59b108000258))
+
+### Bug Fixes
+
+* review ([952732e](https://github.com/wangshunnn/mind-flayer/commit/952732e948a4688c58b8851720da11e9d991b7ee))
+
 ## [](https://github.com/wangshunnn/mind-flayer/compare/v0.8.0...vnull) (2026-04-25)
 
 ### Bug Fixes

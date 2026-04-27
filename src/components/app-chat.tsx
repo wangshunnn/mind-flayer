@@ -1,17 +1,13 @@
 import { Chat as AiChat, useChat } from "@ai-sdk/react"
 import {
   DefaultChatTransport,
-  type DynamicToolUIPart,
   type FileUIPart,
   isReasoningUIPart,
   isTextUIPart,
   isToolUIPart,
   type LanguageModelUsage,
   lastAssistantMessageIsCompleteWithApprovalResponses,
-  type ReasoningUIPart,
-  type StepStartUIPart,
   type TextUIPart,
-  type ToolUIPart,
   type UIMessage
 } from "ai"
 import { BrainIcon, CircleIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
@@ -28,6 +24,11 @@ import {
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import type { StickToBottomContext } from "use-stick-to-bottom"
+import {
+  AssistantActivityTimeline,
+  AssistantFallbackParts,
+  buildAssistantMessageSegments
+} from "@/components/ai-elements/assistant-activity"
 import { ContextWindowUsageIndicator } from "@/components/ai-elements/context-window-usage-indicator"
 import {
   Conversation,
@@ -62,18 +63,6 @@ import {
   type PromptInputTextareaHandle,
   PromptInputTools
 } from "@/components/ai-elements/prompt-input"
-import { Shimmer } from "@/components/ai-elements/shimmer"
-import {
-  ReasoningPart,
-  ThinkingProcess,
-  ThinkingProcessCompletion,
-  ThinkingProcessContent,
-  ThinkingProcessTrigger
-} from "@/components/ai-elements/thinking-process"
-import {
-  ToolCallsSummary,
-  ToolCallTimelineItem
-} from "@/components/ai-elements/tool-calls-container"
 import {
   ChatMessageTimeline,
   type ChatMessageTimelineAnchor
@@ -124,10 +113,6 @@ interface AppChatInnerProps extends AppChatProps {
   sidecarApi: string
 }
 
-type ThinkingStep = (StepStartUIPart | ReasoningUIPart | ToolUIPart | DynamicToolUIPart) & {
-  partIndex: number
-}
-
 type SaveMessageOptions = {
   isAbort?: boolean
   isDisconnect?: boolean
@@ -145,6 +130,7 @@ type AssistantMessageMetadata = {
   modelId?: string
   modelLabel?: string
   thinkingDuration?: number
+  reasoningDurations?: Record<string, number>
   toolDurations?: Record<string, number>
 }
 
@@ -171,6 +157,7 @@ interface SessionRuntime {
   hydrated: boolean
   isHydrating: boolean
   thinkingDurations: Map<MessageId, number>
+  reasoningDurations: Map<MessageId, Record<string, number>>
   toolDurations: Map<MessageId, Record<string, number>>
   cleanup?: () => void
 }
@@ -570,25 +557,28 @@ const AppChatInner = ({
 
       const allMessagesWithMetadata = allMessages.map(msg => {
         const cachedDuration = runtime.thinkingDurations.get(msg.id)
+        const cachedReasoningDurations = runtime.reasoningDurations.get(msg.id)
         const cachedToolDurations = runtime.toolDurations.get(msg.id)
+        const hasReasoningDurations =
+          cachedReasoningDurations !== undefined && Object.keys(cachedReasoningDurations).length > 0
+        const hasToolDurations =
+          cachedToolDurations !== undefined && Object.keys(cachedToolDurations).length > 0
 
-        if (cachedDuration !== undefined && msg.role === "assistant") {
-          return {
-            ...msg,
-            metadata: {
-              ...(msg.metadata || {}),
-              thinkingDuration: cachedDuration,
-              ...(cachedToolDurations ? { toolDurations: cachedToolDurations } : {})
-            }
+        if (msg.role === "assistant") {
+          const hasRuntimeMetadata =
+            cachedDuration !== undefined || hasReasoningDurations || hasToolDurations
+
+          if (!hasRuntimeMetadata) {
+            return msg
           }
-        }
 
-        if (cachedToolDurations && msg.role === "assistant") {
           return {
             ...msg,
             metadata: {
               ...(msg.metadata || {}),
-              toolDurations: cachedToolDurations
+              ...(cachedDuration !== undefined ? { thinkingDuration: cachedDuration } : {}),
+              ...(hasReasoningDurations ? { reasoningDurations: cachedReasoningDurations } : {}),
+              ...(hasToolDurations ? { toolDurations: cachedToolDurations } : {})
             }
           }
         }
@@ -635,6 +625,7 @@ const AppChatInner = ({
         hydrated: options?.hydrated ?? false,
         isHydrating: false,
         thinkingDurations: new Map<MessageId, number>(),
+        reasoningDurations: new Map<MessageId, Record<string, number>>(),
         toolDurations: new Map<MessageId, Record<string, number>>(),
         chat: new AiChat<UIMessage>({
           id: chatId,
@@ -658,9 +649,13 @@ const AppChatInner = ({
             void (async () => {
               try {
                 if (!isError) {
+                  const lastMessage = messages.at(-1)
+                  if (lastMessage?.role === "assistant") {
+                    finishReasoningDurationsForMessage(lastMessage.id)
+                  }
+
                   await saveAllMessagesAsync(chatId, messages, { isAbort, isDisconnect, isError })
 
-                  const lastMessage = messages.at(-1)
                   const shouldMarkUnread =
                     !isAbort &&
                     !isDisconnect &&
@@ -689,12 +684,67 @@ const AppChatInner = ({
       // Track thinking/tool durations at the runtime level so background chats
       // (not rendered) still get accurate duration measurements.
       const thinkingStartTimes = new Map<MessageId, number>()
+      const reasoningStartTimes = new Map<MessageId, Map<number, number>>()
       const toolStartTimes = new Map<string, number>()
       let prevIsThinking = false
       let prevLastMsgId: string | null = null
       const prevToolStates = new Map<string, string>()
       let prevIsReplying =
         runtime.chat.status === "submitted" || runtime.chat.status === "streaming"
+
+      const getReasoningStartTimesForMessage = (messageId: MessageId) => {
+        let messageStartTimes = reasoningStartTimes.get(messageId)
+        if (!messageStartTimes) {
+          messageStartTimes = new Map<number, number>()
+          reasoningStartTimes.set(messageId, messageStartTimes)
+        }
+
+        return messageStartTimes
+      }
+
+      const hasReasoningStartTime = (messageId: MessageId, partIndex: number) =>
+        reasoningStartTimes.get(messageId)?.has(partIndex) ?? false
+
+      const hasReasoningDuration = (messageId: MessageId, partIndex: number) =>
+        runtime.reasoningDurations.get(messageId)?.[String(partIndex)] !== undefined
+
+      const startReasoningDuration = (messageId: MessageId, partIndex: number) => {
+        const messageStartTimes = getReasoningStartTimesForMessage(messageId)
+        if (!messageStartTimes.has(partIndex)) {
+          messageStartTimes.set(partIndex, Date.now())
+        }
+      }
+
+      const finishReasoningDuration = (
+        messageId: MessageId,
+        partIndex: number,
+        endTime = Date.now()
+      ) => {
+        const messageStartTimes = reasoningStartTimes.get(messageId)
+        const startTime = messageStartTimes?.get(partIndex)
+        if (startTime === undefined) {
+          return
+        }
+
+        const durationS = Math.round(((endTime - startTime) / 1000) * 10) / 10
+        const prev = runtime.reasoningDurations.get(messageId) ?? {}
+        runtime.reasoningDurations.set(messageId, { ...prev, [String(partIndex)]: durationS })
+        messageStartTimes?.delete(partIndex)
+        if (messageStartTimes?.size === 0) {
+          reasoningStartTimes.delete(messageId)
+        }
+      }
+
+      const finishReasoningDurationsForMessage = (messageId: MessageId, endTime = Date.now()) => {
+        const messageStartTimes = reasoningStartTimes.get(messageId)
+        if (!messageStartTimes) {
+          return
+        }
+
+        for (const partIndex of Array.from(messageStartTimes.keys())) {
+          finishReasoningDuration(messageId, partIndex, endTime)
+        }
+      }
 
       const unsubscribeStatus = runtime.chat["~registerStatusCallback"](() => {
         const nextIsReplying =
@@ -721,7 +771,9 @@ const AppChatInner = ({
 
         // Reset tracking when the assistant message changes
         if (prevLastMsgId !== null && prevLastMsgId !== lastMsg.id) {
+          const previousMessageId = prevLastMsgId
           prevIsThinking = false
+          finishReasoningDurationsForMessage(previousMessageId)
           prevToolStates.clear()
         }
         prevLastMsgId = lastMsg.id
@@ -747,6 +799,35 @@ const AppChatInner = ({
           thinkingStartTimes.delete(lastMsg.id)
         }
         prevIsThinking = !!isThinking
+
+        // --- Per-reasoning segment duration tracking ---
+        const activeReasoningPartIndex =
+          isStreaming &&
+          lastPart !== undefined &&
+          isReasoningUIPart(lastPart) &&
+          lastPart.state === "streaming"
+            ? lastMsg.parts.length - 1
+            : null
+
+        for (let partIndex = 0; partIndex < lastMsg.parts.length; partIndex += 1) {
+          const part = lastMsg.parts[partIndex]
+          if (!isReasoningUIPart(part)) {
+            continue
+          }
+
+          const isActiveReasoning = activeReasoningPartIndex === partIndex
+
+          if (
+            !hasReasoningStartTime(lastMsg.id, partIndex) &&
+            !hasReasoningDuration(lastMsg.id, partIndex)
+          ) {
+            startReasoningDuration(lastMsg.id, partIndex)
+          }
+
+          if (!isActiveReasoning && hasReasoningStartTime(lastMsg.id, partIndex)) {
+            finishReasoningDuration(lastMsg.id, partIndex)
+          }
+        }
 
         // --- Tool duration tracking ---
         for (const part of lastMsg.parts) {
@@ -791,6 +872,7 @@ const AppChatInner = ({
         unsubscribeStatus()
         prevIsReplying = false
         thinkingStartTimes.clear()
+        reasoningStartTimes.clear()
         toolStartTimes.clear()
         prevToolStates.clear()
       }
@@ -1248,6 +1330,7 @@ const AppChatInner = ({
 
   const activeRuntime = runtimeForActiveChat
   const thinkingDurations = activeRuntime?.thinkingDurations
+  const reasoningDurations = activeRuntime?.reasoningDurations
   const toolDurations = activeRuntime?.toolDurations
   const timelineAnchors = useMemo<ChatMessageTimelineAnchor[]>(
     () =>
@@ -1402,51 +1485,19 @@ const AppChatInner = ({
                 )
                 const isLastMessage = index === messages.length - 1
                 const isCurrentlyStreaming = status === "streaming" && isLastMessage
-                const lastPart = message.parts[message.parts.length - 1]
-                const isThinkingStreaming =
-                  (isCurrentlyStreaming &&
-                    lastPart?.type &&
-                    (lastPart.type === "step-start" ||
-                      isReasoningUIPart(lastPart) ||
-                      isToolUIPart(lastPart))) ||
-                  (!isCurrentlyStreaming && lastPart?.type && isToolUIPart(lastPart))
-                const steps: ThinkingStep[][] = []
-                let currentStep: ThinkingStep[] = []
-
-                message.parts.forEach((part, partIndex) => {
-                  if (part.type === "step-start") {
-                    if (currentStep.length > 0) {
-                      steps.push(currentStep)
-                      currentStep = [{ ...part, partIndex }]
-                    }
-                  } else if (isReasoningUIPart(part) || isToolUIPart(part)) {
-                    currentStep.push({ ...part, partIndex })
-                  }
-                })
-
-                if (currentStep.length > 0) {
-                  steps.push(currentStep)
-                }
-
-                const hasThinkingProcess =
-                  steps.length > 0 &&
-                  steps.some(step =>
-                    step.some(part => isReasoningUIPart(part) || isToolUIPart(part))
-                  )
-                const lastStep = currentStep.at(-1)
-                const isThinkingComplete =
-                  !isThinkingStreaming ||
-                  (lastStep && isReasoningUIPart(lastStep) && lastStep.state !== "streaming")
-                const toolParts = message.parts.filter(isToolUIPart)
                 const messageToolDurations =
                   metadata?.toolDurations ?? toolDurations?.get(message.id)
-                const timelineParts = steps.flatMap(step =>
-                  step.filter(part => isReasoningUIPart(part) || isToolUIPart(part))
-                )
+                const messageReasoningDurations =
+                  metadata?.reasoningDurations ?? reasoningDurations?.get(message.id)
 
-                const hasTools = toolParts.length > 0
                 const isUserMessage = message.role === "user"
                 const isAssistantMessage = message.role === "assistant"
+                const assistantSegments = isAssistantMessage
+                  ? buildAssistantMessageSegments(message.parts)
+                  : []
+                const firstReasoningPartIndex = isAssistantMessage
+                  ? message.parts.findIndex(isReasoningUIPart)
+                  : -1
 
                 return (
                   <MessageBranch defaultBranch={0} key={message.id}>
@@ -1456,69 +1507,51 @@ const AppChatInner = ({
                         key={message.id}
                         ref={getMessageNodeRef(message.id, message.role)}
                       >
-                        {isAssistantMessage && hasThinkingProcess && (
-                          <ThinkingProcess
-                            isStreaming={isThinkingStreaming}
-                            defaultOpen={isThinkingStreaming}
-                            totalDuration={
-                              metadata?.thinkingDuration ?? thinkingDurations?.get(message.id)
-                            }
-                          >
-                            <ThinkingProcessTrigger />
-                            <ThinkingProcessContent>
-                              {timelineParts.map(part =>
-                                isToolUIPart(part) ? (
-                                  <div key={`${message.id}-${part.partIndex}`}>
-                                    <ReasoningPart
-                                      partSource={part}
-                                      isChatStreaming={isCurrentlyStreaming}
-                                    />
-                                    <div className="mt-2.5">
-                                      <ToolCallTimelineItem
-                                        part={part}
-                                        duration={messageToolDurations?.[part.toolCallId]}
-                                        onToolApprovalResponse={addToolApprovalResponse}
-                                      />
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <ReasoningPart
-                                    key={`${message.id}-${part.partIndex}`}
-                                    partSource={part}
-                                    isChatStreaming={isCurrentlyStreaming}
-                                  />
-                                )
-                              )}
-
-                              {isThinkingComplete ? (
-                                <ThinkingProcessCompletion stepCount={steps.length} />
-                              ) : (
-                                <div className="relative my-0">
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground relative my-2">
-                                    <CircleIcon className="ml-1 size-1.5 text-muted-foreground/80 fill-current" />
-                                    <Shimmer duration={1}>
-                                      {t("chat:message.thinkingInProgress")}
-                                    </Shimmer>
-                                  </div>
-                                </div>
-                              )}
-                            </ThinkingProcessContent>
-                          </ThinkingProcess>
-                        )}
-
-                        {isAssistantMessage && hasTools && isThinkingComplete && (
-                          <ToolCallsSummary toolParts={toolParts} />
-                        )}
-
-                        <MessageContent>
-                          {isUserMessage ? (
+                        {isUserMessage ? (
+                          <MessageContent>
                             <div className="whitespace-pre-wrap wrap-break-word">{messageText}</div>
-                          ) : (
-                            <MessageResponse localImageProxyOrigin={sidecarOrigin}>
-                              {messageText}
-                            </MessageResponse>
-                          )}
-                        </MessageContent>
+                          </MessageContent>
+                        ) : (
+                          assistantSegments.map(segment => {
+                            if (segment.type === "text") {
+                              return (
+                                <MessageContent
+                                  key={`text-${message.id}-${segment.startPartIndex}`}
+                                >
+                                  <MessageResponse localImageProxyOrigin={sidecarOrigin}>
+                                    {segment.text}
+                                  </MessageResponse>
+                                </MessageContent>
+                              )
+                            }
+
+                            if (segment.type === "fallback") {
+                              return (
+                                <AssistantFallbackParts
+                                  key={`fallback-${message.id}-${segment.startPartIndex}`}
+                                  parts={segment.parts}
+                                />
+                              )
+                            }
+
+                            return (
+                              <AssistantActivityTimeline
+                                autoOpenWhileActive
+                                fallbackThinkingDurationPartIndex={
+                                  firstReasoningPartIndex >= 0 ? firstReasoningPartIndex : undefined
+                                }
+                                key={`activity-${message.id}-${segment.startPartIndex}`}
+                                onToolApprovalResponse={addToolApprovalResponse}
+                                parts={segment.parts}
+                                reasoningDurations={messageReasoningDurations}
+                                thinkingDuration={
+                                  metadata?.thinkingDuration ?? thinkingDurations?.get(message.id)
+                                }
+                                toolDurations={messageToolDurations}
+                              />
+                            )
+                          })
+                        )}
                         {isUserMessage && (
                           <UserMessageActionsBar
                             messageText={messageText}

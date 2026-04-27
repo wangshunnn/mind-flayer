@@ -11,7 +11,7 @@
   },
   "names": {
     "webSearch": "Web search",
-    "bashExecution": "Bash exec",
+    "bashExecution": "Bash",
     "read": "Read file",
     "appendWorkspaceSection": "Append workspace section",
     "replaceWorkspaceSection": "Replace workspace section",
@@ -31,7 +31,6 @@
     "awaitingApproval": "Awaiting approval..."
   },
   "bashExecution": {
-    "exitCode": "Exit {{code}}",
     "stderr": "stderr"
   },
   "agentSession": {

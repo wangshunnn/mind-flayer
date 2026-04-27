@@ -7,7 +7,7 @@
   },
   "names": {
     "webSearch": "联网搜索",
-    "bashExecution": "Bash 执行",
+    "bashExecution": "Bash",
     "read": "读取文件",
     "appendWorkspaceSection": "追加工作区章节",
     "replaceWorkspaceSection": "替换工作区章节",
@@ -27,7 +27,6 @@
     "awaitingApproval": "等待批准..."
   },
   "bashExecution": {
-    "exitCode": "退出码 {{code}}",
     "stderr": "stderr"
   },
   "agentSession": {

@@ -1,7 +1,7 @@
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
-import { ReasoningPartContent } from "@/components/ai-elements/thinking-process"
+import { ReasoningPartContent } from "@/components/ai-elements/reasoning-content"
 
 describe("ReasoningPartContent", () => {
   let container: HTMLDivElement
@@ -32,7 +32,7 @@ describe("ReasoningPartContent", () => {
     container.remove()
   })
 
-  it("renders fenced code blocks as plain text in thinking content", async () => {
+  it("renders fenced code blocks as plain text in reasoning content", async () => {
     await act(async () => {
       root.render(
         <ReasoningPartContent>

@@ -1,10 +1,16 @@
 import type { ToolUIPart } from "ai"
 import { describe, expect, it } from "vitest"
-import { getToolCallMeta } from "@/lib/tool-helpers"
+import { getToolCallMeta, getToolResultText } from "@/lib/tool-helpers"
 
 const toolConstants = {
   names: {},
-  states: {},
+  states: {
+    running: "Running...",
+    done: "Done",
+    failed: "Failed",
+    cancelled: "Cancelled",
+    awaitingApproval: "Awaiting approval..."
+  },
   webSearch: {
     searching: "Searching...",
     searchedResults: (count: number) => `Searched ${count} results`,
@@ -20,9 +26,6 @@ const toolConstants = {
       `${filePath} (offset ${offset})`,
     emptyFile: "[empty file]",
     nextOffset: (nextOffset: number) => `Next offset: ${nextOffset}`
-  },
-  bashExecution: {
-    exitCode: (code: number) => `Exit ${code}`
   },
   agentSession: {
     status: (status: string) => status,
@@ -179,5 +182,45 @@ describe("getToolCallMeta", () => {
     expect(getToolCallMeta(part, toolConstants)?.content).toBe(
       "codex exec: /Users/USERNAME/project"
     )
+  })
+})
+
+describe("getToolResultText", () => {
+  it("maps bash exit code 0 to done", () => {
+    const part = {
+      type: "tool-bashExecution",
+      toolCallId: "tool-bash-success",
+      state: "output-available",
+      output: {
+        command: "pwd",
+        args: [],
+        stdout: "/tmp",
+        stderr: "",
+        exitCode: 0,
+        workingDir: "/tmp",
+        executedAt: "2026-03-17T12:00:00.000Z"
+      }
+    } as unknown as ToolUIPart
+
+    expect(getToolResultText(part, toolConstants)).toBe("Done")
+  })
+
+  it("maps non-zero bash exit codes to failed", () => {
+    const part = {
+      type: "tool-bashExecution",
+      toolCallId: "tool-bash-failed",
+      state: "output-available",
+      output: {
+        command: "cat",
+        args: ["missing.txt"],
+        stdout: "",
+        stderr: "missing",
+        exitCode: 1,
+        workingDir: "/tmp",
+        executedAt: "2026-03-17T12:00:00.000Z"
+      }
+    } as unknown as ToolUIPart
+
+    expect(getToolResultText(part, toolConstants)).toBe("Failed")
   })
 })

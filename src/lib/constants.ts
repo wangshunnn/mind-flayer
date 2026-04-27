@@ -50,9 +50,6 @@ export function useToolConstants() {
         emptyFile: t("read.emptyFile"),
         nextOffset: (nextOffset: number) => t("read.nextOffset", { nextOffset })
       },
-      bashExecution: {
-        exitCode: (code: number) => t("bashExecution.exitCode", { code })
-      },
       agentSession: {
         status: (status: string) => t(`agentSession.status.${status}`, { defaultValue: status }),
         nextOffset: (nextOffset: number) => t("agentSession.nextOffset", { nextOffset })

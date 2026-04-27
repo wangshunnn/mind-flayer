@@ -10,7 +10,7 @@ import {
 } from "ai"
 import { BrainIcon, ChevronRightIcon, CircleAlertIcon, TimerIcon } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
-import { memo, useState } from "react"
+import { memo, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ReasoningPartContent } from "@/components/ai-elements/reasoning-content"
 import { Shimmer } from "@/components/ai-elements/shimmer"
@@ -57,20 +57,19 @@ export type AssistantActivityTimelineProps = ComponentProps<"div"> & {
 }
 
 const PREVIEW_LENGTH = 96
-const warnedFallbackPartTypes = new Set<string>()
 
 function getPartType(part: UIMessage["parts"][number]): string {
   const type = (part as { type?: unknown }).type
   return typeof type === "string" && type.length > 0 ? type : "unknown"
 }
 
-function warnUnsupportedPart(part: UIMessage["parts"][number]) {
+function warnUnsupportedPart(part: UIMessage["parts"][number], warnedPartTypes: Set<string>) {
   const partType = getPartType(part)
-  if (warnedFallbackPartTypes.has(partType)) {
+  if (warnedPartTypes.has(partType)) {
     return
   }
 
-  warnedFallbackPartTypes.add(partType)
+  warnedPartTypes.add(partType)
   console.warn(`[AssistantActivity] Unsupported assistant message part type "${partType}"`, part)
 }
 
@@ -146,6 +145,7 @@ export function buildAssistantMessageSegments(
   let textStartPartIndex = -1
   let activityParts: AssistantActivityPart[] = []
   let fallbackParts: AssistantFallbackPart[] = []
+  const warnedFallbackPartTypes = new Set<string>()
 
   const flushText = () => {
     if (textParts.length === 0) {
@@ -215,7 +215,7 @@ export function buildAssistantMessageSegments(
 
     flushText()
     flushActivity()
-    warnUnsupportedPart(part)
+    warnUnsupportedPart(part, warnedFallbackPartTypes)
     fallbackParts.push({ ...part, partIndex })
   })
 
@@ -272,93 +272,126 @@ export const AssistantFallbackParts = memo(
 type ReasoningActivityRowProps = {
   part: ReasoningUIPart & { partIndex: number }
   duration?: number
+  defaultOpen?: boolean
+  autoOpenWhileActive?: boolean
 }
 
-const ReasoningActivityRow = memo(({ part, duration }: ReasoningActivityRowProps) => {
-  const { t } = useTranslation("chat")
-  const { thinking } = useThinkingConstants()
-  const [isOpen, setIsOpen] = useState(false)
-  const content = part.text ?? ""
-  const preview = getReasoningPreview(content)
-  const hasDetails = content.trim().length > 0
-  const durationLabel = duration !== undefined ? formatToolCallDuration(duration) : null
+const ReasoningActivityRow = memo(
+  ({
+    part,
+    duration,
+    defaultOpen = false,
+    autoOpenWhileActive = true
+  }: ReasoningActivityRowProps) => {
+    const { t } = useTranslation("chat")
+    const { thinking } = useThinkingConstants()
+    const [isOpen, setIsOpen] = useState(defaultOpen)
+    const autoOpenedWhileActiveRef = useRef(false)
+    const wasStreamingRef = useRef(part.state === "streaming")
+    const content = part.text ?? ""
+    const preview = getReasoningPreview(content)
+    const hasDetails = content.trim().length > 0
+    const durationLabel = duration !== undefined ? formatToolCallDuration(duration) : null
+    const isStreaming = part.state === "streaming"
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    setIsOpen(nextOpen)
-  }
+    useEffect(() => {
+      if (!autoOpenWhileActive) {
+        wasStreamingRef.current = isStreaming
+        return
+      }
 
-  const labelText = part.state === "streaming" ? thinking : t("message.reasoning")
-  let label: ReactNode = labelText
+      if (isStreaming) {
+        autoOpenedWhileActiveRef.current = true
+        setIsOpen(true)
+      } else if (wasStreamingRef.current && autoOpenedWhileActiveRef.current) {
+        autoOpenedWhileActiveRef.current = false
+        setIsOpen(false)
+      }
 
-  if (part.state === "streaming") {
-    label = <Shimmer duration={1}>{thinking}</Shimmer>
-  }
+      wasStreamingRef.current = isStreaming
+    }, [autoOpenWhileActive, isStreaming])
 
-  return (
-    <Collapsible
-      className="not-prose rounded-md text-muted-foreground"
-      onOpenChange={handleOpenChange}
-      open={isOpen}
-    >
-      <CollapsibleTrigger
-        aria-label={`${isOpen ? t("activity.collapse") : t("activity.expand")}: ${labelText}${
-          durationLabel ? `, ${durationLabel}` : ""
-        }`}
-        className={cn(
-          "group/activity-row flex min-h-7 w-full items-center gap-2 rounded-md pl-0 pr-1 py-1",
-          "text-muted-foreground text-xs transition-colors",
-          "hover:bg-muted/40 hover:text-foreground",
-          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        )}
-        disabled={!hasDetails}
+    const handleOpenChange = (nextOpen: boolean) => {
+      setIsOpen(nextOpen)
+    }
+
+    const labelText = isStreaming ? thinking : t("message.reasoning")
+    let label: ReactNode = labelText
+
+    if (isStreaming) {
+      label = <Shimmer duration={1}>{thinking}</Shimmer>
+    }
+
+    return (
+      <Collapsible
+        className="not-prose rounded-md text-muted-foreground"
+        onOpenChange={handleOpenChange}
+        open={isOpen}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-          <BrainIcon className="size-3 shrink-0 transition-colors" />
-          <span className="shrink-0">{label}</span>
-          {preview ? (
-            <span
-              className="min-w-0 max-w-72 truncate text-muted-foreground/70 sm:max-w-80 md:max-w-96"
-              data-reasoning-preview="true"
-            >
-              {preview}
-            </span>
-          ) : null}
-          <ChevronRightIcon
-            className={cn(
-              "size-3.5 shrink-0 transition-all",
-              isOpen
-                ? "rotate-90 opacity-70"
-                : "rotate-0 opacity-0 group-hover/activity-row:opacity-60 group-focus-visible/activity-row:opacity-70"
-            )}
-            data-activity-chevron="true"
-          />
-        </div>
-        {durationLabel ? (
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            <span
-              className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/90"
-              data-activity-duration="true"
-            >
-              <TimerIcon className="size-3" />
-              {durationLabel}
-            </span>
-          </div>
-        ) : null}
-      </CollapsibleTrigger>
-      {hasDetails ? (
-        <CollapsibleContent
+        <CollapsibleTrigger
+          aria-label={`${isOpen ? t("activity.collapse") : t("activity.expand")}: ${labelText}${
+            durationLabel ? `, ${durationLabel}` : ""
+          }`}
           className={cn(
-            "relative mt-1 rounded-md bg-muted/70 px-2 py-2 text-xs leading-normal",
-            "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2",
-            "text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in"
+            "group/activity-row flex min-h-7 w-full items-center gap-2 rounded-md pl-0 pr-1 py-1",
+            "text-muted-foreground text-xs transition-colors",
+            "hover:text-foreground",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           )}
+          disabled={!hasDetails}
         >
-          <ReasoningPartContent className="pr-0">{content}</ReasoningPartContent>
-        </CollapsibleContent>
-      ) : null}
-    </Collapsible>
-  )
-})
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+            <BrainIcon className="size-3 shrink-0 transition-colors" />
+            <span className="shrink-0">{label}</span>
+            {preview ? (
+              <span
+                className={cn(
+                  "min-w-0 max-w-72 truncate text-muted-foreground/70 transition-colors",
+                  "group-hover/activity-row:text-foreground",
+                  "sm:max-w-80 md:max-w-96"
+                )}
+                data-reasoning-preview="true"
+              >
+                {preview}
+              </span>
+            ) : null}
+            <ChevronRightIcon
+              className={cn(
+                "size-3.5 shrink-0 transition-all",
+                isOpen
+                  ? "rotate-90 opacity-70"
+                  : "rotate-0 opacity-0 group-hover/activity-row:opacity-60 group-focus-visible/activity-row:opacity-70"
+              )}
+              data-activity-chevron="true"
+            />
+          </div>
+          {durationLabel ? (
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <span
+                className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/90"
+                data-activity-duration="true"
+              >
+                <TimerIcon className="size-3" />
+                {durationLabel}
+              </span>
+            </div>
+          ) : null}
+        </CollapsibleTrigger>
+        {hasDetails ? (
+          <CollapsibleContent
+            className={cn(
+              "relative mt-1 rounded-md bg-muted/70 px-2 py-2 text-xs leading-normal",
+              "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2",
+              "text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in"
+            )}
+          >
+            <ReasoningPartContent className="pr-0">{content}</ReasoningPartContent>
+          </CollapsibleContent>
+        ) : null}
+      </Collapsible>
+    )
+  }
+)
 
 export const AssistantActivityTimeline = memo(
   ({
@@ -377,8 +410,6 @@ export const AssistantActivityTimeline = memo(
       return null
     }
 
-    const fallbackReasoningPartIndex = fallbackThinkingDurationPartIndex
-
     return (
       <div className={cn("not-prose mb-1 space-y-0.5", className)} {...props}>
         {parts.map(part => {
@@ -396,14 +427,17 @@ export const AssistantActivityTimeline = memo(
           }
 
           if (isReasoningUIPart(part)) {
+            const duration =
+              reasoningDurations?.[String(part.partIndex)] ??
+              (part.state !== "streaming" && part.partIndex === fallbackThinkingDurationPartIndex
+                ? thinkingDuration
+                : undefined)
+
             return (
               <ReasoningActivityRow
-                duration={
-                  reasoningDurations?.[String(part.partIndex)] ??
-                  (part.state !== "streaming" && part.partIndex === fallbackReasoningPartIndex
-                    ? thinkingDuration
-                    : undefined)
-                }
+                autoOpenWhileActive={autoOpenWhileActive}
+                defaultOpen={defaultOpen}
+                duration={duration}
                 key={`${part.type}-${part.partIndex}`}
                 part={part}
               />

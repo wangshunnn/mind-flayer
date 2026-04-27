@@ -266,9 +266,13 @@ describe("AssistantActivityTimeline", () => {
     }
   })
 
-  it("keeps streaming reasoning collapsed and opens active tool calls", async () => {
-    const parts: AssistantActivityPart[] = [
+  it("auto-opens streaming reasoning and active tool calls", async () => {
+    const streamingParts: AssistantActivityPart[] = [
       createStreamingReasoningPart(1, "Streaming reasoning.\n```ts\nconst answer = 42\n```"),
+      createStreamingBashPart(2)
+    ]
+    const doneParts: AssistantActivityPart[] = [
+      createReasoningPart(1, "Streaming reasoning.\n```ts\nconst answer = 42\n```"),
       createStreamingBashPart(2)
     ]
 
@@ -276,7 +280,7 @@ describe("AssistantActivityTimeline", () => {
       await i18n.changeLanguage("en")
       root.render(
         <I18nextProvider i18n={i18n}>
-          <AssistantActivityTimeline onToolApprovalResponse={vi.fn()} parts={parts} />
+          <AssistantActivityTimeline onToolApprovalResponse={vi.fn()} parts={streamingParts} />
         </I18nextProvider>
       )
     })
@@ -284,15 +288,19 @@ describe("AssistantActivityTimeline", () => {
     const triggers = Array.from(container.querySelectorAll("button[aria-controls]"))
 
     expect(triggers).toHaveLength(2)
-    expect(triggers.map(trigger => trigger.getAttribute("aria-expanded"))).toEqual([
-      "false",
-      "true"
-    ])
-    expect(container.querySelector('[data-streamdown="thinking-plain-text-block"]')).toBeNull()
-
-    await click(triggers[0])
-
+    expect(triggers.map(trigger => trigger.getAttribute("aria-expanded"))).toEqual(["true", "true"])
     expect(container.querySelector('[data-streamdown="thinking-plain-text-block"]')).not.toBeNull()
+
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <AssistantActivityTimeline onToolApprovalResponse={vi.fn()} parts={doneParts} />
+        </I18nextProvider>
+      )
+    })
+
+    const rerenderedTriggers = Array.from(container.querySelectorAll("button[aria-controls]"))
+    expect(rerenderedTriggers[0].getAttribute("aria-expanded")).toBe("false")
   })
 
   it("renders per-reasoning durations on the row trailing side", async () => {

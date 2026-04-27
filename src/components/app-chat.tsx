@@ -559,10 +559,14 @@ const AppChatInner = ({
         const cachedDuration = runtime.thinkingDurations.get(msg.id)
         const cachedReasoningDurations = runtime.reasoningDurations.get(msg.id)
         const cachedToolDurations = runtime.toolDurations.get(msg.id)
+        const hasReasoningDurations =
+          cachedReasoningDurations !== undefined && Object.keys(cachedReasoningDurations).length > 0
+        const hasToolDurations =
+          cachedToolDurations !== undefined && Object.keys(cachedToolDurations).length > 0
 
         if (msg.role === "assistant") {
           const hasRuntimeMetadata =
-            cachedDuration !== undefined || cachedReasoningDurations || cachedToolDurations
+            cachedDuration !== undefined || hasReasoningDurations || hasToolDurations
 
           if (!hasRuntimeMetadata) {
             return msg
@@ -573,8 +577,8 @@ const AppChatInner = ({
             metadata: {
               ...(msg.metadata || {}),
               ...(cachedDuration !== undefined ? { thinkingDuration: cachedDuration } : {}),
-              ...(cachedReasoningDurations ? { reasoningDurations: cachedReasoningDurations } : {}),
-              ...(cachedToolDurations ? { toolDurations: cachedToolDurations } : {})
+              ...(hasReasoningDurations ? { reasoningDurations: cachedReasoningDurations } : {}),
+              ...(hasToolDurations ? { toolDurations: cachedToolDurations } : {})
             }
           }
         }
@@ -701,6 +705,9 @@ const AppChatInner = ({
       const hasReasoningStartTime = (messageId: MessageId, partIndex: number) =>
         reasoningStartTimes.get(messageId)?.has(partIndex) ?? false
 
+      const hasReasoningDuration = (messageId: MessageId, partIndex: number) =>
+        runtime.reasoningDurations.get(messageId)?.[String(partIndex)] !== undefined
+
       const startReasoningDuration = (messageId: MessageId, partIndex: number) => {
         const messageStartTimes = getReasoningStartTimesForMessage(messageId)
         if (!messageStartTimes.has(partIndex)) {
@@ -810,7 +817,10 @@ const AppChatInner = ({
 
           const isActiveReasoning = activeReasoningPartIndex === partIndex
 
-          if (isActiveReasoning) {
+          if (
+            !hasReasoningStartTime(lastMsg.id, partIndex) &&
+            !hasReasoningDuration(lastMsg.id, partIndex)
+          ) {
             startReasoningDuration(lastMsg.id, partIndex)
           }
 

@@ -27,9 +27,6 @@ const toolConstants = {
     emptyFile: "[empty file]",
     nextOffset: (nextOffset: number) => `Next offset: ${nextOffset}`
   },
-  bashExecution: {
-    exitCode: (code: number) => `Exit ${code}`
-  },
   agentSession: {
     status: (status: string) => status,
     nextOffset: (nextOffset: number) => `Next offset: ${nextOffset}`

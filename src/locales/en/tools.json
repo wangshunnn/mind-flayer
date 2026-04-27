@@ -31,7 +31,6 @@
     "awaitingApproval": "Awaiting approval..."
   },
   "bashExecution": {
-    "exitCode": "Exit {{code}}",
     "stderr": "stderr"
   },
   "agentSession": {

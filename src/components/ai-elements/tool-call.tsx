@@ -252,7 +252,7 @@ export const ToolCallTrigger = memo(
         className={cn(
           "group/activity-row flex min-h-7 w-full items-center gap-2 rounded-md pl-0 pr-1 py-1",
           "text-muted-foreground text-xs transition-colors",
-          "hover:bg-muted/40 hover:text-foreground",
+          "hover:text-foreground",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           className
         )}
@@ -446,7 +446,7 @@ export const ToolCallCopyablePre = memo(
   }
 )
 
-const formatBashExecCommand = (input?: BashExecInput) =>
+export const formatBashExecCommand = (input?: BashExecInput) =>
   `${input?.command ?? ""} ${input?.args?.join(" ") ?? ""}`.trim()
 
 const normalizeBashExecChunk = (value?: string) => {

@@ -27,7 +27,6 @@
     "awaitingApproval": "等待批准..."
   },
   "bashExecution": {
-    "exitCode": "退出码 {{code}}",
     "stderr": "stderr"
   },
   "agentSession": {

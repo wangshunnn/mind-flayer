@@ -14,6 +14,7 @@ import {
   BashExecCommandLine,
   type BashExecInput,
   type BashExecResult,
+  formatBashExecCommand,
   ToolCall,
   ToolCallApprovalRequested,
   ToolCallBashExecResults,
@@ -89,7 +90,8 @@ type AgentSessionInput = AgentSessionStartInput | AgentSessionReadInput | AgentS
 
 const AGENT_SESSION_TERMINAL_STATUSES = new Set(["failed", "stopped", "timeout"])
 const FINAL_TOOL_STATES = new Set(["output-available", "output-error", "output-denied"])
-const TOOL_CALL_RESULT_TEXT_CLASS = "shrink-0 text-[10px] text-muted-foreground/80"
+const TOOL_CALL_RESULT_TEXT_CLASS =
+  "shrink-0 text-[10px] text-muted-foreground/80 transition-colors group-hover/activity-row:text-foreground"
 
 const getAgentSessionStatusClassName = (status: string) =>
   cn(
@@ -194,9 +196,11 @@ const ToolCallFrame = ({
                 <span className="shrink-0">
                   {isCompleted ? displayName : <Shimmer duration={1}>{displayName}</Shimmer>}
                 </span>
-                <span className="min-w-0 truncate text-muted-foreground/70">{summaryContent}</span>
+                <span className="min-w-0 truncate text-muted-foreground/70 transition-colors group-hover/activity-row:text-foreground">
+                  {summaryContent}
+                </span>
                 {resultLabel ? (
-                  <span className="shrink-0 text-[10px] text-muted-foreground/80">
+                  <span className="shrink-0 text-[10px] text-muted-foreground/80 transition-colors group-hover/activity-row:text-foreground">
                     {resultLabel}
                   </span>
                 ) : null}
@@ -318,7 +322,7 @@ export const ToolCallTimelineItem = memo(
     if (part.type === "tool-bashExecution") {
       const input = part.input as BashExecInput
       const output = part.state === "output-available" ? (part.output as BashExecResult) : null
-      const commandText = `${input?.command ?? ""} ${input?.args?.join(" ") ?? ""}`.trim()
+      const commandText = formatBashExecCommand(input)
       const commandLine = <BashExecCommandLine input={input} />
       const resultText = getToolResultText(part, toolConstants)
       const showResult = FINAL_TOOL_STATES.has(part.state)

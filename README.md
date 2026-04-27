@@ -59,6 +59,21 @@
 
 <br>
 
+## Installation
+
+Download the macOS DMG from Releases and choose the file for your Mac:
+
+- Apple Silicon: `Mind.Flayer_*_aarch64.dmg`
+- Intel: `Mind.Flayer_*_x64.dmg`
+
+If macOS says the app is damaged, move it to Applications and run:
+
+```sh
+xattr -rd com.apple.quarantine "/Applications/Mind Flayer.app"
+```
+
+<br>
+
 ## Development
 
 ```sh

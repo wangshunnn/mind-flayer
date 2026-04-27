@@ -59,6 +59,21 @@
 
 <br>
 
+## 安装
+
+在 Releases 中下载 macOS DMG，并选择适合你 Mac 的文件：
+
+- Apple Silicon：`Mind.Flayer_*_aarch64.dmg`
+- Intel：`Mind.Flayer_*_x64.dmg`
+
+如果 macOS 提示应用已损坏，请先移动到“应用程序”，再运行：
+
+```sh
+xattr -rd com.apple.quarantine "/Applications/Mind Flayer.app"
+```
+
+<br>
+
 ## 开发
 
 ```sh

@@ -303,6 +303,58 @@ describe("AssistantActivityTimeline", () => {
     expect(rerenderedTriggers[0].getAttribute("aria-expanded")).toBe("false")
   })
 
+  it("preserves manual reasoning collapse across streaming state updates", async () => {
+    const streamingParts: AssistantActivityPart[] = [
+      createStreamingReasoningPart(1, "Streaming reasoning."),
+      createStreamingBashPart(2)
+    ]
+    const doneParts: AssistantActivityPart[] = [
+      createReasoningPart(1, "Streaming reasoning."),
+      createStreamingBashPart(2)
+    ]
+    const resumedStreamingParts: AssistantActivityPart[] = [
+      createStreamingReasoningPart(1, "Streaming reasoning with more tokens."),
+      createStreamingBashPart(2)
+    ]
+
+    await act(async () => {
+      await i18n.changeLanguage("en")
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <AssistantActivityTimeline onToolApprovalResponse={vi.fn()} parts={streamingParts} />
+        </I18nextProvider>
+      )
+    })
+
+    const reasoningTrigger = container.querySelector("button[aria-controls]")
+    expect(reasoningTrigger?.getAttribute("aria-expanded")).toBe("true")
+
+    await click(reasoningTrigger as HTMLElement)
+
+    expect(reasoningTrigger?.getAttribute("aria-expanded")).toBe("false")
+
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <AssistantActivityTimeline onToolApprovalResponse={vi.fn()} parts={doneParts} />
+        </I18nextProvider>
+      )
+    })
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <AssistantActivityTimeline
+            onToolApprovalResponse={vi.fn()}
+            parts={resumedStreamingParts}
+          />
+        </I18nextProvider>
+      )
+    })
+
+    const rerenderedReasoningTrigger = container.querySelector("button[aria-controls]")
+    expect(rerenderedReasoningTrigger?.getAttribute("aria-expanded")).toBe("false")
+  })
+
   it("renders per-reasoning durations on the row trailing side", async () => {
     const parts: AssistantActivityPart[] = [
       createReasoningPart(1, "First reasoning."),

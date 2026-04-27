@@ -286,6 +286,7 @@ const ReasoningActivityRow = memo(
     const { t } = useTranslation("chat")
     const { thinking } = useThinkingConstants()
     const [isOpen, setIsOpen] = useState(defaultOpen)
+    const hasUserToggledRef = useRef(false)
     const autoOpenedWhileActiveRef = useRef(false)
     const wasStreamingRef = useRef(part.state === "streaming")
     const content = part.text ?? ""
@@ -295,7 +296,7 @@ const ReasoningActivityRow = memo(
     const isStreaming = part.state === "streaming"
 
     useEffect(() => {
-      if (!autoOpenWhileActive) {
+      if (!autoOpenWhileActive || hasUserToggledRef.current) {
         wasStreamingRef.current = isStreaming
         return
       }
@@ -312,6 +313,7 @@ const ReasoningActivityRow = memo(
     }, [autoOpenWhileActive, isStreaming])
 
     const handleOpenChange = (nextOpen: boolean) => {
+      hasUserToggledRef.current = true
       setIsOpen(nextOpen)
     }
 

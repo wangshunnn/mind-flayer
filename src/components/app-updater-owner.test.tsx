@@ -188,4 +188,27 @@ describe("AppUpdaterOwner", () => {
       })
     )
   })
+
+  it("rejects install requests when no update is ready", async () => {
+    await act(async () => {
+      root.render(<AppUpdaterOwner />)
+      await flushAsyncWork()
+    })
+
+    emitMock.mockClear()
+
+    await dispatchUpdaterRequest({
+      action: "install",
+      responseEvent: "app-updater:response:install"
+    })
+
+    expect(downloadAndInstallAppUpdateMock).not.toHaveBeenCalled()
+    expect(emitMock).toHaveBeenCalledWith(
+      "app-updater:response:install",
+      expect.objectContaining({
+        error: "No app update is ready to install.",
+        ok: false
+      })
+    )
+  })
 })

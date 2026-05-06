@@ -157,7 +157,13 @@ export default function Page() {
   const runtimeConfigSyncQueueRef = useRef<Promise<void>>(Promise.resolve())
   const latestRuntimeConfigSyncIdRef = useRef(0)
   const lastAppliedRuntimeConfigRef = useRef<RuntimeConfigSettingsSnapshot | null>(null)
-  const { installUpdate, relaunchApp, status: appUpdaterStatus } = useAppUpdater()
+  const {
+    availableUpdate,
+    checkForUpdates,
+    installUpdate,
+    relaunchApp,
+    status: appUpdaterStatus
+  } = useAppUpdater()
   const selectedModel =
     availableModels.find(model => model.api_id === selectedModelApiId) ?? availableModels[0] ?? null
   const selectedModelProvider = selectedModel?.provider ?? null
@@ -473,6 +479,16 @@ export default function Page() {
     [currentWhitelistRequest, isDecidingWhitelistRequest, setTelegramAllowedUserIds]
   )
 
+  const handleCheckForAppUpdates = useCallback(async () => {
+    try {
+      await checkForUpdates()
+    } catch (nextError) {
+      toast.error(t("about.updater.toast.checkFailed", { ns: "settings" }), {
+        description: toErrorMessage(nextError) ?? undefined
+      })
+    }
+  }, [checkForUpdates, t])
+
   const handleInstallAppUpdate = useCallback(async () => {
     try {
       await installUpdate()
@@ -511,7 +527,9 @@ export default function Page() {
         isTelegramDebugActive={activePane === "telegram-debug"}
         onTelegramDebugClick={handleOpenTelegramDebug}
         appUpdate={{
+          availableUpdate,
           status: appUpdaterStatus,
+          onCheck: handleCheckForAppUpdates,
           onInstall: handleInstallAppUpdate,
           onRestart: handleRestartAppAfterUpdate
         }}

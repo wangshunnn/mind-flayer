@@ -9,11 +9,13 @@ import { NavUser } from "@/components/nav-user"
 import { SidebarUpdateIndicator } from "@/components/SidebarUpdateIndicator"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar"
 import { SearchChat } from "@/components/ui/sidebar-search"
-import type { AppUpdaterStatus } from "@/lib/updater"
+import type { AppUpdateInfo, AppUpdaterStatus } from "@/lib/updater"
 import type { Chat, ChatId } from "@/types/chat"
 
 interface SidebarAppUpdate {
+  availableUpdate: AppUpdateInfo | null
   status: AppUpdaterStatus
+  onCheck: () => void | Promise<void>
   onInstall: () => void | Promise<void>
   onRestart: () => void | Promise<void>
 }
@@ -94,7 +96,9 @@ export function AppSidebar({
           </div>
           {appUpdate && (
             <SidebarUpdateIndicator
+              hasAvailableUpdate={Boolean(appUpdate.availableUpdate)}
               status={appUpdate.status}
+              onCheck={appUpdate.onCheck}
               onInstall={appUpdate.onInstall}
               onRestart={appUpdate.onRestart}
             />

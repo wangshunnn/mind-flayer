@@ -115,8 +115,10 @@
       },
       "sidebar": {
         "updateReady": "更新",
+        "checking": "检查中",
         "installing": "安装中",
         "restart": "重启",
+        "retryCheck": "重试检查",
         "retryInstall": "重试更新"
       },
       "status": {

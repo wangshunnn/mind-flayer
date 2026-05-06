@@ -122,11 +122,7 @@ export function AppUpdaterOwner() {
       }
     }
 
-    const runInstallUpdate = async () => {
-      if (!updateRef.current) {
-        return
-      }
-
+    const runInstallUpdate = async (update: Update) => {
       await replaceSnapshot(currentSnapshot => ({
         ...currentSnapshot,
         downloadedBytes: 0,
@@ -136,7 +132,7 @@ export function AppUpdaterOwner() {
       }))
 
       try {
-        await downloadAndInstallAppUpdate(updateRef.current, event => {
+        await downloadAndInstallAppUpdate(update, event => {
           if (!isMounted) {
             return
           }
@@ -200,9 +196,17 @@ export function AppUpdaterOwner() {
       }
 
       if (action === "install") {
+        if (!updateRef.current) {
+          await respond(responseEvent, {
+            error: "No app update is ready to install.",
+            ok: false
+          })
+          return
+        }
+
         isOperationInFlightRef.current = true
 
-        const installPromise = runInstallUpdate()
+        const installPromise = runInstallUpdate(updateRef.current)
 
         await respond(responseEvent, { error: null, ok: true })
 

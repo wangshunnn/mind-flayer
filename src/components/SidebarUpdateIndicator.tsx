@@ -4,19 +4,23 @@ import { Button } from "@/components/ui/button"
 import type { AppUpdaterStatus } from "@/lib/updater"
 
 interface SidebarUpdateIndicatorProps {
+  hasAvailableUpdate: boolean
   status: AppUpdaterStatus
+  onCheck: () => void | Promise<void>
   onInstall: () => void | Promise<void>
   onRestart: () => void | Promise<void>
 }
 
 export function SidebarUpdateIndicator({
+  hasAvailableUpdate,
   status,
+  onCheck,
   onInstall,
   onRestart
 }: SidebarUpdateIndicatorProps) {
   const { t } = useTranslation("settings")
 
-  if (status === "installing") {
+  if (status === "checking" || status === "installing") {
     return (
       <Button
         variant="default"
@@ -25,7 +29,9 @@ export function SidebarUpdateIndicator({
         className="h-6 shrink-0 rounded-full text-xs font-normal shadow-none pb-px"
       >
         <LoaderCircleIcon className="size-3.5 animate-spin" />
-        {t("about.updater.sidebar.installing")}
+        {status === "checking"
+          ? t("about.updater.sidebar.checking")
+          : t("about.updater.sidebar.installing")}
       </Button>
     )
   }
@@ -43,7 +49,7 @@ export function SidebarUpdateIndicator({
     )
   }
 
-  if (status === "update-available" || status === "error") {
+  if (status === "update-available" || (status === "error" && hasAvailableUpdate)) {
     return (
       <Button
         variant="default"
@@ -55,6 +61,20 @@ export function SidebarUpdateIndicator({
         {status === "error"
           ? t("about.updater.sidebar.retryInstall")
           : t("about.updater.sidebar.updateReady")}
+      </Button>
+    )
+  }
+
+  if (status === "error") {
+    return (
+      <Button
+        variant="default"
+        size="sm"
+        className="h-6 shrink-0 rounded-full text-xs font-normal shadow-none pb-px"
+        onClick={() => void onCheck()}
+      >
+        <RotateCwIcon className="size-3.5" />
+        {t("about.updater.sidebar.retryCheck")}
       </Button>
     )
   }

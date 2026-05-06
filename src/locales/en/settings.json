@@ -114,8 +114,10 @@
       },
       "sidebar": {
         "updateReady": "Update",
+        "checking": "Checking",
         "installing": "Installing",
         "restart": "Restart",
+        "retryCheck": "Retry Check",
         "retryInstall": "Retry Update"
       },
       "status": {

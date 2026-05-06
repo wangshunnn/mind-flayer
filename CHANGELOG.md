@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.2](https://github.com/wangshunnn/mind-flayer/compare/v0.9.1...v0.9.2) (2026-05-06)
+
+### Bug Fixes
+
+* adjust y position of traffic light in macOS window configuration ([cbd2871](https://github.com/wangshunnn/mind-flayer/commit/cbd28711608c7db2304f5659e7b6adc88b2095f0))
+
 ## [0.9.1](https://github.com/wangshunnn/mind-flayer/compare/v0.9.0...v0.9.1) (2026-05-06)
 
 ### Bug Fixes

@@ -211,4 +211,45 @@ describe("AppUpdaterOwner", () => {
       })
     )
   })
+
+  it("clears stale available update state when a manual check fails", async () => {
+    const update = {
+      body: "Bug fixes",
+      close: vi.fn(async () => undefined),
+      currentVersion: "0.4.0",
+      date: "2026-04-05T00:00:00.000Z",
+      version: "0.4.1"
+    } as unknown as Update
+
+    checkForAppUpdateMock.mockResolvedValueOnce(update).mockRejectedValueOnce(new Error("offline"))
+
+    await act(async () => {
+      root.render(<AppUpdaterOwner />)
+      await flushAsyncWork()
+    })
+
+    await dispatchUpdaterRequest({
+      action: "check",
+      responseEvent: "app-updater:response:first-check"
+    })
+
+    emitMock.mockClear()
+
+    await dispatchUpdaterRequest({
+      action: "check",
+      responseEvent: "app-updater:response:failed-check"
+    })
+
+    expect(update.close).toHaveBeenCalledTimes(1)
+    expect(emitMock).toHaveBeenCalledWith(
+      "app-updater:response:failed-check",
+      expect.objectContaining({
+        ok: false,
+        snapshot: expect.objectContaining({
+          availableUpdate: null,
+          status: "error"
+        })
+      })
+    )
+  })
 })

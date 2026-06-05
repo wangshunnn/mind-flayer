@@ -61,6 +61,15 @@ export function AppUpdaterOwner() {
       } satisfies AppUpdaterResponse)
     }
 
+    const clearCurrentUpdate = () => {
+      if (!updateRef.current) {
+        return
+      }
+
+      void updateRef.current.close().catch(() => undefined)
+      updateRef.current = null
+    }
+
     const runCheckForUpdates = async (silent = false) => {
       if (!canUseAppUpdater()) {
         await replaceSnapshot(currentSnapshot => ({
@@ -81,12 +90,8 @@ export function AppUpdaterOwner() {
       try {
         const nextUpdate = await checkForAppUpdate()
 
-        if (updateRef.current && updateRef.current !== nextUpdate) {
-          void updateRef.current.close().catch(() => undefined)
-        }
-        updateRef.current = nextUpdate
-
         if (!nextUpdate) {
+          clearCurrentUpdate()
           await replaceSnapshot(currentSnapshot => ({
             ...currentSnapshot,
             availableUpdate: null,
@@ -94,6 +99,11 @@ export function AppUpdaterOwner() {
           }))
           return null
         }
+
+        if (updateRef.current && updateRef.current !== nextUpdate) {
+          clearCurrentUpdate()
+        }
+        updateRef.current = nextUpdate
 
         const nextAvailableUpdate = toAppUpdateInfo(nextUpdate)
         await replaceSnapshot(currentSnapshot => ({
@@ -113,8 +123,10 @@ export function AppUpdaterOwner() {
           return null
         }
 
+        clearCurrentUpdate()
         await replaceSnapshot(currentSnapshot => ({
           ...currentSnapshot,
+          availableUpdate: null,
           error: toErrorMessage(nextError),
           status: "error"
         }))

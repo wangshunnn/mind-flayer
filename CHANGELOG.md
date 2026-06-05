@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0](https://github.com/wangshunnn/mind-flayer/compare/v0.9.2...v0.10.0) (2026-06-05)
+
+### Features
+
+* add ActivityIcon component and integrate it into AssistantActivity and ToolCall ([099f06f](https://github.com/wangshunnn/mind-flayer/commit/099f06fc6aad37788d58ca143bcb3f00797f782f))
+* enhance SidebarUpdateIndicator with error handling and update checks ([9f99b02](https://github.com/wangshunnn/mind-flayer/commit/9f99b027b98498d08044cebf23b75d98e44bf492))
+* implement clearCurrentUpdate function and update update handling logic ([5bdab15](https://github.com/wangshunnn/mind-flayer/commit/5bdab153fe04cfd133b88d723bc6850ad4babd82))
+
 ## [0.9.2](https://github.com/wangshunnn/mind-flayer/compare/v0.9.1...v0.9.2) (2026-05-06)
 
 ### Bug Fixes

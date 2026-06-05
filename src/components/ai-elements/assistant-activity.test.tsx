@@ -55,6 +55,23 @@ const createBashPart = (partIndex: number) =>
     partIndex
   }) as unknown as ToolUIPart & { partIndex: number }
 
+const createWebSearchPart = (partIndex: number) =>
+  ({
+    type: "tool-webSearch",
+    toolCallId: "tool-web-search",
+    state: "output-available",
+    input: {
+      objective: "Find OpenClaw docs",
+      searchQueries: ["OpenClaw docs"]
+    },
+    output: {
+      query: "OpenClaw docs",
+      results: [],
+      totalResults: 0
+    },
+    partIndex
+  }) as unknown as ToolUIPart & { partIndex: number }
+
 const createStreamingBashPart = (partIndex: number) =>
   ({
     type: "tool-bashExecution",
@@ -263,6 +280,37 @@ describe("AssistantActivityTimeline", () => {
       const className = chevron.getAttribute("class") ?? ""
       expect(className).toContain("group-hover/activity-row:opacity-60")
       expect(className).not.toContain("group-hover:opacity-60")
+    }
+  })
+
+  it("uses the same fixed icon slot for reasoning and tool rows", async () => {
+    const parts: AssistantActivityPart[] = [
+      createReasoningPart(1, "Need first check."),
+      createWebSearchPart(2)
+    ]
+
+    await act(async () => {
+      await i18n.changeLanguage("en")
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <AssistantActivityTimeline onToolApprovalResponse={vi.fn()} parts={parts} />
+        </I18nextProvider>
+      )
+    })
+
+    const iconSlots = Array.from(container.querySelectorAll('[data-activity-icon="true"]'))
+    expect(iconSlots).toHaveLength(2)
+
+    for (const iconSlot of iconSlots) {
+      const slotClassName = iconSlot.getAttribute("class") ?? ""
+      const icon = iconSlot.querySelector("svg")
+      const iconClassName = icon?.getAttribute("class") ?? ""
+
+      expect(slotClassName).toContain("size-3.5")
+      expect(slotClassName).toContain("shrink-0")
+      expect(icon).not.toBeNull()
+      expect(iconClassName).toContain("size-3")
+      expect(iconClassName).toContain("shrink-0")
     }
   })
 

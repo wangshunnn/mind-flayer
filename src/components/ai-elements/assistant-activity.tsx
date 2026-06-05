@@ -12,6 +12,7 @@ import { BrainIcon, ChevronRightIcon, CircleAlertIcon, TimerIcon } from "lucide-
 import type { ComponentProps, ReactNode } from "react"
 import { memo, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { ActivityIcon } from "@/components/ai-elements/activity-icon"
 import { ReasoningPartContent } from "@/components/ai-elements/reasoning-content"
 import { Shimmer } from "@/components/ai-elements/shimmer"
 import { formatToolCallDuration } from "@/components/ai-elements/tool-call"
@@ -343,7 +344,9 @@ const ReasoningActivityRow = memo(
           disabled={!hasDetails}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-            <BrainIcon className="size-3 shrink-0 transition-colors" />
+            <ActivityIcon>
+              <BrainIcon className="transition-colors" />
+            </ActivityIcon>
             <span className="shrink-0">{label}</span>
             {preview ? (
               <span

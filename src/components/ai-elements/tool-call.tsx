@@ -4,6 +4,7 @@ import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Streamdown } from "streamdown"
+import { ActivityIcon } from "@/components/ai-elements/activity-icon"
 import { Shimmer } from "@/components/ai-elements/shimmer"
 import { Terminal } from "@/components/ai-elements/terminal"
 import { getToolIcon } from "@/components/ai-elements/tool-icon"
@@ -239,9 +240,10 @@ export const ToolCallTrigger = memo(
   }: ToolCallTriggerProps) => {
     const { isOpen, toolName, duration, resultCount, state } = useToolCall()
     const showDuration = FINAL_STATES.includes(state) && duration !== undefined
+    const triggerIcon = icon ?? getToolIcon(toolName, "transition-colors")
     const triggerContent = children ?? (
       <>
-        {icon ?? getToolIcon(toolName, "size-3 transition-colors")}
+        <ActivityIcon>{triggerIcon}</ActivityIcon>
         {getToolMessage(toolName, state, duration, resultCount)}
         {trailingContent}
       </>

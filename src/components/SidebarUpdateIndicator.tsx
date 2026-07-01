@@ -20,7 +20,11 @@ export function SidebarUpdateIndicator({
 }: SidebarUpdateIndicatorProps) {
   const { t } = useTranslation("settings")
 
-  if (status === "checking" || status === "installing") {
+  if (status === "checking") {
+    return null
+  }
+
+  if (status === "installing") {
     return (
       <Button
         variant="default"
@@ -29,9 +33,7 @@ export function SidebarUpdateIndicator({
         className="h-6 shrink-0 rounded-full text-xs font-normal shadow-none pb-px"
       >
         <LoaderCircleIcon className="size-3.5 animate-spin" />
-        {status === "checking"
-          ? t("about.updater.sidebar.checking")
-          : t("about.updater.sidebar.installing")}
+        {t("about.updater.sidebar.installing")}
       </Button>
     )
   }

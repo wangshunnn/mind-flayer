@@ -43,6 +43,25 @@ describe("SidebarUpdateIndicator", () => {
       previousActEnvironment
   })
 
+  it("stays hidden while checking when no update is available", async () => {
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <SidebarUpdateIndicator
+            hasAvailableUpdate={false}
+            status="checking"
+            onCheck={vi.fn()}
+            onInstall={vi.fn()}
+            onRestart={vi.fn()}
+          />
+        </I18nextProvider>
+      )
+    })
+
+    expect(container.textContent).not.toContain("检查中")
+    expect(container.querySelector("button")).toBeNull()
+  })
+
   it("retries checking when the updater is in an error state without an available update", async () => {
     const handleCheck = vi.fn()
     const handleInstall = vi.fn()

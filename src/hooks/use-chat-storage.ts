@@ -75,15 +75,26 @@ export function useChatStorage() {
    * Update chat title
    */
   const updateChatTitle = useCallback(
-    async (chatId: string, title: string): Promise<void> => {
+    async (
+      chatId: string,
+      title: string,
+      options?: { expectedCurrentTitle?: string }
+    ): Promise<void> => {
       try {
         const db = await getDatabase()
         const now = Date.now()
-        await db.execute("UPDATE chats SET title = ?, updated_at = ? WHERE id = ?", [
-          title,
-          now,
-          chatId
-        ])
+        if (options?.expectedCurrentTitle !== undefined) {
+          await db.execute(
+            "UPDATE chats SET title = ?, updated_at = ? WHERE id = ? AND title = ?",
+            [title, now, chatId, options.expectedCurrentTitle]
+          )
+        } else {
+          await db.execute("UPDATE chats SET title = ?, updated_at = ? WHERE id = ?", [
+            title,
+            now,
+            chatId
+          ])
+        }
 
         await loadChats()
         setError(null)

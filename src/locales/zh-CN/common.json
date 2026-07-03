@@ -22,11 +22,14 @@
   "menu": {
     "viewProject": "查看项目",
     "shareProject": "分享项目",
+    "renameChat": "重命名对话",
     "deleteChat": "删除对话"
   },
   "toast": {
     "chatDeleted": "对话已删除",
     "failedToDeleteChat": "删除对话失败",
+    "chatRenamed": "对话已重命名",
+    "failedToRenameChat": "重命名对话失败",
     "channelThreadDeleted": "Telegram 线程已删除",
     "failedToDeleteChannelThread": "删除 Telegram 线程失败",
     "error": "错误",
@@ -36,6 +39,16 @@
   },
   "dialog": {
     "close": "关闭"
+  },
+  "renameChat": {
+    "title": "重命名对话",
+    "description": "为此对话设置一个标题。",
+    "label": "对话标题",
+    "placeholder": "对话标题",
+    "titleRequired": "请输入对话标题。",
+    "cancel": "取消",
+    "save": "保存",
+    "saving": "保存中..."
   },
   "runtimeConfig": {
     "syncError": "同步最新运行时设置失败，已回滚本地改动。"

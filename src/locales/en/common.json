@@ -22,11 +22,14 @@
   "menu": {
     "viewProject": "View Project",
     "shareProject": "Share Project",
+    "renameChat": "Rename Chat",
     "deleteChat": "Delete Chat"
   },
   "toast": {
     "chatDeleted": "Chat deleted",
     "failedToDeleteChat": "Failed to delete chat",
+    "chatRenamed": "Chat renamed",
+    "failedToRenameChat": "Failed to rename chat",
     "channelThreadDeleted": "Telegram thread deleted",
     "failedToDeleteChannelThread": "Failed to delete Telegram thread",
     "error": "Error",
@@ -36,6 +39,16 @@
   },
   "dialog": {
     "close": "Close"
+  },
+  "renameChat": {
+    "title": "Rename Chat",
+    "description": "Choose a title for this conversation.",
+    "label": "Chat title",
+    "placeholder": "Chat title",
+    "titleRequired": "Enter a chat title.",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving..."
   },
   "runtimeConfig": {
     "syncError": "Failed to sync the latest runtime settings. The local change was reverted."

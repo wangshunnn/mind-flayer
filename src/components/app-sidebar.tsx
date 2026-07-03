@@ -30,6 +30,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   onNewChat?: () => void
   isSkillsActive?: boolean
   onSkillsClick?: () => void
+  onRenameChat: (chatId: ChatId, title: string) => Promise<void>
   isTelegramChannelEnabled?: boolean
   isTelegramDebugActive?: boolean
   onTelegramDebugClick?: () => void
@@ -44,6 +45,7 @@ export function AppSidebar({
   onChatClick,
   onNewChat,
   onDeleteChat,
+  onRenameChat,
   isSkillsActive = false,
   onSkillsClick,
   isTelegramChannelEnabled = false,
@@ -61,6 +63,17 @@ export function AppSidebar({
     } catch (error) {
       console.error("Failed to delete chat:", error)
       toast.error(t("toast.error"), { description: t("toast.failedToDeleteChat") })
+    }
+  }
+
+  const handleRenameChat = async (chatId: string, title: string) => {
+    try {
+      await onRenameChat(chatId, title)
+      toast.success(t("toast.chatRenamed"))
+    } catch (error) {
+      console.error("Failed to rename chat:", error)
+      toast.error(t("toast.error"), { description: t("toast.failedToRenameChat") })
+      throw error
     }
   }
 
@@ -85,6 +98,7 @@ export function AppSidebar({
           replyingChatIds={replyingChatIds}
           onChatClick={onChatClick}
           onDeleteChat={handleDeleteChat}
+          onRenameChat={handleRenameChat}
         />
         {/* Draggable empty space below chat list */}
         <div data-tauri-drag-region className="flex-1 min-h-0" />

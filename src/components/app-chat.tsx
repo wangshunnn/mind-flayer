@@ -103,7 +103,11 @@ interface AppChatProps {
   createChat: (title?: string, options?: { activate?: boolean }) => Promise<ChatId>
   loadMessages: (chatId: ChatId) => Promise<UIMessage[]>
   saveChatAllMessages: (chatId: ChatId, messages: UIMessage[], isNewChat?: boolean) => Promise<void>
-  updateChatTitle: (chatId: ChatId, title: string) => Promise<void>
+  updateChatTitle: (
+    chatId: ChatId,
+    title: string,
+    options?: { expectedCurrentTitle?: string }
+  ) => Promise<void>
   onRequestActivateChat?: (chatId: ChatId, tokenAtSend: string) => void
   onChatUnread?: (chatId: ChatId) => void
   onChatReplyingChange?: (chatId: ChatId, isReplying: boolean) => void
@@ -1014,9 +1018,10 @@ const AppChatInner = ({
       if (isNewChat && messageText) {
         const model = selectedModelRef.current
         if (model) {
+          const expectedCurrentTitle = generateChatTitle(messageText)
           void generateTitle(messageText, model.provider, model.api_id).then(title => {
             if (title) {
-              void updateChatTitle(runtime.chatId, title)
+              void updateChatTitle(runtime.chatId, title, { expectedCurrentTitle })
             }
           })
         }

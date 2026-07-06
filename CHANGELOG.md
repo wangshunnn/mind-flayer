@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/wangshunnn/mind-flayer/compare/v0.10.0...v0.11.0) (2026-07-06)
+
+### Features
+
+* add chat renaming functionality and update related components ([5382fc9](https://github.com/wangshunnn/mind-flayer/commit/5382fc90de8b088fba87acb9cea01283170458ec))
+* update SidebarUpdateIndicator to hide during checking status and adjust rendering logic ([35f5e57](https://github.com/wangshunnn/mind-flayer/commit/35f5e573d98309b912fe3e66eb564cfc85b0375e))
+
 ## [0.10.0](https://github.com/wangshunnn/mind-flayer/compare/v0.9.2...v0.10.0) (2026-06-05)
 
 ### Features

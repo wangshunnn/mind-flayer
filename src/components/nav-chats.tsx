@@ -1,6 +1,14 @@
-import { CircleIcon, Folder, Loader2Icon, MoreVertical, Share, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { CircleIcon, Folder, Loader2Icon, MoreVertical, Pencil, Share, Trash2 } from "lucide-react"
+import { type FormEvent, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,6 +16,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -59,7 +69,8 @@ export function NavChats({
   unreadChatIds,
   replyingChatIds,
   onChatClick,
-  onDeleteChat
+  onDeleteChat,
+  onRenameChat
 }: {
   chats: Chat[]
   activeChatId?: ChatId | null
@@ -67,13 +78,46 @@ export function NavChats({
   replyingChatIds?: ReadonlySet<ChatId>
   onChatClick: (chatId: ChatId) => void
   onDeleteChat: (chatId: ChatId) => void
+  onRenameChat: (chatId: ChatId, title: string) => Promise<void>
 }) {
   const { t } = useTranslation("common")
   const now = Date.now()
   const [showAll, setShowAll] = useState(false)
   const [openMenuId, setOpenMenuId] = useState<ChatId | null>(null)
+  const [renamingChat, setRenamingChat] = useState<Chat | null>(null)
+  const [renameTitle, setRenameTitle] = useState("")
+  const [isRenaming, setIsRenaming] = useState(false)
   const visibleChats = showAll ? chats : chats.slice(0, 10)
   const canToggle = chats.length > 10
+  const trimmedRenameTitle = renameTitle.trim()
+
+  const handleStartRename = (chat: Chat) => {
+    setRenamingChat(chat)
+    setRenameTitle(chat.title)
+  }
+
+  const handleRenameSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!renamingChat || isRenaming || !trimmedRenameTitle) {
+      return
+    }
+
+    if (trimmedRenameTitle === renamingChat.title) {
+      setRenamingChat(null)
+      return
+    }
+
+    setIsRenaming(true)
+    try {
+      await onRenameChat(renamingChat.id, trimmedRenameTitle)
+      setRenamingChat(null)
+    } catch {
+      // Parent owns user-facing error messaging so the dialog can stay open for retry.
+    } finally {
+      setIsRenaming(false)
+    }
+  }
 
   return (
     <SidebarGroup>
@@ -139,6 +183,15 @@ export function NavChats({
                   <DropdownMenuItem
                     onClick={e => {
                       e.stopPropagation()
+                      handleStartRename(chat)
+                    }}
+                  >
+                    <Pencil className="text-muted-foreground" />
+                    <span>{t("menu.renameChat")}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={e => {
+                      e.stopPropagation()
                       onDeleteChat(chat.id)
                     }}
                   >
@@ -160,6 +213,54 @@ export function NavChats({
           </SidebarMenuItem>
         )}
       </SidebarMenu>
+      <Dialog
+        open={renamingChat !== null}
+        onOpenChange={open => {
+          if (!open && !isRenaming) {
+            setRenamingChat(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("renameChat.title")}</DialogTitle>
+            <DialogDescription>{t("renameChat.description")}</DialogDescription>
+          </DialogHeader>
+
+          <form className="space-y-4" onSubmit={handleRenameSubmit}>
+            <div className="space-y-2">
+              <Label htmlFor="chat-title">{t("renameChat.label")}</Label>
+              <Input
+                id="chat-title"
+                name="chat-title"
+                value={renameTitle}
+                placeholder={t("renameChat.placeholder")}
+                aria-invalid={trimmedRenameTitle.length === 0}
+                disabled={isRenaming}
+                autoFocus
+                onChange={event => setRenameTitle(event.target.value)}
+              />
+              {trimmedRenameTitle.length === 0 && (
+                <p className="text-xs text-destructive">{t("renameChat.titleRequired")}</p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setRenamingChat(null)}
+                disabled={isRenaming}
+              >
+                {t("renameChat.cancel")}
+              </Button>
+              <Button type="submit" disabled={isRenaming || trimmedRenameTitle.length === 0}>
+                {isRenaming ? t("renameChat.saving") : t("renameChat.save")}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </SidebarGroup>
   )
 }

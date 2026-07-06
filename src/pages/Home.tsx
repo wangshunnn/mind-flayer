@@ -520,6 +520,7 @@ export default function Page() {
         replyingChatIds={replyingChatIds}
         onChatClick={handleChatClick}
         onDeleteChat={deleteChat}
+        onRenameChat={updateChatTitle}
         onNewChat={handleNewChat}
         isSkillsActive={activePane === "skills"}
         onSkillsClick={handleOpenSkills}

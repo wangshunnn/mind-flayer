@@ -33,6 +33,23 @@ function createPricing(overrides?: Partial<ModelPricing>): ModelPricing {
 }
 
 describe("getMessageUsageTokenBreakdown", () => {
+  it("uses input totals when aggregated no-cache details cover only some steps", () => {
+    const result = getMessageUsageTokenBreakdown(
+      createUsage({
+        inputTokens: 300,
+        outputTokens: 20,
+        totalTokens: 320,
+        inputTokenDetails: { noCacheTokens: 100, cacheReadTokens: 20, cacheWriteTokens: 30 }
+      })
+    )
+    expect(result).toMatchObject({
+      input: 300,
+      noCacheInput: 250,
+      cachedReadInput: 20,
+      cachedWriteInput: 30
+    })
+  })
+
   it("resolves full usage breakdown with direct totals", () => {
     const usage = createUsage({
       inputTokens: 1200,

@@ -15,8 +15,8 @@
     "windows": [
       {
         "title": "Mind Flayer",
-        "width": 1000,
-        "height": 750,
+        "width": 1200,
+        "height": 900,
         "minWidth": 440,
         "minHeight": 560,
         "titleBarStyle": "Overlay",

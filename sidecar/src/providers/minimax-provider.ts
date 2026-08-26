@@ -1,12 +1,15 @@
 import type {
   LanguageModelV3,
   LanguageModelV3CallOptions,
+  LanguageModelV3DataContent,
+  LanguageModelV3FilePart,
   LanguageModelV3FinishReason,
   LanguageModelV3GenerateResult,
   LanguageModelV3StreamPart,
   LanguageModelV3StreamResult,
   LanguageModelV3Usage
 } from "@ai-sdk/provider"
+import { UnsupportedFunctionalityError } from "@ai-sdk/provider"
 import type { LanguageModel } from "ai"
 import { createMinimaxOpenAI } from "vercel-minimax-ai-provider"
 import { MODEL_PROVIDERS } from "../config/constants"
@@ -44,6 +47,64 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readNumber(value: unknown): number | undefined {
   return typeof value === "number" ? value : undefined
+}
+
+function normalizeMiniMaxFileData(data: unknown): LanguageModelV3DataContent {
+  if (typeof data === "string" || data instanceof Uint8Array || data instanceof URL) {
+    return data
+  }
+
+  // AI SDK 7 forwards tagged v4 file data to v3 providers without unwrapping it.
+  if (isRecord(data)) {
+    if (
+      data.type === "data" &&
+      (typeof data.data === "string" || data.data instanceof Uint8Array)
+    ) {
+      return data.data
+    }
+    if (data.type === "url" && data.url instanceof URL) {
+      return data.url
+    }
+  }
+
+  throw new UnsupportedFunctionalityError({
+    functionality: "MiniMax file inputs other than bytes, base64 data, or URLs"
+  })
+}
+
+function normalizeMiniMaxFilePart(part: LanguageModelV3FilePart): LanguageModelV3FilePart {
+  return {
+    ...part,
+    data: normalizeMiniMaxFileData(part.data),
+    mediaType: part.mediaType === "image" ? "image/*" : part.mediaType
+  }
+}
+
+function normalizeMiniMaxCallOptions(
+  options: LanguageModelV3CallOptions
+): LanguageModelV3CallOptions {
+  return {
+    ...options,
+    prompt: options.prompt.map(message => {
+      if (message.role === "user") {
+        return {
+          ...message,
+          content: message.content.map(part =>
+            part.type === "file" ? normalizeMiniMaxFilePart(part) : part
+          )
+        }
+      }
+      if (message.role === "assistant") {
+        return {
+          ...message,
+          content: message.content.map(part =>
+            part.type === "file" ? normalizeMiniMaxFilePart(part) : part
+          )
+        }
+      }
+      return message
+    })
+  }
 }
 
 function withMiniMaxStreamUsageBody(init?: RequestInit): RequestInit | undefined {
@@ -127,7 +188,7 @@ export function withMiniMaxAiSdk7Compatibility(model: LanguageModelV3): Language
     modelId: model.modelId,
     supportedUrls: model.supportedUrls,
     async doGenerate(options: LanguageModelV3CallOptions): Promise<LanguageModelV3GenerateResult> {
-      const result = await model.doGenerate(options)
+      const result = await model.doGenerate(normalizeMiniMaxCallOptions(options))
       return {
         ...result,
         finishReason: normalizeMiniMaxFinishReason(result.finishReason),
@@ -135,7 +196,7 @@ export function withMiniMaxAiSdk7Compatibility(model: LanguageModelV3): Language
       }
     },
     async doStream(options: LanguageModelV3CallOptions): Promise<LanguageModelV3StreamResult> {
-      const result = await model.doStream(options)
+      const result = await model.doStream(normalizeMiniMaxCallOptions(options))
       return {
         ...result,
         stream: result.stream.pipeThrough(

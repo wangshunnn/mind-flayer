@@ -114,7 +114,9 @@ export function ProviderSection({
 
       {/* Provider Form */}
       {sortedProviders.map(provider => {
-        if (provider.id !== activeProvider) return null
+        if (provider.id !== activeProvider) {
+          return null
+        }
         const data = formData[provider.id]
         const providerLocked = provider.disabled ?? false
 
@@ -136,7 +138,9 @@ export function ProviderSection({
                   checked={enabledProviders[provider.id] ?? false}
                   disabled={providerLocked}
                   onCheckedChange={async checked => {
-                    if (providerLocked) return
+                    if (providerLocked) {
+                      return
+                    }
                     // Check if API key is saved when enabling
                     if (checked && !storedProviders[provider.id]) {
                       toast.error(t("providers.toast.apiKeyRequired"))

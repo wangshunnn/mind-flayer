@@ -100,7 +100,9 @@ export function WebSearchSection({
 
       {/* Provider Form */}
       {WEB_SEARCH_PROVIDERS.map(provider => {
-        if (provider.id !== activeProvider) return null
+        if (provider.id !== activeProvider) {
+          return null
+        }
         const data = formData[provider.id]
 
         return (

@@ -24,20 +24,38 @@ export function matchesShortcut(event: KeyboardEvent, shortcutKey: string): bool
 
   // Handle CommandOrControl (Meta on macOS, Ctrl on Windows/Linux)
   if (hasCommandOrControl) {
-    if (!(event.metaKey || event.ctrlKey)) return false
+    if (!(event.metaKey || event.ctrlKey)) {
+      return false
+    }
   } else {
-    if (hasCommand && !event.metaKey) return false
-    if (hasControl && !event.ctrlKey) return false
+    if (hasCommand && !event.metaKey) {
+      return false
+    }
+    if (hasControl && !event.ctrlKey) {
+      return false
+    }
   }
 
-  if (hasShift && !event.shiftKey) return false
-  if (hasAlt && !event.altKey) return false
+  if (hasShift && !event.shiftKey) {
+    return false
+  }
+  if (hasAlt && !event.altKey) {
+    return false
+  }
 
   // Ensure no extra modifiers
-  if (!hasCommandOrControl && !hasCommand && event.metaKey) return false
-  if (!hasCommandOrControl && !hasControl && event.ctrlKey) return false
-  if (!hasShift && event.shiftKey) return false
-  if (!hasAlt && event.altKey) return false
+  if (!hasCommandOrControl && !hasCommand && event.metaKey) {
+    return false
+  }
+  if (!hasCommandOrControl && !hasControl && event.ctrlKey) {
+    return false
+  }
+  if (!hasShift && event.shiftKey) {
+    return false
+  }
+  if (!hasAlt && event.altKey) {
+    return false
+  }
 
   return true
 }

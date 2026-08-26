@@ -107,6 +107,7 @@ Rust Keychain → stdin JSON → providerService.updateConfigs()
 
 ### TypeScript/React
 - Use TypeScript strict mode, avoid `any`
+- Always wrap `if` branch bodies in braces (`{}`), even when the body is a single `return` statement.
 - Functional components with hooks, named exports
 - Import order: React → third-party → local → utilities → types
 

@@ -567,7 +567,9 @@ export const PromptInput = ({
 
   // Let provider know about our hidden file input so external menus can call openFileDialog()
   useEffect(() => {
-    if (!usingProvider) return
+    if (!usingProvider) {
+      return
+    }
     controller.__registerFileInput(inputRef, () => inputRef.current?.click())
   }, [usingProvider, controller])
 
@@ -582,8 +584,12 @@ export const PromptInput = ({
   // Attach drop handlers on nearest form and document (opt-in)
   useEffect(() => {
     const form = formRef.current
-    if (!form) return
-    if (globalDrop) return // when global drop is on, let the document-level handler own drops
+    if (!form) {
+      return
+    }
+    if (globalDrop) {
+      return // when global drop is on, let the document-level handler own drops
+    }
 
     const onDragOver = (e: DragEvent) => {
       if (e.dataTransfer?.types?.includes("Files")) {
@@ -607,7 +613,9 @@ export const PromptInput = ({
   }, [add, globalDrop])
 
   useEffect(() => {
-    if (!globalDrop) return
+    if (!globalDrop) {
+      return
+    }
 
     const onDragOver = (e: DragEvent) => {
       if (e.dataTransfer?.types?.includes("Files")) {
@@ -634,7 +642,9 @@ export const PromptInput = ({
     () => () => {
       if (!usingProvider) {
         for (const f of filesRef.current) {
-          if (f.url) URL.revokeObjectURL(f.url)
+          if (f.url) {
+            URL.revokeObjectURL(f.url)
+          }
         }
       }
     },
@@ -807,7 +817,9 @@ export const PromptInputTextarea = forwardRef<PromptInputTextareaHandle, PromptI
     // (fallback for platforms where `field-sizing: content` is not supported)
     const adjustHeight = useCallback(() => {
       const textarea = textareaRef.current
-      if (!textarea) return
+      if (!textarea) {
+        return
+      }
       // Reset height to auto to get the correct scrollHeight
       textarea.style.height = "auto"
       textarea.style.height = `${textarea.scrollHeight}px`
@@ -816,7 +828,9 @@ export const PromptInputTextarea = forwardRef<PromptInputTextareaHandle, PromptI
     // Listen for textarea layout/width changes and auto-adjust height
     useEffect(() => {
       const textarea = textareaRef.current
-      if (!textarea) return
+      if (!textarea) {
+        return
+      }
       const observer = new ResizeObserver(() => {
         requestAnimationFrame(adjustHeight)
       })

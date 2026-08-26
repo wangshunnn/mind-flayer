@@ -380,7 +380,9 @@ export async function generateTitle(
       },
       body: JSON.stringify({ messageText })
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      return null
+    }
     const data = (await res.json()) as { title?: string }
     return data.title?.trim() || null
   } catch {

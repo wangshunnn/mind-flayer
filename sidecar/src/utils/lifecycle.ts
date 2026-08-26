@@ -62,7 +62,9 @@ export function setupStdinListener(onConfigUpdate: (message: unknown) => void) {
       const lines = data.trim().split("\n")
 
       for (const line of lines) {
-        if (!line.trim()) continue
+        if (!line.trim()) {
+          continue
+        }
 
         const message = JSON.parse(line)
         console.log("[sidecar] Parsed message type:", message.type)

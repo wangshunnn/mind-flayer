@@ -156,5 +156,21 @@
     "cancelled": "已取消上下文压缩。",
     "tooLarge": "上下文超出可用 token 预算，请减少输入或新建会话。",
     "busy": "会话正在处理中，请稍后重试。"
+  },
+  "sessionUsage": {
+    "title": "会话统计",
+    "input": "↑ 非缓存输入",
+    "output": "↓ 输出",
+    "read": "R 缓存读取",
+    "hit": "CH 最近一步缓存命中率",
+    "unavailable": "—",
+    "summary": "会话统计：{{activity}} · ↑ {{input}} · ↓ {{output}} · R {{read}} · CH {{hit}} · {{contextUsage}}",
+    "oneTurn": "{{count}} turn",
+    "manyTurns": "{{count}} turns",
+    "oneStep": "{{count}} step",
+    "manySteps": "{{count}} steps",
+    "turns": "用户轮次",
+    "steps": "已完成模型调用",
+    "context": "当前上下文"
   }
 }

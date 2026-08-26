@@ -157,5 +157,21 @@
     "cancelled": "Context compaction cancelled.",
     "tooLarge": "Context exceeds the available token budget. Reduce the input or start a new conversation.",
     "busy": "This conversation is still being processed. Please try again shortly."
+  },
+  "sessionUsage": {
+    "title": "Session usage",
+    "input": "↑ Non-cached input",
+    "output": "↓ Output",
+    "read": "R Cache read",
+    "hit": "CH Latest step cache hit",
+    "unavailable": "—",
+    "summary": "Session usage: {{activity}} · ↑ {{input}} · ↓ {{output}} · R {{read}} · CH {{hit}} · {{contextUsage}}",
+    "oneTurn": "{{count}} turn",
+    "manyTurns": "{{count}} turns",
+    "oneStep": "{{count}} step",
+    "manySteps": "{{count}} steps",
+    "turns": "User turns",
+    "steps": "Completed model steps",
+    "context": "Context"
   }
 }

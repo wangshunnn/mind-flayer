@@ -4,6 +4,7 @@ import type { ContextState, ContextUsage } from "../../shared/context"
 import { contextStateSchema, contextUsageSchema, emptyContextState } from "../../shared/context"
 import { getContextUsageForModel, resolveConversationContextUsage } from "./context-window-usage"
 import { getDatabase } from "./database"
+import type { UsageMessage } from "./session-usage"
 
 const saves = new Map<string, Promise<void>>()
 
@@ -134,4 +135,25 @@ export async function loadChatContext(chatId: string): Promise<ContextState> {
     throw new Error("Invalid persisted conversation context")
   }
   return state.data
+}
+
+/** Include inactive replies: regeneration changes the view, not the incurred usage. */
+export async function loadChatUsage(chatId: string): Promise<UsageMessage[]> {
+  await waitForChatCommit(chatId)
+  const db = await getDatabase()
+  const rows = await db.select<
+    { id: string; role: "user" | "assistant"; metadata: string | null; step_start_count: number }[]
+  >(
+    `SELECT id, role, json_extract(content_json, '$.metadata') AS metadata,
+      (SELECT COUNT(*) FROM json_each(json_extract(content_json, '$.parts'))
+        WHERE json_extract(value, '$.type') = 'step-start') AS step_start_count
+      FROM messages WHERE chat_id = ? AND role IN ('user', 'assistant') ORDER BY created_at ASC, rowid ASC`,
+    [chatId]
+  )
+  return rows.map(row => ({
+    id: row.id,
+    role: row.role,
+    stepStartCount: row.step_start_count,
+    metadata: row.metadata ? JSON.parse(row.metadata) : undefined
+  }))
 }

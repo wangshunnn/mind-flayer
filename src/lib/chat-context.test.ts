@@ -11,10 +11,31 @@ import {
   commitChatContext,
   estimateMissingChatUsage,
   getContextErrorKey,
-  loadChatContext
+  loadChatContext,
+  loadChatUsage
 } from "./chat-context"
 
 describe("desktop context persistence", () => {
+  it("loads user turns and inactive reply steps without loading message text", async () => {
+    const metadata = { totalUsage: { inputTokens: 100, outputTokens: 20 }, lastStepAt: 10 }
+    select.mockResolvedValueOnce([
+      { id: "user", role: "user", metadata: null, step_start_count: 0 },
+      {
+        id: "old-reply",
+        role: "assistant",
+        metadata: JSON.stringify(metadata),
+        step_start_count: 2
+      }
+    ])
+    expect(await loadChatUsage("chat-id")).toEqual([
+      { id: "user", role: "user", metadata: undefined, stepStartCount: 0 },
+      { id: "old-reply", role: "assistant", metadata, stepStartCount: 2 }
+    ])
+    expect(select.mock.calls[0][0]).toContain("json_extract(content_json, '$.metadata')")
+    expect(select.mock.calls[0][0]).not.toContain("active =")
+    expect(select.mock.calls[0][1]).toEqual(["chat-id"])
+  })
+
   beforeEach(() => {
     invoke.mockReset()
     select.mockReset()

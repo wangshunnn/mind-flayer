@@ -63,6 +63,7 @@ import {
   type PromptInputTextareaHandle,
   PromptInputTools
 } from "@/components/ai-elements/prompt-input"
+import { SessionTokenUsage } from "@/components/ai-elements/session-token-usage"
 import {
   ChatMessageTimeline,
   type ChatMessageTimelineAnchor
@@ -80,6 +81,7 @@ import {
   estimateMissingChatUsage,
   getContextErrorKey,
   loadChatContext,
+  loadChatUsage,
   waitForChatCommit
 } from "@/lib/chat-context"
 import {
@@ -93,6 +95,12 @@ import {
   resolveConversationContextUsage
 } from "@/lib/context-window-usage"
 import { findModelPricing } from "@/lib/provider-constants"
+import {
+  mergeSessionUsage,
+  type SessionUsageRecords,
+  summarizeSessionUsage,
+  type UsageMessage
+} from "@/lib/session-usage"
 import { generateTitle, getSidecarUrl } from "@/lib/sidecar-client"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
@@ -179,6 +187,8 @@ interface SessionRuntime {
 
 const getDraftKey = (chatId: ChatId | null | undefined) => (chatId ? `chat:${chatId}` : "new")
 
+const EMPTY_SESSION_USAGE: SessionUsageRecords = new Map()
+
 const TOP_PIN_OFFSET = 0
 const EPSILON = 1
 const PENDING_TIMEOUT_MS = 500
@@ -262,6 +272,16 @@ const AppChatInner = ({
     new Map()
   )
   const [contextStates, setContextStates] = useState<Record<string, ContextState>>({})
+  const [sessionUsageRecords, setSessionUsageRecords] = useState<
+    Record<string, SessionUsageRecords>
+  >({})
+  const recordUsageMessages = useCallback((chatId: string, incoming: UsageMessage[]) => {
+    setSessionUsageRecords(previous => {
+      const records = previous[chatId] ?? EMPTY_SESSION_USAGE
+      const next = mergeSessionUsage(records, incoming)
+      return next === records ? previous : { ...previous, [chatId]: next }
+    })
+  }, [])
   const [compactingChats, setCompactingChats] = useState<Record<string, boolean>>({})
   const pendingPinRef = useRef<PendingPin | null>(null)
   const pinSessionRef = useRef<PinSession | null>(null)
@@ -696,6 +716,7 @@ const AppChatInner = ({
             }
             const contextState = contextStateSchema.parse(data.contextState)
             runtime.contextState = contextState
+            recordUsageMessages(chatId, data.messages)
             setContextStates(previous => ({ ...previous, [chatId]: contextState }))
             void commitChatContext(chatId, data.messages, data.messageIds, contextState).catch(
               error => {
@@ -705,6 +726,7 @@ const AppChatInner = ({
             )
           },
           onFinish: ({ messages, isAbort, isDisconnect, isError }) => {
+            recordUsageMessages(chatId, messages)
             void (async () => {
               try {
                 {
@@ -943,6 +965,7 @@ const AppChatInner = ({
     },
     [
       saveAllMessagesAsync,
+      recordUsageMessages,
       selectedModelRef,
       showChatErrorToast,
       onChatUnread,
@@ -990,9 +1013,10 @@ const AppChatInner = ({
       hydrationRequestSeqRef.current.set(chatId, nextSeq)
 
       try {
-        const [loadedMessages, contextState] = await Promise.all([
+        const [loadedMessages, contextState, usageMessages] = await Promise.all([
           loadMessages(chatId),
-          loadChatContext(chatId)
+          loadChatContext(chatId),
+          loadChatUsage(chatId)
         ])
         const latestSeq = hydrationRequestSeqRef.current.get(chatId)
         const latestRuntime = sessionRuntimesRef.current.get(chatId)
@@ -1008,6 +1032,7 @@ const AppChatInner = ({
           latestRuntime.chat.messages = loadedMessages
         }
 
+        recordUsageMessages(chatId, usageMessages)
         latestRuntime.contextState = contextState
         setContextStates(previous => ({ ...previous, [chatId]: contextState }))
         latestRuntime.hydrated = true
@@ -1021,7 +1046,7 @@ const AppChatInner = ({
         }
       }
     },
-    [loadMessages]
+    [loadMessages, recordUsageMessages]
   )
 
   const getOrCreateChatForToken = useCallback(
@@ -1169,6 +1194,14 @@ const AppChatInner = ({
         sessionRuntimesRef.current.get(chatId)?.cleanup?.()
         sessionRuntimesRef.current.delete(chatId)
         hydrationRequestSeqRef.current.delete(chatId)
+        setSessionUsageRecords(previous => {
+          if (!previous[chatId]) {
+            return previous
+          }
+          const next = { ...previous }
+          delete next[chatId]
+          return next
+        })
       }
     }
 
@@ -1204,6 +1237,15 @@ const AppChatInner = ({
         selectedModel?.api_id
       ),
     [messages, displayedContextState, selectedModel?.provider, selectedModel?.api_id]
+  )
+  const displayedUsageRecords = activeChatId ? sessionUsageRecords[activeChatId] : undefined
+  const sessionUsage = useMemo(
+    () =>
+      summarizeSessionUsage(
+        displayedUsageRecords ?? EMPTY_SESSION_USAGE,
+        displayedContextState?.events
+      ),
+    [displayedUsageRecords, displayedContextState?.events]
   )
   const inspectionHeadersKey = JSON.stringify([
     selectedModel?.provider,
@@ -1928,6 +1970,11 @@ const AppChatInner = ({
                 </PromptInputTools>
               </PromptInputFooter>
             </PromptInput>
+            <SessionTokenUsage
+              usage={sessionUsage}
+              contextUsage={displayedContextUsage}
+              contextWindow={selectedModel?.contextWindow}
+            />
           </div>
         </div>
       </div>

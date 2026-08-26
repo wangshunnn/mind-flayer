@@ -11,6 +11,7 @@ import type { ProviderConfig } from "../type"
 import type { IProvider } from "./base"
 
 const ZAI_TERMINAL_PATHS = ["/chat/completions", "/responses"] as const
+type FetchFunction = typeof globalThis.fetch
 
 function normalizeZaiBaseUrl(baseUrl?: string): string {
   let normalizedBaseUrl = (baseUrl?.trim() || MODEL_PROVIDERS.zhipu.defaultBaseUrl).replace(
@@ -30,6 +31,57 @@ function normalizeZaiBaseUrl(baseUrl?: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function createZaiRequestFetch(
+  options: LanguageModelV4CallOptions,
+  fetchFn: FetchFunction = globalThis.fetch
+): FetchFunction {
+  // The OpenAI serializer preserves assistant message order but drops reasoning parts.
+  const assistantReasoning = options.prompt
+    .filter(message => message.role === "assistant")
+    .map(message =>
+      message.content
+        .filter(part => part.type === "reasoning")
+        .map(part => part.text)
+        .join("")
+    )
+  if (!assistantReasoning.some(Boolean)) {
+    return fetchFn
+  }
+
+  return (input, init) => {
+    if (typeof init?.body !== "string") {
+      return fetchFn(input, init)
+    }
+
+    let body: unknown
+    try {
+      body = JSON.parse(init.body)
+    } catch {
+      return fetchFn(input, init)
+    }
+    if (!isRecord(body) || !Array.isArray(body.messages)) {
+      return fetchFn(input, init)
+    }
+
+    let assistantIndex = 0
+    const messages = body.messages.map(message => {
+      if (!isRecord(message) || message.role !== "assistant") {
+        return message
+      }
+      const reasoning = assistantReasoning[assistantIndex++]
+      return reasoning ? { ...message, reasoning_content: reasoning } : message
+    })
+
+    return fetchFn(input, {
+      ...init,
+      body: JSON.stringify({
+        ...body,
+        messages
+      })
+    })
+  }
 }
 
 function extractZaiReasoningDelta(rawValue: unknown): string | undefined {
@@ -118,12 +170,23 @@ export class ZaiProvider implements IProvider {
   createModel(modelId: string, config: ProviderConfig): LanguageModel {
     const baseUrl = normalizeZaiBaseUrl(config.baseUrl)
 
-    const zai = createOpenAI({
+    const settings = {
       apiKey: config.apiKey,
       baseURL: baseUrl,
       name: "zhipu"
-    })
+    }
+    const model = createOpenAI(settings).chat(modelId)
+    // Bind each fetch adapter to its own prompt, including newly generated tool steps.
+    const createRequestModel = (options: LanguageModelV4CallOptions) =>
+      createOpenAI({ ...settings, fetch: createZaiRequestFetch(options) }).chat(modelId)
 
-    return withZaiReasoningStream(zai.chat(modelId))
+    return withZaiReasoningStream({
+      specificationVersion: model.specificationVersion,
+      provider: model.provider,
+      modelId: model.modelId,
+      supportedUrls: model.supportedUrls,
+      doGenerate: options => createRequestModel(options).doGenerate(options),
+      doStream: options => createRequestModel(options).doStream(options)
+    })
   }
 }

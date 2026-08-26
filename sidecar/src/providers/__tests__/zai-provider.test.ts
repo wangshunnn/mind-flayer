@@ -4,9 +4,11 @@ import type {
   LanguageModelV4GenerateResult,
   LanguageModelV4StreamPart
 } from "@ai-sdk/provider"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { generateText, isStepCount, jsonSchema, streamText, tool } from "ai"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { MODEL_PROVIDERS } from "../../config/constants"
 import type { ProviderConfig } from "../../type"
+import { compactMessages } from "../../utils/message-compaction"
 import { withZaiReasoningStream, ZaiProvider } from "../zai-provider"
 
 const { createOpenAIMock, zhipuChatModelFactoryMock } = vi.hoisted(() => ({
@@ -82,6 +84,39 @@ async function collectStream(stream: ReadableStream<LanguageModelV4StreamPart>) 
   }
 
   return parts
+}
+
+function createChatResponse(
+  streaming: boolean,
+  deltas: Record<string, unknown>[] = [{ content: "Done." }],
+  finishReason = "stop"
+) {
+  const response = {
+    id: "zai-response",
+    created: 1,
+    model: "glm-5.2",
+    usage: { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14 }
+  }
+  if (!streaming) {
+    return new Response(
+      JSON.stringify({
+        ...response,
+        choices: [
+          { index: 0, message: { role: "assistant", ...deltas[0] }, finish_reason: finishReason }
+        ]
+      }),
+      { headers: { "content-type": "application/json" } }
+    )
+  }
+
+  const chunks = deltas.map((delta, index) => ({
+    ...response,
+    choices: [{ index: 0, delta, finish_reason: index === deltas.length - 1 ? finishReason : null }]
+  }))
+  return new Response(
+    `${chunks.map(chunk => `data: ${JSON.stringify(chunk)}\n\n`).join("")}data: [DONE]\n\n`,
+    { headers: { "content-type": "text/event-stream" } }
+  )
 }
 
 describe("ZaiProvider", () => {
@@ -360,6 +395,154 @@ describe("ZaiProvider", () => {
       const parts = await collectStream(result.stream)
 
       expect(parts).toContain(rawPart)
+    })
+  })
+
+  describe("real SDK requests", () => {
+    beforeEach(async () => {
+      const actual = await vi.importActual<typeof import("@ai-sdk/openai")>("@ai-sdk/openai")
+      createOpenAIMock.mockImplementation(actual.createOpenAI)
+    })
+
+    afterEach(() => vi.unstubAllGlobals())
+
+    it("replays complete reasoning alongside tool results in the next streaming step", async () => {
+      const fetchMock = vi.fn<typeof fetch>()
+      fetchMock.mockImplementationOnce(async () =>
+        createChatResponse(
+          true,
+          [
+            { role: "assistant", reasoning_content: " Think first. " },
+            { reasoning_content: "\nRead the file." },
+            {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: "call-1",
+                  type: "function",
+                  function: { name: "readFile", arguments: "{}" }
+                }
+              ]
+            }
+          ],
+          "tool_calls"
+        )
+      )
+      fetchMock.mockImplementationOnce(async () => createChatResponse(true))
+      vi.stubGlobal("fetch", fetchMock)
+      const readFile = tool({
+        inputSchema: jsonSchema({ type: "object", properties: {}, additionalProperties: false }),
+        execute: async () => "File contents"
+      })
+      const result = streamText({
+        model: new ZaiProvider().createModel("glm-5.2", { apiKey: "test-api-key" }),
+        prompt: "Read the file.",
+        tools: { readFile },
+        stopWhen: isStepCount(2),
+        maxRetries: 0
+      })
+
+      expect(await result.text).toBe("Done.")
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
+        messages: [
+          { role: "user", content: "Read the file." },
+          {
+            role: "assistant",
+            reasoning_content: " Think first. \nRead the file.",
+            tool_calls: [{ id: "call-1", function: { name: "readFile", arguments: "{}" } }]
+          },
+          { role: "tool", tool_call_id: "call-1", content: "File contents" }
+        ]
+      })
+    })
+
+    it("keeps restored reasoning isolated across concurrent requests on the same model", async () => {
+      const fetchMock = vi.fn<typeof fetch>(async () => {
+        await Promise.resolve()
+        return createChatResponse(false)
+      })
+      vi.stubGlobal("fetch", fetchMock)
+      const model = new ZaiProvider().createModel("glm-5.2", { apiKey: "test-api-key" })
+
+      await Promise.all(
+        ["Reasoning A", "Reasoning B"].map(async reasoning => {
+          const messages = await compactMessages([
+            { id: "user-1", role: "user", parts: [{ type: "text", text: "First question" }] },
+            {
+              id: "assistant-1",
+              role: "assistant",
+              parts: [
+                { type: "reasoning", text: reasoning, state: "done" },
+                { type: "text", text: "Same answer", state: "done" }
+              ]
+            },
+            { id: "user-2", role: "user", parts: [{ type: "text", text: "Continue" }] }
+          ])
+          await generateText({ model, messages, maxRetries: 0 })
+        })
+      )
+
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      const replayedReasoning = fetchMock.mock.calls.map(
+        ([, init]) => JSON.parse(String(init?.body)).messages[1].reasoning_content
+      )
+      expect(replayedReasoning.sort()).toEqual(["Reasoning A", "Reasoning B"])
+    })
+
+    it("replays reasoning when resuming an approved tool call from UI history", async () => {
+      const fetchMock = vi.fn<typeof fetch>(async () => createChatResponse(true))
+      vi.stubGlobal("fetch", fetchMock)
+      const execute = vi.fn(async () => "Approved file contents")
+      const tools = {
+        readFile: tool({
+          inputSchema: jsonSchema({ type: "object", properties: {}, additionalProperties: false }),
+          needsApproval: true,
+          execute
+        })
+      }
+      const messages = await compactMessages(
+        [
+          { id: "user-1", role: "user", parts: [{ type: "text", text: "Read the file." }] },
+          {
+            id: "assistant-1",
+            role: "assistant",
+            parts: [
+              { type: "step-start" },
+              { type: "reasoning", text: "Ask permission before reading.", state: "done" },
+              {
+                type: "tool-readFile",
+                toolCallId: "approved-call",
+                input: {},
+                state: "approval-responded",
+                approval: { id: "approval-1", approved: true }
+              }
+            ]
+          }
+        ],
+        tools
+      )
+      const result = streamText({
+        model: new ZaiProvider().createModel("glm-5.2", { apiKey: "test-api-key" }),
+        messages,
+        tools,
+        maxRetries: 0
+      })
+
+      expect(await result.text).toBe("Done.")
+      expect(execute).toHaveBeenCalledOnce()
+      expect(fetchMock).toHaveBeenCalledOnce()
+      expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+        messages: [
+          { role: "user", content: "Read the file." },
+          {
+            role: "assistant",
+            reasoning_content: "Ask permission before reading.",
+            tool_calls: [{ id: "approved-call" }]
+          },
+          { role: "tool", tool_call_id: "approved-call", content: "Approved file contents" }
+        ]
+      })
     })
   })
 })

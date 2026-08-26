@@ -145,7 +145,9 @@ describe("ContextWindowUsageIndicator", () => {
       "25%",
       "50%"
     ])
-    expect(container.textContent).toContain("Component estimates may not add up to total usage.")
+    expect(container.textContent).not.toContain(
+      "Component estimates may not add up to total usage."
+    )
   })
 
   it("shows localized composition when the model capacity is unknown", async () => {
@@ -227,6 +229,44 @@ describe("ContextWindowUsageIndicator", () => {
     expect(trigger?.dataset.size).toBe("icon-xs")
     expect(trigger?.textContent).not.toContain("25%")
     expect(trigger?.getAttribute("aria-label")).toContain("32,000 / 128.0k tokens · 25%")
+  })
+
+  it.each([
+    "measured",
+    "estimated"
+  ] as const)("keeps %s hover details concise and manual compaction available", async source => {
+    const onCompact = vi.fn()
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ContextWindowUsageIndicator
+            usage={createUsage({
+              source,
+              breakdown: { systemTokens: 1000, toolsTokens: 1000, messageTokens: 30000 }
+            })}
+            contextWindow={128000}
+            onCompact={onCompact}
+          />
+        </I18nextProvider>
+      )
+    })
+    await act(async () => {
+      container.querySelector("button")?.focus()
+      await new Promise(resolve => setTimeout(resolve, 150))
+    })
+
+    const panel = document.body.querySelector('[data-slot="hover-card-content"]')
+    expect(panel).not.toBeNull()
+    expect(panel?.textContent).toContain(source === "estimated" ? "~25%" : "25%")
+    expect(panel?.querySelectorAll("p")).toHaveLength(2)
+    expect(panel?.textContent).not.toMatch(
+      /marks estimates|compacted automatically|Reported usage|Estimated usage/
+    )
+
+    const compactButton = panel?.querySelector<HTMLButtonElement>("button")
+    expect(compactButton?.textContent).toBe("Compact context")
+    await act(async () => compactButton?.click())
+    expect(onCompact).toHaveBeenCalledOnce()
   })
 
   it("shows the icon and separator together when only manual compaction is available", async () => {
@@ -336,16 +376,12 @@ describe("ContextWindowUsageIndicator", () => {
     const progressFill = container.querySelector<HTMLElement>(
       '[data-testid="context-window-usage-progress-fill"]'
     )
-    const note = container.querySelector<HTMLElement>('[data-testid="context-window-usage-note"]')
-
     expect(details?.textContent).toContain("32,000 / 128.0k tokens")
     expect(percent?.textContent).toBe("25%")
     expect(progress).not.toBeNull()
     expect(progressFill?.style.width).toBe("25%")
     expect(progressFill?.style.backgroundColor).toBe("var(--color-status-positive)")
-    expect(note?.textContent).toBe(
-      "Context is compacted automatically. Original messages are preserved."
-    )
+    expect(container.textContent).not.toContain("Context is compacted automatically.")
     expect(container.querySelector('[data-testid="context-window-usage-breakdown"]')).toBeNull()
   })
 })

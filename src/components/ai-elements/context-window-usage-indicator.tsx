@@ -204,22 +204,6 @@ export function ContextWindowUsageDetails({
           ))}
         </dl>
       )}
-      {(usedTokensText || breakdown) && (
-        <div className="space-y-2 pt-0.5">
-          <Separator />
-          {breakdown && (
-            <p className="text-[11px] leading-relaxed text-muted-foreground/80">
-              {t("contextWindowUsage.breakdownHint")}
-            </p>
-          )}
-          <p
-            className="text-[11px] leading-relaxed text-muted-foreground/80"
-            data-testid="context-window-usage-note"
-          >
-            {t("contextWindowUsage.compressionHint")}
-          </p>
-        </div>
-      )}
     </div>
   )
 }
@@ -306,9 +290,6 @@ export function ContextWindowUsageIndicator({
         </HoverCardTrigger>
         <HoverCardContent align="end" className="w-auto p-3">
           <ContextWindowUsageDetails usage={usage} contextWindow={contextWindow} />
-          {usage && resolveUsedTokens(usage) !== undefined && (
-            <p className="mt-2 text-xs text-muted-foreground">{t(`compaction.${usage.source}`)}</p>
-          )}
           {onCompact && (
             <Button
               className="mt-2 w-full"

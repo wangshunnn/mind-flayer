@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { emptyContextState } from "../../shared/context"
+import { type ContextUsage, emptyContextState } from "../../shared/context"
 
 const invoke = vi.hoisted(() => vi.fn())
 const select = vi.hoisted(() => vi.fn())
@@ -66,6 +66,25 @@ describe("desktop context persistence", () => {
     expect(state.usage).toBeUndefined()
     expect(select.mock.calls.every(call => !call[0].includes("FROM messages"))).toBe(true)
   })
+
+  it.each([
+    undefined,
+    { systemTokens: 100, toolsTokens: 200, messageTokens: 300 }
+  ])("loads legacy and current context composition from JSON", async breakdown => {
+    const usage: ContextUsage = {
+      tokens: 600,
+      contextWindow: 128000,
+      source: "estimated",
+      prefixHash: "prefix",
+      requestFingerprint: "request",
+      entryCount: 2,
+      breakdown
+    }
+    select
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ content_json: JSON.stringify(usage) }])
+    expect((await loadChatContext("composition")).usage).toEqual(usage)
+  })
 })
 
 describe("user-facing context errors", () => {
@@ -80,13 +99,15 @@ describe("user-facing context errors", () => {
 })
 
 describe("missing context usage inspection", () => {
-  const usage = {
+  const usage: ContextUsage = {
     tokens: 1200,
+    modelId: "gpt-5.3-chat-latest",
     contextWindow: 128000,
     source: "estimated",
     prefixHash: "source",
     entryCount: 1,
-    requestFingerprint: "request"
+    requestFingerprint: "request",
+    breakdown: { systemTokens: 300, toolsTokens: 400, messageTokens: 500 }
   }
   const snapshot = (): ContextInspectionSnapshot => ({
     chatId: "old-chat",
@@ -122,13 +143,26 @@ describe("missing context usage inspection", () => {
       new AbortController().signal
     )
     expect(result?.tokens).toBe(1200)
+    expect(result?.breakdown).toEqual(usage.breakdown)
     expect(fetchMock.mock.calls[0][0]).toBe("http://localhost/api/chat/context-usage")
     expect(source).toEqual(original)
     expect(invoke).not.toHaveBeenCalled()
     expect(select).not.toHaveBeenCalled()
   })
 
-  it("does not inspect empty, busy, or already measured conversations", async () => {
+  it("backfills a legacy total that has no composition", async () => {
+    const source = snapshot()
+    source.contextState.usage = { ...usage, breakdown: undefined }
+    const result = await estimateMissingChatUsage(
+      "/api/chat",
+      () => source,
+      new AbortController().signal
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(result?.breakdown).toEqual(usage.breakdown)
+  })
+
+  it("does not inspect empty, busy, or complete usage snapshots", async () => {
     const source = snapshot()
     source.contextState.usage = { ...usage, source: "estimated" }
     await estimateMissingChatUsage("/api/chat", () => source, new AbortController().signal)
@@ -139,6 +173,19 @@ describe("missing context usage inspection", () => {
     source.messages = []
     await estimateMissingChatUsage("/api/chat", () => source, new AbortController().signal)
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("does not apply an older sidecar response that still lacks composition", async () => {
+    fetchMock
+      .mockReset()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ usage: { ...usage, breakdown: undefined } }))
+      )
+    const source = snapshot()
+    source.contextState.usage = { ...usage, breakdown: undefined }
+    expect(
+      await estimateMissingChatUsage("/api/chat", () => source, new AbortController().signal)
+    ).toBeUndefined()
   })
 
   it.each([

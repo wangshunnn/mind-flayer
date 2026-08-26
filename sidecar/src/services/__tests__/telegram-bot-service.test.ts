@@ -1811,7 +1811,7 @@ describe("TelegramBotService", () => {
           command: "new",
           description: "Start a new conversation"
         },
-        { command: "compact", description: "Summarize conversation" }
+        { command: "compact", description: "Compact context" }
       ]
     })
   })

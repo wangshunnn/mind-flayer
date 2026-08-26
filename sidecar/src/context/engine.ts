@@ -244,7 +244,13 @@ export class ConversationContext {
   readonly reserve: number
   readonly keep: number
   requestFingerprint: string
+  private readonly systemTokens: number
   private toolSchemaTokens = 0
+  private projectedTokenEstimate?: {
+    entries: ContextEntry[]
+    events: ContextState["events"]
+    tokens: number
+  }
   private initialized = false
 
   constructor(
@@ -252,6 +258,7 @@ export class ConversationContext {
     state: ContextState = emptyContextState()
   ) {
     this.state = structuredClone(state)
+    this.systemTokens = estimateTokens(options.instructions)
     this.window =
       options.contextWindow === undefined
         ? getModelContextWindow(options.modelProvider, options.modelId)
@@ -285,7 +292,7 @@ export class ConversationContext {
             await asSchema(tool.inputSchema).jsonSchema
           ])
       )
-      this.toolSchemaTokens = estimateTokens(JSON.stringify(schemas))
+      this.toolSchemaTokens = schemas.length ? estimateTokens(JSON.stringify(schemas)) : 0
       this.requestFingerprint = fingerprint([
         this.requestFingerprint,
         schemas,
@@ -305,11 +312,27 @@ export class ConversationContext {
   }
 
   private overhead(): number {
-    return estimateTokens(this.options.instructions) + this.toolSchemaTokens
+    return this.systemTokens + this.toolSchemaTokens
+  }
+
+  private estimateProjectedTokens(messages: ModelMessage[]): number {
+    // Usage is read multiple times per checkpoint; reprice only changed context.
+    if (
+      this.projectedTokenEstimate?.entries !== this.entries ||
+      this.projectedTokenEstimate.events !== this.state.events
+    ) {
+      this.projectedTokenEstimate = {
+        entries: this.entries,
+        events: this.state.events,
+        tokens: estimateTokens(messages)
+      }
+    }
+    return this.projectedTokenEstimate.tokens
   }
 
   usage(): ContextUsage {
     const projection = this.project()
+    const messageTokens = this.estimateProjectedTokens(projection.messages)
     const isValid = (usage: ContextUsage | undefined): usage is ContextUsage =>
       Boolean(
         usage &&
@@ -343,9 +366,14 @@ export class ConversationContext {
     const tokens = checkpoint
       ? checkpoint.tokens +
         estimateTokens(this.entries.slice(checkpoint.entryCount).flatMap(entry => entry.models))
-      : this.overhead() + estimateTokens(projection.messages)
+      : this.overhead() + messageTokens
     return {
       tokens,
+      breakdown: {
+        systemTokens: this.systemTokens,
+        toolsTokens: this.toolSchemaTokens,
+        messageTokens
+      },
       baselineTokens: checkpoint?.baselineTokens,
       modelProvider: this.options.modelProvider,
       modelId: this.options.modelId,

@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core"
 import type { UIMessage } from "ai"
 import type { ContextState, ContextUsage } from "../../shared/context"
 import { contextStateSchema, contextUsageSchema, emptyContextState } from "../../shared/context"
-import { resolveConversationContextUsage } from "./context-window-usage"
+import { getContextUsageForModel, resolveConversationContextUsage } from "./context-window-usage"
 import { getDatabase } from "./database"
 
 const saves = new Map<string, Promise<void>>()
@@ -44,7 +44,11 @@ export async function estimateMissingChatUsage(
     signal.aborted ||
     !idle(source) ||
     source.messages.length === 0 ||
-    resolveConversationContextUsage(source.messages, source.contextState)
+    getContextUsageForModel(
+      resolveConversationContextUsage(source.messages, source.contextState),
+      source.headers["X-Model-Provider"],
+      source.headers["X-Model-Id"]
+    )?.breakdown
   ) {
     return undefined
   }
@@ -65,6 +69,8 @@ export async function estimateMissingChatUsage(
   const usage = contextUsageSchema.parse(result.usage)
   const current = getSnapshot()
   if (
+    // An older sidecar cannot backfill composition; do not trigger a refetch loop.
+    !usage.breakdown ||
     signal.aborted ||
     !idle(current) ||
     current.chatId !== source.chatId ||

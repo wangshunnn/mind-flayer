@@ -319,11 +319,11 @@ describe("ChannelTelegramChat", () => {
     ).toContain(latestStartedAtText)
     expect(container.textContent).toContain("25%")
     const contextWindowButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label^="Conversation capacity:"]'
+      'button[aria-label^="Context window usage:"]'
     )
     expect(contextWindowButton).not.toBeNull()
     expect(contextWindowButton?.getAttribute("aria-label")).toContain(
-      "32,000 / 128,000 tokens · 25%"
+      "~32,000 / 128.0k tokens · ~25%"
     )
     expect(
       container.querySelector<HTMLButtonElement>('[data-testid="thread-context-usage-trigger"]')

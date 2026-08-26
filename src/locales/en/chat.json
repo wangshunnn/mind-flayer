@@ -54,14 +54,19 @@
     "belowMinimumCost": "<{{symbol}}0.0001"
   },
   "contextWindowUsage": {
-    "title": "Conversation capacity",
+    "title": "Context window",
+    "systemPrompt": "System prompt",
+    "tools": "Tools",
+    "messages": "Messages",
+    "breakdownHint": "~ marks estimates. Component estimates may not add up to total usage.",
     "summary": "{{used}} / {{limit}} tokens · {{percent}}%",
     "detailSummary": "{{used}} / {{limit}} tokens",
-    "compressionHint": "Long conversations are summarized automatically. Your chat history stays available.",
-    "unavailable": "We can't show this conversation's capacity limit right now.",
-    "usedInputOnly": "Conversation size: {{used}} tokens",
-    "ariaLabel": "Conversation capacity: {{summary}}",
-    "noStatistics": "No usage statistics yet"
+    "compressionHint": "Context is compacted automatically. Original messages are preserved.",
+    "unavailable": "This model's context window limit is unknown.",
+    "ariaLabel": "Context window usage: {{summary}}",
+    "noStatistics": "No usage statistics yet",
+    "unknown": "Context usage is unknown until a new model response reports usage.",
+    "usedTokensOnly": "Current context usage: {{used}} tokens"
   },
   "sources": {
     "used": "Used {{count}} sources"
@@ -138,19 +143,19 @@
     "fallbackPart": "Message part: {{type}}"
   },
   "compaction": {
-    "action": "Summarize conversation",
-    "compacting": "Summarizing conversation…",
-    "completed": "Summary ready. You can keep chatting; your chat history is unchanged.",
-    "unnecessary": "No need to summarize yet. You can keep chatting.",
-    "failed": "Couldn't summarize this time. Please try again. Your chat history is unchanged.",
-    "history": "Summary history",
+    "action": "Compact context",
+    "compacting": "Compacting context…",
+    "completed": "Context compaction complete.",
+    "unnecessary": "Nothing to compact (session too small)",
+    "failed": "Context compaction failed. Please try again.",
+    "history": "Compaction history",
     "estimated": "Estimated usage",
     "measured": "Reported usage",
-    "summary": "Conversation summary",
+    "summary": "Context summary",
     "tokens": "Size: {{before}} → {{after}} tokens",
-    "cancel": "Stop summarizing",
-    "cancelled": "Summarizing stopped. Your chat history is unchanged.",
-    "tooLarge": "This request is too long. Try sending less text or fewer attachments, or start a new conversation.",
+    "cancel": "Cancel compaction",
+    "cancelled": "Context compaction cancelled.",
+    "tooLarge": "Context exceeds the available token budget. Reduce the input or start a new conversation.",
     "busy": "This conversation is still being processed. Please try again shortly."
   }
 }

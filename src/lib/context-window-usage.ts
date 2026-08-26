@@ -1,19 +1,33 @@
-import type { LanguageModelUsage, UIMessage } from "ai"
+import type { UIMessage } from "ai"
 import type { ContextState, ContextUsage } from "../../shared/context"
 import { contextUsageSchema } from "../../shared/context"
+import { normalizeTokenCount } from "../../shared/message-usage"
 
-export type ContextTokenUsage = Pick<LanguageModelUsage, "inputTokens"> &
-  Partial<Pick<LanguageModelUsage, "inputTokenDetails">>
+export type ContextTokenUsage = Pick<ContextUsage, "tokens" | "source"> &
+  Partial<
+    Pick<
+      ContextUsage,
+      | "baselineTokens"
+      | "contextWindow"
+      | "compactionId"
+      | "modelProvider"
+      | "modelId"
+      | "breakdown"
+    >
+  >
 
 export type UsageLevel = "green" | "yellow" | "red"
 
-/** Cumulative billing usage from older messages is deliberately not a capacity fallback. */
+/** Cumulative billing usage is never a capacity fallback. */
 export function resolveConversationContextUsage(
   messages: UIMessage[],
   state?: ContextState
 ): ContextUsage | undefined {
   if (state?.usage) {
     return state.usage
+  }
+  if (state?.events.some(event => event.type === "compaction")) {
+    return undefined
   }
   for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index]
@@ -36,31 +50,25 @@ export interface ContextWindowUsageViewModel {
   level: UsageLevel
 }
 
-const englishIntegerFormatter = new Intl.NumberFormat("en-US", {
-  maximumFractionDigits: 0
-})
+const englishIntegerFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 })
+const percentFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 })
 
-const normalizeTokenCount = (value: number | undefined): number | undefined => {
-  if (typeof value !== "number" || Number.isNaN(value)) {
+export function resolveUsedTokens(usage: ContextTokenUsage): number | undefined {
+  if (usage.compactionId && !usage.baselineTokens) {
     return undefined
   }
-  return Math.max(0, value)
+  return normalizeTokenCount(usage.tokens)
 }
 
-const clampPercent = (value: number) => Math.min(100, Math.max(0, value))
-
-export function resolveUsedTokens(usage: ContextTokenUsage): number {
-  const directInputTokens = normalizeTokenCount(usage.inputTokens)
-  if (directInputTokens !== undefined) {
-    return directInputTokens
+export function getContextUsageForModel(
+  usage: ContextUsage | undefined,
+  modelProvider: string | undefined,
+  modelId: string | undefined
+): ContextUsage | undefined {
+  if (!usage || usage.modelProvider !== modelProvider || usage.modelId !== modelId) {
+    return undefined
   }
-
-  const details = usage.inputTokenDetails
-  const noCacheTokens = normalizeTokenCount(details?.noCacheTokens) ?? 0
-  const cacheReadTokens = normalizeTokenCount(details?.cacheReadTokens) ?? 0
-  const cacheWriteTokens = normalizeTokenCount(details?.cacheWriteTokens) ?? 0
-
-  return noCacheTokens + cacheReadTokens + cacheWriteTokens
+  return usage
 }
 
 export function getUsageLevel(percent: number): UsageLevel {
@@ -75,29 +83,38 @@ export function getUsageLevel(percent: number): UsageLevel {
 
 export function computeContextWindowUsage(
   usage: ContextTokenUsage,
-  contextWindow: number | null | undefined
+  contextWindow: number | null | undefined = usage.contextWindow
 ): ContextWindowUsageViewModel | null {
+  const usedTokens = resolveUsedTokens(usage)
   if (
-    contextWindow === null ||
-    contextWindow === undefined ||
-    Number.isNaN(contextWindow) ||
+    usedTokens === undefined ||
+    typeof contextWindow !== "number" ||
     !Number.isFinite(contextWindow) ||
     contextWindow <= 0
   ) {
     return null
   }
+  const percent = (usedTokens / contextWindow) * 100
+  return { usedTokens, limitTokens: contextWindow, percent, level: getUsageLevel(percent) }
+}
 
-  const usedTokens = resolveUsedTokens(usage)
-  const percent = clampPercent((usedTokens / contextWindow) * 100)
-
-  return {
-    usedTokens,
-    limitTokens: contextWindow,
-    percent,
-    level: getUsageLevel(percent)
-  }
+export function formatContextWindowPercent(
+  percent: number,
+  source: ContextUsage["source"]
+): string {
+  return `${source === "estimated" ? "~" : ""}${percentFormatter.format(percent)}`
 }
 
 export function formatContextWindowTokens(value: number): string {
   return englishIntegerFormatter.format(Math.max(0, Math.round(value)))
+}
+
+export function formatContextWindowLimit(value: number): string {
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1)}M`
+  }
+  if (value >= 1_000) {
+    return `${(value / 1_000).toFixed(1)}k`
+  }
+  return formatContextWindowTokens(value)
 }

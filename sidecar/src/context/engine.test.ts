@@ -1,4 +1,5 @@
 import type { LanguageModelUsage, UIMessage } from "ai"
+import { jsonSchema, tool } from "ai"
 import { MockLanguageModelV4 } from "ai/test"
 import { describe, expect, it, vi } from "vitest"
 import { emptyContextState } from "../../../shared/context"
@@ -197,10 +198,58 @@ const usage = (input: number, output: number, cacheRead = 0): LanguageModelUsage
 })
 
 describe("conversation context", () => {
+  it("separates system and tool definitions from calls and results in the effective messages", async () => {
+    const schema = { type: "object" as const, properties: { path: { type: "string" } } }
+    const description = "Read a file"
+    const context = new ConversationContext({
+      ...options(),
+      tools: { read: tool({ description, inputSchema: jsonSchema(schema) }) }
+    })
+    const raw: UIMessage[] = [
+      message("u", "user", "Read this"),
+      {
+        id: "a",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-read",
+            toolCallId: "call",
+            state: "output-available",
+            input: { path: "/test" },
+            output: "File content"
+          }
+        ]
+      }
+    ]
+    await context.update(raw)
+    const initial = context.usage()
+    expect(initial.breakdown).toEqual({
+      systemTokens: 4,
+      toolsTokens: Math.ceil(JSON.stringify([["read", description, schema]]).length / 4),
+      messageTokens:
+        Math.ceil("Read this".length / 4) +
+        Math.ceil(("read".length + JSON.stringify({ path: "/test" }).length) / 4) +
+        Math.ceil("File content".length / 4)
+    })
+    expect(initial.tokens).toBe(
+      Object.values(initial.breakdown ?? {}).reduce((sum, tokens) => sum + tokens, 0)
+    )
+    await context.update([...raw, message("next", "user", "Continue")])
+    expect(context.usage().breakdown).toEqual({
+      ...initial.breakdown,
+      messageTokens: (initial.breakdown?.messageTokens ?? 0) + 2
+    })
+    const withoutTools = new ConversationContext(options(), { ...context.state, usage: initial })
+    await withoutTools.update(raw)
+    expect(withoutTools.usage().breakdown?.toolsTokens).toBe(0)
+    expect(withoutTools.usage().requestFingerprint).not.toBe(initial.requestFingerprint)
+  })
+
   it("uses total step usage without counting cache or assistant output twice", async () => {
     const context = new ConversationContext(options())
     const raw = [message("u", "user"), message("a", "assistant", "Long answer".repeat(100))]
     await context.update(raw)
+    const breakdown = context.usage().breakdown
     expect(context.recordUsage(usage(100, 20, 80), 1, context.entries[1].models)).toBe(true)
     expect(context.usage()).toMatchObject({
       tokens: 120,
@@ -209,6 +258,9 @@ describe("conversation context", () => {
       modelProvider: "test",
       modelId: "test"
     })
+    expect(context.usage().breakdown).toEqual(breakdown)
+    expect(breakdown?.toolsTokens).toBe(0)
+    expect(breakdown?.messageTokens).toBeGreaterThan(120)
     context.recordUsage({ ...usage(100, 20, 80), totalTokens: 0 }, 1, context.entries[1].models)
     expect(context.usage().tokens).toBe(120)
   })
@@ -275,6 +327,14 @@ describe("conversation context", () => {
     expect(context.usage().baselineTokens).toBeUndefined()
     expect(context.usage().compactionId).toBeDefined()
     expect(context.usage().tokens).toBeGreaterThan(0)
+    const compacted = context.usage().breakdown
+    expect(compacted?.messageTokens).toBe(estimateTokens(context.project().messages))
+    expect(compacted?.messageTokens).toBeLessThan(
+      estimateTokens(context.entries.flatMap(entry => entry.models))
+    )
+    const reloaded = new ConversationContext(config, context.state)
+    await reloaded.update(raw)
+    expect(reloaded.usage().breakdown).toEqual(compacted)
     context.recordUsage(usage(200, 20), context.entries.length, [])
     expect(context.usage()).toMatchObject({ baselineTokens: 220, source: "measured" })
   })

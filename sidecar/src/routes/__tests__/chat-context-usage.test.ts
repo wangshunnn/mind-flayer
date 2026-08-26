@@ -1,5 +1,6 @@
 import { Hono } from "hono"
 import { describe, expect, it, vi } from "vitest"
+import { contextUsageSchema } from "../../../../shared/context"
 import { ChannelRuntimeConfigService } from "../../services/channel-runtime-config-service"
 import { handleChat } from "../chat"
 
@@ -39,6 +40,10 @@ describe("context usage inspection route", () => {
     const result = (await response.json()) as { usage: { source: string; tokens: number } }
     expect(result.usage.source).toBe("estimated")
     expect(result.usage.tokens).toBeLessThan(10000)
+    const usage = contextUsageSchema.parse(result.usage)
+    expect(usage.breakdown?.systemTokens).toBeGreaterThan(0)
+    expect(usage.breakdown?.toolsTokens).toBe(0)
+    expect(usage.breakdown?.messageTokens).toBe(4)
     expect(provider.hasConfig).not.toHaveBeenCalled()
     expect(provider.createModel).not.toHaveBeenCalled()
   })

@@ -88,7 +88,10 @@ import {
 } from "@/lib/chat-message-timeline"
 import { generateChatTitle } from "@/lib/chat-utils"
 import { useToastConstants, useToolButtonConstants, useTooltipConstants } from "@/lib/constants"
-import { resolveConversationContextUsage } from "@/lib/context-window-usage"
+import {
+  getContextUsageForModel,
+  resolveConversationContextUsage
+} from "@/lib/context-window-usage"
 import { findModelPricing } from "@/lib/provider-constants"
 import { generateTitle, getSidecarUrl } from "@/lib/sidecar-client"
 import { cn } from "@/lib/utils"
@@ -1194,8 +1197,13 @@ const AppChatInner = ({
 
   const displayedContextState = activeChatId ? contextStates[activeChatId] : undefined
   const displayedContextUsage = useMemo(
-    () => resolveConversationContextUsage(messages, displayedContextState),
-    [messages, displayedContextState]
+    () =>
+      getContextUsageForModel(
+        resolveConversationContextUsage(messages, displayedContextState),
+        selectedModel?.provider,
+        selectedModel?.api_id
+      ),
+    [messages, displayedContextState, selectedModel?.provider, selectedModel?.api_id]
   )
   const inspectionHeadersKey = JSON.stringify([
     selectedModel?.provider,
@@ -1215,7 +1223,7 @@ const AppChatInner = ({
     if (
       !activeChatId ||
       !runtime ||
-      displayedContextUsage ||
+      displayedContextUsage?.breakdown ||
       !selectedModelRef.current ||
       contextCompacting
     ) {
@@ -1885,11 +1893,7 @@ const AppChatInner = ({
                 <PromptInputTools className="gap-2">
                   <ContextWindowUsageIndicator
                     contextWindow={selectedModel?.contextWindow}
-                    usage={
-                      displayedContextUsage
-                        ? { inputTokens: displayedContextUsage.tokens }
-                        : undefined
-                    }
+                    usage={displayedContextUsage}
                     contextState={displayedContextState}
                     withSeparator
                     onCompact={activeChatId ? handleCompact : undefined}

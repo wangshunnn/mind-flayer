@@ -2,7 +2,10 @@ import type { LanguageModelUsage, UIMessage } from "ai"
 import { describe, expect, it } from "vitest"
 import {
   computeContextWindowUsage,
+  formatContextWindowLimit,
+  formatContextWindowPercent,
   formatContextWindowTokens,
+  getContextUsageForModel,
   getUsageLevel,
   resolveConversationContextUsage,
   resolveUsedTokens
@@ -66,41 +69,52 @@ describe("resolveConversationContextUsage", () => {
   })
 })
 
-describe("resolveUsedTokens", () => {
-  it("prefers inputTokens over detailed fallback", () => {
-    const usage = createUsage({
-      inputTokens: 120,
-      inputTokenDetails: {
-        noCacheTokens: 10,
-        cacheReadTokens: 20,
-        cacheWriteTokens: 30
-      }
-    })
+const contextUsage = (tokens: number) => ({
+  tokens,
+  baselineTokens: tokens,
+  source: "measured" as const
+})
 
-    expect(resolveUsedTokens(usage)).toBe(120)
+describe("resolveUsedTokens", () => {
+  it("uses context tokens without substituting cumulative billing data", () => {
+    expect(resolveUsedTokens(contextUsage(120))).toBe(120)
+    expect(resolveUsedTokens({ ...contextUsage(0), tokens: Number.NaN })).toBeUndefined()
   })
 
-  it("falls back to input token details when inputTokens is unavailable", () => {
-    const usage = createUsage({
-      inputTokens: undefined,
-      inputTokenDetails: {
-        noCacheTokens: 10,
-        cacheReadTokens: 20,
-        cacheWriteTokens: 30
-      }
-    })
+  it("hides post-compaction estimates until a new baseline is available", () => {
+    expect(
+      resolveUsedTokens({ tokens: 300, source: "estimated", compactionId: "c1" })
+    ).toBeUndefined()
+    expect(resolveUsedTokens({ ...contextUsage(300), compactionId: "c1" })).toBe(300)
+  })
 
-    expect(resolveUsedTokens(usage)).toBe(60)
+  it("distinguishes estimated and measured percentages", () => {
+    expect(formatContextWindowPercent(32.15, "estimated")).toBe("~32.2")
+    expect(formatContextWindowPercent(32.15, "measured")).toBe("32.2")
+  })
+
+  it("invalidates snapshots after switching models", () => {
+    const usage = {
+      ...contextUsage(100),
+      modelProvider: "openai",
+      modelId: "old",
+      contextWindow: 1000,
+      prefixHash: "p",
+      requestFingerprint: "r",
+      entryCount: 1
+    }
+    expect(getContextUsageForModel(usage, "openai", "old")).toBe(usage)
+    expect(getContextUsageForModel(usage, "openai", "new")).toBeUndefined()
   })
 })
 
 describe("computeContextWindowUsage", () => {
   it("assigns levels at threshold boundaries", () => {
     const contextWindow = 10000
-    const green = computeContextWindowUsage(createUsage({ inputTokens: 4999 }), contextWindow)
-    const yellowStart = computeContextWindowUsage(createUsage({ inputTokens: 5000 }), contextWindow)
-    const yellowEnd = computeContextWindowUsage(createUsage({ inputTokens: 7999 }), contextWindow)
-    const red = computeContextWindowUsage(createUsage({ inputTokens: 8000 }), contextWindow)
+    const green = computeContextWindowUsage(contextUsage(4999), contextWindow)
+    const yellowStart = computeContextWindowUsage(contextUsage(5000), contextWindow)
+    const yellowEnd = computeContextWindowUsage(contextUsage(7999), contextWindow)
+    const red = computeContextWindowUsage(contextUsage(8000), contextWindow)
 
     expect(green?.level).toBe("green")
     expect(yellowStart?.level).toBe("yellow")
@@ -109,7 +123,7 @@ describe("computeContextWindowUsage", () => {
   })
 
   it("returns null when context window is invalid", () => {
-    const usage = createUsage({ inputTokens: 10 })
+    const usage = contextUsage(10)
 
     expect(computeContextWindowUsage(usage, null)).toBeNull()
     expect(computeContextWindowUsage(usage, undefined)).toBeNull()
@@ -118,14 +132,14 @@ describe("computeContextWindowUsage", () => {
     expect(computeContextWindowUsage(usage, Number.NaN)).toBeNull()
   })
 
-  it("clamps percent to 100 when used tokens exceed context window", () => {
-    const usage = createUsage({ inputTokens: 250 })
+  it("preserves overflow percentages for text while the UI clamps graphics", () => {
+    const usage = contextUsage(250)
     const result = computeContextWindowUsage(usage, 100)
 
     expect(result).toMatchObject({
       usedTokens: 250,
       limitTokens: 100,
-      percent: 100,
+      percent: 250,
       level: "red"
     })
   })
@@ -139,5 +153,17 @@ describe("formatContextWindowTokens", () => {
     expect(formatContextWindowTokens(1000000)).toBe("1,000,000")
     expect(formatContextWindowTokens(1050000)).toBe("1,050,000")
     expect(formatContextWindowTokens(2500000)).toBe("2,500,000")
+  })
+})
+
+describe("formatContextWindowLimit", () => {
+  it.each([
+    [999, "999"],
+    [1000, "1.0k"],
+    [128000, "128.0k"],
+    [1000000, "1.0M"],
+    [2500000, "2.5M"]
+  ])("formats a capacity of %s with compact units", (tokens, expected) => {
+    expect(formatContextWindowLimit(tokens)).toBe(expected)
   })
 })

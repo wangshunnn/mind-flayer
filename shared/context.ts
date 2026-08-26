@@ -49,6 +49,14 @@ export const contextUsageSchema = z.object({
   modelId: z.string().optional(),
   contextWindow: z.number().positive().nullable(),
   source: z.enum(["measured", "estimated"]),
+  /** Heuristic composition; independent of the provider-calibrated total. */
+  breakdown: z
+    .object({
+      systemTokens: z.number().int().nonnegative(),
+      toolsTokens: z.number().int().nonnegative(),
+      messageTokens: z.number().int().nonnegative()
+    })
+    .optional(),
   prefixHash: z.string(),
   entryCount: z.number().int().nonnegative(),
   requestFingerprint: z.string(),

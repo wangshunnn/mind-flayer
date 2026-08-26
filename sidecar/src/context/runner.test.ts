@@ -360,11 +360,17 @@ describe("shared conversation runner", () => {
       contextUsage: {
         tokens: 160,
         baselineTokens: 160,
-        source: "measured"
+        source: "measured",
+        breakdown: {
+          systemTokens: 2,
+          toolsTokens: expect.any(Number),
+          messageTokens: expect.any(Number)
+        }
       },
       stepCount: 2
     })
     expect(state?.usage?.tokens).toBeLessThan(250)
+    expect(result?.metadata).toMatchObject({ contextUsage: { breakdown: state?.usage?.breakdown } })
     expect(model.doStreamCalls[1].prompt).toEqual(
       expect.arrayContaining([expect.objectContaining({ role: "tool" })])
     )

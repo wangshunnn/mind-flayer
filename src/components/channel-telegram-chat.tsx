@@ -32,8 +32,13 @@ import {
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { computeContextWindowUsage, formatContextWindowTokens } from "@/lib/context-window-usage"
-import { findModelContextWindow, findModelPricing } from "@/lib/provider-constants"
+import {
+  computeContextWindowUsage,
+  formatContextWindowLimit,
+  formatContextWindowPercent,
+  formatContextWindowTokens
+} from "@/lib/context-window-usage"
+import { findModelPricing } from "@/lib/provider-constants"
 import {
   deleteTelegramChannelSession,
   getTelegramChannelSessionMessages,
@@ -43,7 +48,6 @@ import {
 import { cn } from "@/lib/utils"
 
 const TELEGRAM_POLL_INTERVAL_MS = 2_000
-const CONTEXT_PERCENT_MAX_FRACTION_DIGITS = 1
 
 interface AssistantMessageMetadata {
   createdAt?: number
@@ -308,45 +312,22 @@ export function ChannelTelegramChat() {
       return null
     }
 
-    const contextWindow = findModelContextWindow(
-      selectedSession.latestModelProvider,
-      selectedSession.latestModelId
-    )
-    if (!contextWindow) {
-      return null
-    }
+    return computeContextWindowUsage(selectedSession.contextUsage)
+  }, [selectedSession?.contextUsage])
 
-    return computeContextWindowUsage(
-      { inputTokens: selectedSession.contextUsage.tokens },
-      contextWindow
-    )
-  }, [
-    selectedSession?.contextUsage,
-    selectedSession?.latestModelId,
-    selectedSession?.latestModelProvider
-  ])
-
-  const selectedSessionPercentText = useMemo(() => {
-    if (!selectedSessionUsageView) {
-      return null
-    }
-
-    return new Intl.NumberFormat("en-US", {
-      maximumFractionDigits: CONTEXT_PERCENT_MAX_FRACTION_DIGITS
-    }).format(selectedSessionUsageView.percent)
-  }, [selectedSessionUsageView])
-
-  const selectedSessionUsageSummaryText = useMemo(() => {
-    if (!selectedSessionUsageView) {
-      return null
-    }
-
-    return tChat("contextWindowUsage.summary", {
-      used: formatContextWindowTokens(selectedSessionUsageView.usedTokens),
-      limit: formatContextWindowTokens(selectedSessionUsageView.limitTokens),
-      percent: selectedSessionPercentText ?? "0"
-    })
-  }, [selectedSessionPercentText, selectedSessionUsageView, tChat])
+  const selectedSessionPercentText = selectedSessionUsageView
+    ? formatContextWindowPercent(
+        selectedSessionUsageView.percent,
+        selectedSession?.contextUsage?.source ?? "estimated"
+      )
+    : "?"
+  const selectedSessionUsageSummaryText = selectedSessionUsageView
+    ? tChat("contextWindowUsage.summary", {
+        used: `${selectedSession?.contextUsage?.source === "estimated" ? "~" : ""}${formatContextWindowTokens(selectedSessionUsageView.usedTokens)}`,
+        limit: formatContextWindowLimit(selectedSessionUsageView.limitTokens),
+        percent: selectedSessionPercentText
+      })
+    : tChat("contextWindowUsage.unknown")
 
   const selectedSessionStartedAtText = useMemo(() => {
     if (!selectedSession) {
@@ -372,10 +353,7 @@ export function ChannelTelegramChat() {
         contentClassName="w-[min(640px,calc(100vw-14rem))] justify-start"
         rightSlotClassName="right-3"
         rightSlot={
-          selectedSession?.latestAssistantUsage &&
-          selectedSessionUsageView &&
-          selectedSessionPercentText &&
-          selectedSessionUsageSummaryText ? (
+          selectedSession?.contextUsage ? (
             <HoverCard closeDelay={100} openDelay={100}>
               <HoverCardTrigger asChild>
                 <Button
@@ -390,29 +368,20 @@ export function ChannelTelegramChat() {
                 >
                   <ContextWindowUsageIndicator
                     className="size-5"
-                    contextWindow={selectedSessionUsageView.limitTokens}
+                    contextWindow={selectedSession.contextUsage.contextWindow}
                     interactive={false}
-                    usage={
-                      selectedSession.contextUsage
-                        ? ({
-                            inputTokens: selectedSession.contextUsage.tokens
-                          } as LanguageModelUsage)
-                        : undefined
-                    }
+                    usage={selectedSession.contextUsage}
                   />
                   <span className="text-xs font-medium tabular-nums">
-                    {selectedSessionPercentText}%
+                    {selectedSessionPercentText}
+                    {selectedSessionUsageView ? "%" : ""}
                   </span>
                 </Button>
               </HoverCardTrigger>
               <HoverCardContent align="end" className="w-auto p-3">
                 <ContextWindowUsageDetails
-                  contextWindow={selectedSessionUsageView.limitTokens}
-                  usage={
-                    selectedSession.contextUsage
-                      ? { inputTokens: selectedSession.contextUsage.tokens }
-                      : undefined
-                  }
+                  contextWindow={selectedSession.contextUsage.contextWindow}
+                  usage={selectedSession.contextUsage}
                 />
               </HoverCardContent>
             </HoverCard>

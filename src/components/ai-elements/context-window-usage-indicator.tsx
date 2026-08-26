@@ -7,6 +7,8 @@ import { Separator } from "@/components/ui/separator"
 import {
   type ContextTokenUsage,
   computeContextWindowUsage,
+  formatContextWindowLimit,
+  formatContextWindowPercent,
   formatContextWindowTokens,
   resolveUsedTokens,
   type UsageLevel
@@ -22,7 +24,11 @@ const RING_COLOR_BY_LEVEL: Record<UsageLevel, string> = {
   red: "var(--color-destructive)"
 }
 
-const PERCENT_MAX_FRACTION_DIGITS = 1
+const BREAKDOWN_ROWS = [
+  { key: "systemTokens", label: "contextWindowUsage.systemPrompt", color: "bg-zinc-400" },
+  { key: "toolsTokens", label: "contextWindowUsage.tools", color: "bg-violet-400" },
+  { key: "messageTokens", label: "contextWindowUsage.messages", color: "bg-blue-500" }
+] as const
 
 export interface ContextWindowUsageIndicatorProps {
   usage?: ContextTokenUsage
@@ -49,17 +55,18 @@ function buildUsageSummary(params: {
   t: TFunction<"chat">
 }) {
   const { usage, contextWindow, t } = params
-  if (!usage) {
+  const usedTokens = usage ? resolveUsedTokens(usage) : undefined
+  if (!usage || usedTokens === undefined) {
     return {
       usageView: null,
       usedTokensText: null,
-      usageSummary: null,
+      usageSummary: t(usage ? "contextWindowUsage.unknown" : "contextWindowUsage.noStatistics"),
       percentText: null
     }
   }
 
   const usageView = computeContextWindowUsage(usage, contextWindow)
-  const usedTokensText = formatContextWindowTokens(resolveUsedTokens(usage))
+  const usedTokensText = `${usage.source === "estimated" ? "~" : ""}${formatContextWindowTokens(usedTokens)}`
   if (!usageView) {
     return {
       usageView,
@@ -69,16 +76,14 @@ function buildUsageSummary(params: {
     }
   }
 
-  const percentText = new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: PERCENT_MAX_FRACTION_DIGITS
-  }).format(usageView.percent)
+  const percentText = formatContextWindowPercent(usageView.percent, usage.source)
 
   return {
     usageView,
     usedTokensText,
     usageSummary: t("contextWindowUsage.summary", {
       used: usedTokensText,
-      limit: formatContextWindowTokens(usageView.limitTokens),
+      limit: formatContextWindowLimit(usageView.limitTokens),
       percent: percentText
     }),
     percentText
@@ -115,29 +120,26 @@ export function ContextWindowUsageDetails({
     t
   })
 
-  if (!usage || !usedTokensText || !usageSummary) {
-    return (
-      <div className="w-48 space-y-1.5">
-        <p className="text-xs font-medium">{t("contextWindowUsage.title")}</p>
-        <p className="text-xs text-muted-foreground" data-testid="context-window-usage-empty">
-          {t("contextWindowUsage.noStatistics")}
-        </p>
-      </div>
-    )
-  }
-
+  const breakdown = usage?.breakdown
+  const breakdownTotal = breakdown
+    ? breakdown.systemTokens + breakdown.toolsTokens + breakdown.messageTokens
+    : 0
   const detailSummary = usageView
     ? t("contextWindowUsage.detailSummary", {
         used: usedTokensText,
-        limit: formatContextWindowTokens(usageView.limitTokens)
+        limit: formatContextWindowLimit(usageView.limitTokens)
       })
     : null
   const progressColor = usageView ? RING_COLOR_BY_LEVEL[usageView.level] : null
 
   return (
-    <div className="space-y-1.5 w-48">
+    <div className={cn("max-w-[calc(100vw-3rem)] space-y-2", breakdown ? "w-64" : "w-48")}>
       <p className="text-xs font-medium">{t("contextWindowUsage.title")}</p>
-      {usageView && detailSummary && percentText ? (
+      {!usedTokensText ? (
+        <p className="text-xs text-muted-foreground" data-testid="context-window-usage-empty">
+          {usageSummary}
+        </p>
+      ) : usageView && detailSummary && percentText ? (
         <div className="space-y-2" data-testid="context-window-usage-details">
           <div className="flex items-center justify-between gap-4 text-xs">
             <p className="text-muted-foreground">{detailSummary}</p>
@@ -154,34 +156,70 @@ export function ContextWindowUsageDetails({
             data-testid="context-window-usage-progress"
           >
             <div
-              className="h-full rounded-full"
+              className="flex h-full overflow-hidden rounded-full"
               data-testid="context-window-usage-progress-fill"
               style={{
-                width: `${usageView.percent}%`,
-                backgroundColor: progressColor ?? "var(--color-border)",
+                width: `${Math.min(100, usageView.percent)}%`,
+                backgroundColor:
+                  breakdownTotal > 0 ? undefined : (progressColor ?? "var(--color-border)"),
                 backgroundImage:
-                  "repeating-linear-gradient(-45deg, rgba(255,255,255,0.35) 0 4px, rgba(255,255,255,0.08) 4px 8px)"
+                  breakdownTotal > 0
+                    ? undefined
+                    : "repeating-linear-gradient(-45deg, rgba(255,255,255,0.35) 0 4px, rgba(255,255,255,0.08) 4px 8px)"
               }}
-            />
+            >
+              {breakdown && breakdownTotal > 0 && usageView.percent > 0
+                ? BREAKDOWN_ROWS.filter(row => breakdown[row.key] > 0).map(row => (
+                    <span
+                      key={row.key}
+                      className={cn("h-full", row.color)}
+                      data-testid={`context-window-usage-segment-${row.key}`}
+                      style={{ width: `${(breakdown[row.key] / breakdownTotal) * 100}%` }}
+                    />
+                  ))
+                : null}
+            </div>
           </div>
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">{usageSummary}</p>
       )}
-      {!usageView && (
+      {!usageView && usedTokensText && (
         <p className="text-xs text-muted-foreground/80">
-          {t("contextWindowUsage.usedInputOnly", { used: usedTokensText })}
+          {t("contextWindowUsage.usedTokensOnly", { used: usedTokensText })}
         </p>
       )}
-      <div className="space-y-2 pt-0.5">
-        <Separator />
-        <p
-          className="text-[11px] leading-relaxed text-muted-foreground/80"
-          data-testid="context-window-usage-note"
-        >
-          {t("contextWindowUsage.compressionHint")}
-        </p>
-      </div>
+      {breakdown && (
+        <dl className="space-y-2 py-1 text-xs" data-testid="context-window-usage-breakdown">
+          {BREAKDOWN_ROWS.map(row => (
+            <div key={row.key} className="flex items-center justify-between gap-4">
+              <dt className="flex items-center gap-2 text-muted-foreground">
+                <span aria-hidden className={cn("size-2 shrink-0 rounded-xs", row.color)} />
+                {t(row.label)}
+              </dt>
+              <dd className="shrink-0 tabular-nums">
+                ~{formatContextWindowLimit(breakdown[row.key])}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {(usedTokensText || breakdown) && (
+        <div className="space-y-2 pt-0.5">
+          <Separator />
+          {breakdown && (
+            <p className="text-[11px] leading-relaxed text-muted-foreground/80">
+              {t("contextWindowUsage.breakdownHint")}
+            </p>
+          )}
+          <p
+            className="text-[11px] leading-relaxed text-muted-foreground/80"
+            data-testid="context-window-usage-note"
+          >
+            {t("contextWindowUsage.compressionHint")}
+          </p>
+        </div>
+      )}
     </div>
   )
 }
@@ -200,14 +238,13 @@ export function ContextWindowUsageIndicator({
   showPercent = false
 }: ContextWindowUsageIndicatorProps) {
   const { t } = useTranslation("chat")
-  const resolvedUsage = contextState?.usage ? { inputTokens: contextState.usage.tokens } : usage
 
-  if (!resolvedUsage && !onCompact) {
+  if (!usage && !onCompact) {
     return null
   }
 
   const { usageView, usageSummary, percentText } = buildUsageSummary({
-    usage: resolvedUsage,
+    usage: usage,
     contextWindow,
     t
   })
@@ -215,7 +252,7 @@ export function ContextWindowUsageIndicator({
   const ringColor = usageView
     ? RING_COLOR_BY_LEVEL[usageView.level]
     : "var(--color-muted-foreground)"
-  const ringPercent = usageView ? usageView.percent : 0
+  const ringPercent = usageView ? Math.min(100, usageView.percent) : 0
   const ringDegrees = ringPercent * 3.6
   const ringStyle = {
     background: `conic-gradient(${ringColor} ${ringDegrees}deg, var(--color-border) ${ringDegrees}deg 360deg)`
@@ -268,11 +305,9 @@ export function ContextWindowUsageIndicator({
           </Button>
         </HoverCardTrigger>
         <HoverCardContent align="end" className="w-auto p-3">
-          <ContextWindowUsageDetails usage={resolvedUsage} contextWindow={contextWindow} />
-          {contextState?.usage && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {t(`compaction.${contextState.usage.source}`)}
-            </p>
+          <ContextWindowUsageDetails usage={usage} contextWindow={contextWindow} />
+          {usage && resolveUsedTokens(usage) !== undefined && (
+            <p className="mt-2 text-xs text-muted-foreground">{t(`compaction.${usage.source}`)}</p>
           )}
           {onCompact && (
             <Button

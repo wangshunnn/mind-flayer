@@ -53,14 +53,19 @@
     "belowMinimumCost": "<{{symbol}}0.0001"
   },
   "contextWindowUsage": {
-    "title": "对话容量",
+    "title": "上下文窗口",
+    "systemPrompt": "系统提示词",
+    "tools": "工具",
+    "messages": "对话消息",
+    "breakdownHint": "~ 表示估算值，各项之和可能与总用量不同。",
     "summary": "{{used}} / {{limit}} tokens · {{percent}}%",
     "detailSummary": "{{used}} / {{limit}} tokens",
-    "compressionHint": "对话较长时会自动整理要点，聊天记录不会被删除。",
-    "unavailable": "暂时无法显示这次对话的容量上限。",
-    "usedInputOnly": "当前对话占用：{{used}} tokens",
-    "ariaLabel": "对话容量：{{summary}}",
-    "noStatistics": "暂无统计"
+    "compressionHint": "上下文将自动压缩，原始消息保持不变。",
+    "unavailable": "当前模型的上下文窗口上限未知。",
+    "ariaLabel": "上下文占用：{{summary}}",
+    "noStatistics": "暂无统计",
+    "unknown": "上下文占用暂时未知，等待新的模型回复上报用量。",
+    "usedTokensOnly": "当前上下文用量：{{used}} tokens"
   },
   "sources": {
     "used": "使用了 {{count}} 个来源"
@@ -137,19 +142,19 @@
     "fallbackPart": "消息片段：{{type}}"
   },
   "compaction": {
-    "action": "整理对话",
-    "compacting": "正在整理对话…",
-    "completed": "整理好了，可以继续聊天。聊天记录保持不变。",
-    "unnecessary": "目前不需要整理，继续聊天即可。",
-    "failed": "暂时没能整理好，请稍后重试。聊天记录没有改变。",
-    "history": "整理记录",
+    "action": "压缩上下文",
+    "compacting": "正在压缩上下文…",
+    "completed": "上下文压缩完成。",
+    "unnecessary": "暂无可压缩的内容（会话内容过少）",
+    "failed": "上下文压缩失败，请重试。",
+    "history": "上下文压缩记录",
     "estimated": "用量为估算值",
     "measured": "实际用量",
-    "summary": "对话要点",
+    "summary": "上下文摘要",
     "tokens": "占用：{{before}} → {{after}} tokens",
-    "cancel": "停止整理",
-    "cancelled": "已停止整理，聊天记录没有改变。",
-    "tooLarge": "这次的内容太长了，请减少文字或附件，或新建对话后重试。",
-    "busy": "这次对话还在处理中，请稍后再试。"
+    "cancel": "取消压缩",
+    "cancelled": "已取消上下文压缩。",
+    "tooLarge": "上下文超出可用 token 预算，请减少输入或新建会话。",
+    "busy": "会话正在处理中，请稍后重试。"
   }
 }

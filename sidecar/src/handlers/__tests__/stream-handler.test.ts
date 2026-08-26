@@ -110,6 +110,22 @@ describe("conversation prompt preparation", () => {
     expect(config.model.doGenerateCalls).toHaveLength(0)
   })
 
+  it("backfills composition without replacing a valid persisted measurement", async () => {
+    const { config, context } = await measuredConversation()
+    const state = structuredClone(context.state)
+    if (!state.usage) {
+      throw new Error("Expected measured context")
+    }
+    delete state.usage.breakdown
+    delete config.messages[1].metadata
+    const original = structuredClone(state)
+    const result = await estimateConversationUsage({ ...config, contextState: state })
+    expect(result).toMatchObject({ tokens: 6897, baselineTokens: 6897, source: "measured" })
+    expect(result.breakdown).toEqual(context.state.usage?.breakdown)
+    expect(state).toEqual(original)
+    expect(config.model.doGenerateCalls).toHaveLength(0)
+  })
+
   it.each([
     "reasoning",
     "model",

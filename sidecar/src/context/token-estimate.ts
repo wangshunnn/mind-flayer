@@ -1,9 +1,11 @@
 import type { ModelMessage } from "ai"
 
 export const TOKEN_ESTIMATION_VERSION = "pi-chars-4-v1"
-const ESTIMATED_IMAGE_CHARS = 4800
+/** Fixed text-density estimate used until exact tokenization is needed. */
+const CHARS_PER_TOKEN = 4
+const ESTIMATED_IMAGE_CHARS = 1200 * CHARS_PER_TOKEN
 // Pi has no generic file equivalent; retain the existing opaque-file fallback.
-const ESTIMATED_FILE_CHARS = 4096 * 4
+const ESTIMATED_FILE_CHARS = 4096 * CHARS_PER_TOKEN
 
 type MessagePart = Exclude<ModelMessage["content"], string>[number]
 type ToolOutput = Extract<MessagePart, { type: "tool-result" }>["output"]
@@ -67,11 +69,11 @@ function contentChars(parts: Array<MessagePart | ToolContentPart>): number {
 /** Pi-style chars/4 heuristic, rounded per message. Not a model-specific tokenizer. */
 export function estimateTokens(value: string | ModelMessage[]): number {
   if (typeof value === "string") {
-    return Math.ceil(value.length / 4)
+    return Math.ceil(value.length / CHARS_PER_TOKEN)
   }
   return value.reduce((tokens, message) => {
     const chars =
       typeof message.content === "string" ? message.content.length : contentChars(message.content)
-    return tokens + Math.ceil(chars / 4)
+    return tokens + Math.ceil(chars / CHARS_PER_TOKEN)
   }, 0)
 }

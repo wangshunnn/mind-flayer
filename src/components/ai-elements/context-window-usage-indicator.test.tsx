@@ -1,4 +1,3 @@
-import type { LanguageModelUsage } from "ai"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { I18nextProvider } from "react-i18next"
@@ -7,25 +6,12 @@ import {
   ContextWindowUsageDetails,
   ContextWindowUsageIndicator
 } from "@/components/ai-elements/context-window-usage-indicator"
+import type { ContextTokenUsage } from "@/lib/context-window-usage"
 import i18n from "@/lib/i18n"
 import type { ContextState } from "../../../shared/context"
 
-function createUsage(overrides?: Partial<LanguageModelUsage>): LanguageModelUsage {
-  return {
-    inputTokens: 32_000,
-    inputTokenDetails: {
-      noCacheTokens: 32_000,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0
-    },
-    outputTokens: 400,
-    outputTokenDetails: {
-      textTokens: 400,
-      reasoningTokens: 0
-    },
-    totalTokens: 32_400,
-    ...overrides
-  }
+function createUsage(overrides?: Partial<ContextTokenUsage>): ContextTokenUsage {
+  return { tokens: 32_000, baselineTokens: 32_000, source: "measured", ...overrides }
 }
 
 describe("ContextWindowUsageIndicator", () => {
@@ -60,6 +46,169 @@ describe("ContextWindowUsageIndicator", () => {
     document.body.innerHTML = ""
   })
 
+  it("marks estimates and clamps only the progress graphic", async () => {
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ContextWindowUsageDetails
+            usage={createUsage({ tokens: 150, source: "estimated" })}
+            contextWindow={100}
+          />
+        </I18nextProvider>
+      )
+    })
+    expect(
+      container.querySelector('[data-testid="context-window-usage-percent"]')?.textContent
+    ).toBe("~150%")
+    expect(container.textContent).toContain("~150 / 100")
+    expect(
+      container.querySelector<HTMLElement>('[data-testid="context-window-usage-progress-fill"]')
+        ?.style.width
+    ).toBe("100%")
+  })
+
+  it("keeps used tokens precise while abbreviating the model capacity", async () => {
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ContextWindowUsageDetails
+            usage={createUsage({ tokens: 6897 })}
+            contextWindow={1000000}
+          />
+        </I18nextProvider>
+      )
+    })
+    expect(container.textContent).toContain("6,897 / 1.0M tokens")
+    expect(container.textContent).not.toContain("1,000,000")
+  })
+
+  it("shows unknown after compaction rather than a stale percentage", async () => {
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ContextWindowUsageDetails
+            usage={createUsage({
+              tokens: 100,
+              baselineTokens: undefined,
+              source: "estimated",
+              compactionId: "c1",
+              breakdown: { systemTokens: 20, toolsTokens: 30, messageTokens: 50 }
+            })}
+            contextWindow={1000}
+          />
+        </I18nextProvider>
+      )
+    })
+    expect(container.textContent).toContain("unknown")
+    expect(container.querySelector('[data-testid="context-window-usage-percent"]')).toBeNull()
+    expect(container.querySelectorAll("dd")).toHaveLength(3)
+    expect(Array.from(container.querySelectorAll("dd"), node => node.textContent)).toEqual([
+      "~20",
+      "~30",
+      "~50"
+    ])
+  })
+
+  it("marks every component as estimated and proportions colors without changing the measured total", async () => {
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ContextWindowUsageDetails
+            usage={createUsage({
+              breakdown: { systemTokens: 1000, toolsTokens: 1000, messageTokens: 2000 }
+            })}
+            contextWindow={128000}
+          />
+        </I18nextProvider>
+      )
+    })
+    expect(
+      container.querySelector('[data-testid="context-window-usage-percent"]')?.textContent
+    ).toBe("25%")
+    expect(container.textContent).toContain("32,000 / 128.0k tokens")
+    expect(Array.from(container.querySelectorAll("dt"), node => node.textContent)).toEqual([
+      "System prompt",
+      "Tools",
+      "Messages"
+    ])
+    expect(Array.from(container.querySelectorAll("dd"), node => node.textContent)).toEqual([
+      "~1.0k",
+      "~1.0k",
+      "~2.0k"
+    ])
+    const fill = container.querySelector<HTMLElement>(
+      '[data-testid="context-window-usage-progress-fill"]'
+    )
+    expect(fill?.style.width).toBe("25%")
+    expect(Array.from(fill?.children ?? [], child => (child as HTMLElement).style.width)).toEqual([
+      "25%",
+      "25%",
+      "50%"
+    ])
+    expect(container.textContent).toContain("Component estimates may not add up to total usage.")
+  })
+
+  it("shows localized composition when the model capacity is unknown", async () => {
+    await act(async () => {
+      await i18n.changeLanguage("zh-CN")
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ContextWindowUsageDetails
+            usage={createUsage({
+              contextWindow: null,
+              source: "estimated",
+              breakdown: { systemTokens: 100, toolsTokens: 0, messageTokens: 200 }
+            })}
+          />
+        </I18nextProvider>
+      )
+    })
+    expect(Array.from(container.querySelectorAll("dt"), node => node.textContent)).toEqual([
+      "系统提示词",
+      "工具",
+      "对话消息"
+    ])
+    expect(container.textContent).toContain("~32,000")
+    expect(container.textContent).toContain("~0")
+    expect(container.querySelector('[data-testid="context-window-usage-percent"]')).toBeNull()
+    expect(container.querySelector('[data-testid="context-window-usage-progress"]')).toBeNull()
+  })
+
+  it.each([
+    { tokens: 150, systemTokens: 20, messageTokens: 30, width: "100%", segments: 2 },
+    { tokens: 0, systemTokens: 20, messageTokens: 30, width: "0%", segments: 0 },
+    { tokens: 50, systemTokens: 0, messageTokens: 0, width: "50%", segments: 0 }
+  ])("handles zero categories and clamped occupancy for $tokens tokens", async ({
+    tokens,
+    systemTokens,
+    messageTokens,
+    width,
+    segments
+  }) => {
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ContextWindowUsageDetails
+            usage={createUsage({
+              tokens,
+              breakdown: { systemTokens, toolsTokens: 0, messageTokens }
+            })}
+            contextWindow={100}
+          />
+        </I18nextProvider>
+      )
+    })
+    const fill = container.querySelector<HTMLElement>(
+      '[data-testid="context-window-usage-progress-fill"]'
+    )
+    expect(fill?.style.width).toBe(width)
+    expect(fill?.children).toHaveLength(segments)
+    expect(
+      container.querySelector('[data-testid="context-window-usage-segment-toolsTokens"]')
+    ).toBeNull()
+    expect(container.textContent).not.toContain("NaN")
+  })
+
   it("renders the input-area trigger as an icon-only ghost button", async () => {
     await act(async () => {
       root.render(
@@ -70,14 +219,14 @@ describe("ContextWindowUsageIndicator", () => {
     })
 
     const trigger = container.querySelector<HTMLButtonElement>(
-      'button[aria-label^="Conversation capacity:"]'
+      'button[aria-label^="Context window usage:"]'
     )
 
     expect(trigger).not.toBeNull()
     expect(trigger?.dataset.variant).toBe("ghost")
     expect(trigger?.dataset.size).toBe("icon-xs")
     expect(trigger?.textContent).not.toContain("25%")
-    expect(trigger?.getAttribute("aria-label")).toContain("32,000 / 128,000 tokens · 25%")
+    expect(trigger?.getAttribute("aria-label")).toContain("32,000 / 128.0k tokens · 25%")
   })
 
   it("shows the icon and separator together when only manual compaction is available", async () => {
@@ -122,14 +271,14 @@ describe("ContextWindowUsageIndicator", () => {
           <ContextWindowUsageIndicator
             contextState={contextState}
             contextWindow={128000}
-            usage={createUsage({ inputTokens: 12000 })}
+            usage={contextState.usage}
             withSeparator
           />
         </I18nextProvider>
       )
     })
     expect(container.querySelector("button")?.getAttribute("aria-label")).toContain(
-      "48,000 / 128,000"
+      "~48,000 / 128.0k"
     )
     expect(container.querySelector('[data-testid="context-window-usage-separator"]')).not.toBeNull()
   })
@@ -153,7 +302,10 @@ describe("ContextWindowUsageIndicator", () => {
     await act(async () => {
       root.render(
         <I18nextProvider i18n={i18n}>
-          <ContextWindowUsageDetails contextWindow={128000} usage={{ inputTokens: 0 }} />
+          <ContextWindowUsageDetails
+            contextWindow={128000}
+            usage={{ tokens: 0, source: "measured" }}
+          />
         </I18nextProvider>
       )
     })
@@ -186,13 +338,14 @@ describe("ContextWindowUsageIndicator", () => {
     )
     const note = container.querySelector<HTMLElement>('[data-testid="context-window-usage-note"]')
 
-    expect(details?.textContent).toContain("32,000 / 128,000 tokens")
+    expect(details?.textContent).toContain("32,000 / 128.0k tokens")
     expect(percent?.textContent).toBe("25%")
     expect(progress).not.toBeNull()
     expect(progressFill?.style.width).toBe("25%")
     expect(progressFill?.style.backgroundColor).toBe("var(--color-status-positive)")
     expect(note?.textContent).toBe(
-      "Long conversations are summarized automatically. Your chat history stays available."
+      "Context is compacted automatically. Original messages are preserved."
     )
+    expect(container.querySelector('[data-testid="context-window-usage-breakdown"]')).toBeNull()
   })
 })

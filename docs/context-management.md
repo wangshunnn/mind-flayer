@@ -37,3 +37,11 @@ When an opened desktop conversation has no capacity statistics, the UI inspects 
 ## Verification
 
 Core tests use the real AI SDK message conversion and mock provider streams, rather than mocking pruning. They cover stable prefixes, repeated compaction, restored checkpoints, split tool turns, source changes, oversized input, summary cancellation, overflow recovery, and preservation of partial output. Rust tests cover transaction rollback, immutable events, missing source messages, and preservation of inactive historical responses.
+
+## Usage display
+
+The context indicator consumes independent context snapshots. Estimated values use `~`; after compaction the display remains unknown until the next valid model usage, while internal budget checks still use estimates. Text percentages may exceed 100%; graphics are clamped. Missing model capacities never produce a percentage.
+
+Optional `usage.breakdown` snapshots expose heuristic `systemTokens`, `toolsTokens`, and `messageTokens`. The shared estimator uses `CHARS_PER_TOKEN = 4`, rounded per message, with the existing attachment fallbacks. System tokens include the final instructions, skill catalog, and injected workspace context; tools include only enabled definitions (name, description, and input schema), with zero tokens for an empty tool set. Messages include the effective summary and retained conversation, including tool calls/results and temporal notes, not archived history. The sidecar caches message estimates until entries or context events change and carries the breakdown through existing checkpoints and JSON persistence. Legacy snapshots without a breakdown are inspected locally; valid provider measurement anchors are preserved.
+
+Every breakdown row uses `~`, even when total usage is measured. The three estimates describe composition and need not sum to the provider-calibrated total. The progress bar keeps the total occupancy width and proportions its colors by the estimates; zero categories have no segment. Breakdown rows remain available when compaction temporarily makes total usage unknown or the model capacity is missing. These display estimates do not replace accumulated billing usage or provider-calibrated capacity checks.

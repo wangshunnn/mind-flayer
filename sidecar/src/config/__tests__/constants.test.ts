@@ -7,14 +7,16 @@ describe("constants", () => {
       expect(MODEL_PROVIDERS).toHaveProperty("minimax")
       expect(MODEL_PROVIDERS).toHaveProperty("openai")
       expect(MODEL_PROVIDERS).toHaveProperty("anthropic")
+      expect(MODEL_PROVIDERS).toHaveProperty("zhipu")
       expect(MODEL_PROVIDERS.minimax).toHaveProperty("defaultBaseUrl")
       expect(MODEL_PROVIDERS.openai).toHaveProperty("defaultBaseUrl")
       expect(MODEL_PROVIDERS.anthropic).toHaveProperty("defaultBaseUrl")
+      expect(MODEL_PROVIDERS.zhipu).toHaveProperty("defaultBaseUrl")
     })
 
     it("should have valid minimax base URL", () => {
       const baseUrl = MODEL_PROVIDERS.minimax.defaultBaseUrl
-      expect(baseUrl).toBe("https://api.minimaxi.com/anthropic/v1")
+      expect(baseUrl).toBe("https://api.minimaxi.com/v1")
       expect(baseUrl).toMatch(/^https?:\/\//)
     })
 
@@ -27,6 +29,12 @@ describe("constants", () => {
     it("should have valid anthropic base URL", () => {
       const baseUrl = MODEL_PROVIDERS.anthropic.defaultBaseUrl
       expect(baseUrl).toBe("https://api.anthropic.com/v1")
+      expect(baseUrl).toMatch(/^https?:\/\//)
+    })
+
+    it("should have valid zhipu base URL", () => {
+      const baseUrl = MODEL_PROVIDERS.zhipu.defaultBaseUrl
+      expect(baseUrl).toBe("https://open.bigmodel.cn/api/paas/v4")
       expect(baseUrl).toMatch(/^https?:\/\//)
     })
   })

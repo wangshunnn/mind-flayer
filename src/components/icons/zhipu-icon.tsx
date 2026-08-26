@@ -3,5 +3,5 @@ interface ZhipuIconProps {
 }
 
 export function ZhipuIcon({ className }: ZhipuIconProps) {
-  return <img src="/provider-logos/zhipu-color.svg" alt="Zhipu" className={className} />
+  return <img src="/provider-logos/zhipu-color.svg" alt="Z.AI" className={className} />
 }

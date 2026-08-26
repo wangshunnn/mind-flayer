@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from "node:crypto"
 import type { LanguageModel, LanguageModelUsage } from "ai"
-import { stepCountIs, streamText, type UIMessage } from "ai"
+import { isStepCount, streamText, type UIMessage } from "ai"
 import { discoverSkillsSafely, filterDisabledSkills } from "../skills/catalog"
 import { ConflictError, NotFoundError } from "../utils/http-errors"
 import { compactMessages } from "../utils/message-compaction"
@@ -769,7 +769,7 @@ export class TelegramBotService {
 
       const result = streamText({
         model,
-        system: buildSystemPrompt({
+        instructions: buildSystemPrompt({
           modelProvider: selectedModel.provider,
           modelProviderLabel: selectedModel.providerLabel,
           modelId: selectedModel.modelId,
@@ -781,7 +781,7 @@ export class TelegramBotService {
         messages: modelMessages,
         tools,
         toolChoice,
-        stopWhen: Object.keys(tools).length > 0 ? stepCountIs(20) : stepCountIs(1),
+        stopWhen: Object.keys(tools).length > 0 ? isStepCount(20) : isStepCount(1),
         onChunk: ({ chunk }) => {
           const chunkType = (chunk as { type: string }).type
           if (chunkType === "source" || chunkType === "raw") {
@@ -794,7 +794,7 @@ export class TelegramBotService {
           }
           lastTokenAt = now
         },
-        onFinish: event => {
+        onEnd: event => {
           assistantMetadata = this.createAssistantMessageMetadata(selectedModel, {
             createdAt: requestStartedAt,
             firstTokenAt,

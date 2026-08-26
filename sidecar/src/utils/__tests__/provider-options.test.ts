@@ -67,6 +67,51 @@ describe("buildProviderOptions", () => {
     })
   })
 
+  it("returns MiniMax adaptive thinking for M3 when reasoning is on", () => {
+    expect(
+      buildProviderOptions({
+        modelProvider: "minimax",
+        modelId: "MiniMax-M3",
+        reasoningEnabled: true,
+        reasoningEffort: "xhigh"
+      })
+    ).toEqual({
+      minimax: {
+        thinking: {
+          type: "adaptive"
+        }
+      }
+    })
+  })
+
+  it("returns MiniMax disabled thinking for M3 when reasoning is off", () => {
+    expect(
+      buildProviderOptions({
+        modelProvider: "minimax",
+        modelId: "MiniMax-M3",
+        reasoningEnabled: false,
+        reasoningEffort: "high"
+      })
+    ).toEqual({
+      minimax: {
+        thinking: {
+          type: "disabled"
+        }
+      }
+    })
+  })
+
+  it("does not pass MiniMax thinking controls for M2.7 because it cannot be disabled", () => {
+    expect(
+      buildProviderOptions({
+        modelProvider: "minimax",
+        modelId: "MiniMax-M2.7",
+        reasoningEnabled: false,
+        reasoningEffort: "high"
+      })
+    ).toBeUndefined()
+  })
+
   it("falls back to undefined for unsupported models", () => {
     expect(
       buildProviderOptions({

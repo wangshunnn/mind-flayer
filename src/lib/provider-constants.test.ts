@@ -3,6 +3,7 @@ import {
   ALL_PROVIDERS,
   DEFAULT_FORM_DATA,
   findModelContextWindow,
+  findModelPricing,
   MODEL_PROVIDERS,
   sortProvidersByAvailabilityAndName,
   UPCOMING_PROVIDERS
@@ -16,30 +17,50 @@ describe("MODEL_PROVIDERS minimax pricing", () => {
     expect(modelIds).not.toContain("M2-her")
   })
 
-  it("uses CNY currency for all minimax models", () => {
+  it("uses CNY currency for all priced minimax models", () => {
     for (const model of minimaxProvider?.models ?? []) {
+      if (!model.pricing) {
+        continue
+      }
+
       expect(model.pricing?.currency).toBe("CNY")
     }
   })
 
-  it("has valid numeric pricing fields for all minimax models", () => {
+  it("has valid numeric pricing fields for priced minimax models", () => {
     for (const model of minimaxProvider?.models ?? []) {
-      expect(model.pricing).toBeDefined()
+      if (!model.pricing) {
+        continue
+      }
+
       expect(model.pricing?.input).toBeGreaterThan(0)
       expect(model.pricing?.output).toBeGreaterThan(0)
       expect(model.pricing?.cachedRead).toBeGreaterThan(0)
-      expect(model.pricing?.cachedWrite).toBeGreaterThan(0)
+      if (model.pricing.cachedWrite !== null) {
+        expect(model.pricing.cachedWrite).toBeGreaterThan(0)
+      }
     }
+  })
+
+  it("uses MiniMax-M3 standard low input-length pricing", () => {
+    expect(findModelPricing("minimax", "MiniMax-M3")).toEqual({
+      currency: "CNY",
+      input: 2.1,
+      output: 8.4,
+      cachedRead: 0.42,
+      cachedWrite: null
+    })
   })
 })
 
 describe("MODEL_PROVIDERS supported providers", () => {
-  it("includes openai, anthropic, and deepseek as active model providers", () => {
+  it("includes openai, anthropic, deepseek, and zhipu as active model providers", () => {
     const providerIds = MODEL_PROVIDERS.map(provider => provider.id)
 
     expect(providerIds).toContain("openai")
     expect(providerIds).toContain("anthropic")
     expect(providerIds).toContain("deepseek")
+    expect(providerIds).toContain("zhipu")
   })
 
   it("each active provider has name, defaultBaseUrl, and at least one model", () => {
@@ -61,15 +82,12 @@ describe("MODEL_PROVIDERS supported providers", () => {
     expect(catalog).toMatchInlineSnapshot(`
       [
         {
-          "defaultBaseUrl": "https://api.minimaxi.com/anthropic/v1",
+          "defaultBaseUrl": "https://api.minimaxi.com/v1",
           "id": "minimax",
           "modelIds": [
+            "MiniMax-M3",
             "MiniMax-M2.7",
             "MiniMax-M2.7-highspeed",
-            "MiniMax-M2.5",
-            "MiniMax-M2.5-highspeed",
-            "MiniMax-M2.1",
-            "MiniMax-M2.1-highspeed",
           ],
           "name": "MiniMax",
         },
@@ -101,26 +119,73 @@ describe("MODEL_PROVIDERS supported providers", () => {
           ],
           "name": "DeepSeek",
         },
+        {
+          "defaultBaseUrl": "https://open.bigmodel.cn/api/paas/v4",
+          "id": "zhipu",
+          "modelIds": [
+            "glm-5.2",
+          ],
+          "name": "Z.AI",
+        },
       ]
     `)
   })
 
-  it("does not keep openai, anthropic, or deepseek in upcoming providers", () => {
+  it("does not keep openai, anthropic, deepseek, or zhipu in upcoming providers", () => {
     const upcomingProviderIds = UPCOMING_PROVIDERS.map(provider => provider.id)
 
     expect(upcomingProviderIds).not.toContain("openai")
     expect(upcomingProviderIds).not.toContain("anthropic")
     expect(upcomingProviderIds).not.toContain("deepseek")
+    expect(upcomingProviderIds).not.toContain("zhipu")
   })
 
-  it("does not mark openai, anthropic, or deepseek as disabled", () => {
+  it("does not mark openai, anthropic, deepseek, or zhipu as disabled", () => {
     const openaiProvider = MODEL_PROVIDERS.find(provider => provider.id === "openai")
     const anthropicProvider = MODEL_PROVIDERS.find(provider => provider.id === "anthropic")
     const deepSeekProvider = MODEL_PROVIDERS.find(provider => provider.id === "deepseek")
+    const zhipuProvider = MODEL_PROVIDERS.find(provider => provider.id === "zhipu")
 
     expect(openaiProvider?.disabled ?? false).toBe(false)
     expect(anthropicProvider?.disabled ?? false).toBe(false)
     expect(deepSeekProvider?.disabled ?? false).toBe(false)
+    expect(zhipuProvider?.disabled ?? false).toBe(false)
+  })
+
+  it("uses the domestic Z.AI base URL and GLM-5.2 model metadata", () => {
+    const zhipuProvider = MODEL_PROVIDERS.find(provider => provider.id === "zhipu")
+
+    expect(zhipuProvider).toEqual(
+      expect.objectContaining({
+        name: "Z.AI",
+        defaultBaseUrl: "https://open.bigmodel.cn/api/paas/v4",
+        apiKeyUrl: "https://open.bigmodel.cn/usercenter/apikeys",
+        models: [
+          expect.objectContaining({
+            label: "GLM-5.2",
+            api_id: "glm-5.2",
+            contextWindow: 1_000_000,
+            pricing: {
+              currency: "CNY",
+              input: 8,
+              output: 28,
+              cachedRead: 2,
+              cachedWrite: 0
+            }
+          })
+        ]
+      })
+    )
+  })
+
+  it("uses official GLM-5.2 pricing metadata", () => {
+    expect(findModelPricing("zhipu", "glm-5.2")).toEqual({
+      currency: "CNY",
+      input: 8,
+      output: 28,
+      cachedRead: 2,
+      cachedWrite: 0
+    })
   })
 
   it("uses current DeepSeek v4 pricing metadata", () => {
@@ -193,6 +258,8 @@ describe("findModelContextWindow", () => {
   it("returns the configured context window for a known model", () => {
     expect(findModelContextWindow("openai", "gpt-5.4")).toBe(1_050_000)
     expect(findModelContextWindow("deepseek", "deepseek-v4-pro")).toBe(1_000_000)
+    expect(findModelContextWindow("minimax", "MiniMax-M3")).toBe(1_000_000)
+    expect(findModelContextWindow("zhipu", "glm-5.2")).toBe(1_000_000)
   })
 
   it("returns undefined for unknown providers or models", () => {

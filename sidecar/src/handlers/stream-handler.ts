@@ -1,8 +1,8 @@
 import type { LanguageModel } from "ai"
 import {
   InvalidToolInputError,
+  isStepCount,
   NoSuchToolError,
-  stepCountIs,
   streamText,
   type ToolChoice,
   type ToolSet,
@@ -90,11 +90,11 @@ export async function createStreamResponse(options: StreamHandlerOptions) {
   // Create streaming response
   const result = streamText({
     model,
-    system: systemPrompt,
+    instructions: systemPrompt,
     messages: compactedMessages,
     tools,
     toolChoice,
-    stopWhen: Object.keys(tools).length ? stepCountIs(20) : stepCountIs(1),
+    stopWhen: Object.keys(tools).length ? isStepCount(20) : isStepCount(1),
     abortSignal,
     providerOptions,
     onChunk: ({ chunk }) => {

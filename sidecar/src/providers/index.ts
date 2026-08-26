@@ -3,6 +3,7 @@ import { DeepSeekProvider } from "./deepseek-provider"
 import { MinimaxProvider } from "./minimax-provider"
 import { OpenAIProvider } from "./openai-provider"
 import { ProviderRegistry } from "./registry"
+import { ZaiProvider } from "./zai-provider"
 
 /**
  * Global provider registry instance.
@@ -15,6 +16,7 @@ providerRegistry.register(new AnthropicProvider())
 providerRegistry.register(new DeepSeekProvider())
 providerRegistry.register(new MinimaxProvider())
 providerRegistry.register(new OpenAIProvider())
+providerRegistry.register(new ZaiProvider())
 
 export type { IProvider, ProviderRuntimeOptions } from "./base"
 // Export types and classes for external use

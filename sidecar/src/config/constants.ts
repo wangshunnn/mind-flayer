@@ -3,7 +3,7 @@
  */
 export const MODEL_PROVIDERS = {
   minimax: {
-    defaultBaseUrl: "https://api.minimaxi.com/anthropic/v1"
+    defaultBaseUrl: "https://api.minimaxi.com/v1"
   },
   openai: {
     defaultBaseUrl: "https://api.openai.com/v1"
@@ -13,6 +13,9 @@ export const MODEL_PROVIDERS = {
   },
   deepseek: {
     defaultBaseUrl: "https://api.deepseek.com"
+  },
+  zhipu: {
+    defaultBaseUrl: "https://open.bigmodel.cn/api/paas/v4"
   }
 } as const
 

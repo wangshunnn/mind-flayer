@@ -66,7 +66,7 @@ export async function handleTitleGenerator(c: Context) {
 
     const result = await generateText({
       model,
-      system: TITLE_SYSTEM_PROMPT,
+      instructions: TITLE_SYSTEM_PROMPT,
       prompt: buildTitlePrompt(messageText.trim())
     })
 

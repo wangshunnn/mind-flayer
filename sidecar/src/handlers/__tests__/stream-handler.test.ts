@@ -13,7 +13,7 @@ vi.mock("ai", () => ({
   NoSuchToolError: {
     isInstance: () => false
   },
-  stepCountIs: vi.fn((value: number) => value),
+  isStepCount: vi.fn((value: number) => value),
   streamText: (...args: unknown[]) => streamTextMock(...args)
 }))
 

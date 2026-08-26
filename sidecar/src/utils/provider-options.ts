@@ -8,6 +8,7 @@ type ProviderOptions = SharedV4ProviderOptions
 
 const OPENAI_REASONING_MODEL_PREFIXES = ["o1", "o3", "o4", "gpt-5"] as const
 const MINIMAX_ADJUSTABLE_REASONING_MODEL_PREFIXES = ["MiniMax-M3"] as const
+const ZAI_ADJUSTABLE_REASONING_MODEL_PREFIXES = ["glm-5.2"] as const
 const ANTHROPIC_REASONING_MODEL_PATTERNS = [
   /^claude-(sonnet|opus|haiku)-4(?:[.-]|$)/u,
   /^claude-(sonnet|opus)-4-5(?:[.-]|$)/u,
@@ -32,6 +33,10 @@ function supportsAdjustableReasoningEffort(
 
   if (provider === "minimax") {
     return MINIMAX_ADJUSTABLE_REASONING_MODEL_PREFIXES.some(prefix => modelId.startsWith(prefix))
+  }
+
+  if (provider === "zhipu") {
+    return ZAI_ADJUSTABLE_REASONING_MODEL_PREFIXES.some(prefix => modelId.startsWith(prefix))
   }
 
   if (provider === "anthropic") {
@@ -131,6 +136,15 @@ export function buildProviderOptions({
 
   if (modelProvider === "minimax") {
     return { minimax: mapMiniMaxThinking(reasoningEnabled) }
+  }
+
+  if (modelProvider === "zhipu") {
+    return {
+      zhipu: {
+        thinking: { type: reasoningEnabled ? "enabled" : "disabled" },
+        ...(reasoningEnabled && reasoningEffort !== "default" ? { reasoningEffort } : {})
+      }
+    }
   }
 
   if (modelProvider === "anthropic") {

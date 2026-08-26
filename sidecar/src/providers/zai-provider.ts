@@ -46,7 +46,22 @@ function createZaiRequestFetch(
         .map(part => part.text)
         .join("")
     )
-  if (!assistantReasoning.some(Boolean)) {
+  const zaiOptions = options.providerOptions?.zhipu
+  const thinking = zaiOptions?.thinking
+  const thinkingType =
+    isRecord(thinking) && (thinking.type === "enabled" || thinking.type === "disabled")
+      ? thinking.type
+      : undefined
+  const reasoningEffort =
+    typeof zaiOptions?.reasoningEffort === "string" && thinkingType !== "disabled"
+      ? zaiOptions.reasoningEffort
+      : undefined
+
+  if (
+    !assistantReasoning.some(Boolean) &&
+    thinkingType === undefined &&
+    reasoningEffort === undefined
+  ) {
     return fetchFn
   }
 
@@ -78,7 +93,9 @@ function createZaiRequestFetch(
       ...init,
       body: JSON.stringify({
         ...body,
-        messages
+        messages,
+        ...(thinkingType !== undefined ? { thinking: { type: thinkingType } } : {}),
+        ...(reasoningEffort !== undefined ? { reasoning_effort: reasoningEffort } : {})
       })
     })
   }

@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { MODEL_PROVIDERS } from "../../config/constants"
 import type { ProviderConfig } from "../../type"
 import { compactMessages } from "../../utils/message-compaction"
+import { buildProviderOptions } from "../../utils/provider-options"
 import { withZaiReasoningStream, ZaiProvider } from "../zai-provider"
 
 const { createOpenAIMock, zhipuChatModelFactoryMock } = vi.hoisted(() => ({
@@ -405,6 +406,62 @@ describe("ZaiProvider", () => {
     })
 
     afterEach(() => vi.unstubAllGlobals())
+
+    it.each([
+      {
+        streaming: false,
+        enabled: false,
+        effort: "high",
+        thinking: "disabled",
+        expectedEffort: undefined
+      },
+      {
+        streaming: true,
+        enabled: true,
+        effort: "default",
+        thinking: "enabled",
+        expectedEffort: undefined
+      },
+      {
+        streaming: false,
+        enabled: true,
+        effort: "low",
+        thinking: "enabled",
+        expectedEffort: "low"
+      },
+      {
+        streaming: true,
+        enabled: true,
+        effort: "xhigh",
+        thinking: "enabled",
+        expectedEffort: "xhigh"
+      }
+    ] as const)("sends thinking=$thinking and effort=$effort (stream=$streaming)", async ({
+      streaming,
+      enabled,
+      effort,
+      thinking,
+      expectedEffort
+    }) => {
+      const fetchMock = vi.fn<typeof fetch>(async () => createChatResponse(streaming))
+      vi.stubGlobal("fetch", fetchMock)
+      const options = {
+        model: new ZaiProvider().createModel("glm-5.2", { apiKey: "test-api-key" }),
+        prompt: "Hello",
+        providerOptions: buildProviderOptions({
+          modelProvider: "zhipu",
+          modelId: "glm-5.2",
+          reasoningEnabled: enabled,
+          reasoningEffort: effort
+        }),
+        maxRetries: 0
+      }
+      const result = streaming ? streamText(options) : await generateText(options)
+      expect(await result.text).toBe("Done.")
+      const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
+      expect(body.thinking).toEqual({ type: thinking })
+      expect(body.reasoning_effort).toBe(expectedEffort)
+    })
 
     it("replays complete reasoning alongside tool results in the next streaming step", async () => {
       const fetchMock = vi.fn<typeof fetch>()

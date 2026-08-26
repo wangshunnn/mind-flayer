@@ -140,14 +140,80 @@ describe("ContextWindowUsageIndicator", () => {
       '[data-testid="context-window-usage-progress-fill"]'
     )
     expect(fill?.style.width).toBe("25%")
-    expect(Array.from(fill?.children ?? [], child => (child as HTMLElement).style.width)).toEqual([
-      "25%",
-      "25%",
-      "50%"
-    ])
+    expect(fill?.style.gridTemplateColumns).toBe(
+      "minmax(3px, 1000fr) minmax(3px, 1000fr) minmax(3px, 2000fr)"
+    )
     expect(container.textContent).not.toContain(
       "Component estimates may not add up to total usage."
     )
+
+    const segments = Array.from(fill?.children ?? []) as HTMLElement[]
+    const colors = ["rgb(173, 178, 184)", "rgb(167, 139, 250)", "rgb(77, 147, 248)"]
+    expect(segments.map(segment => segment.style.backgroundColor)).toEqual(colors)
+    expect(
+      Array.from(
+        container.querySelectorAll<HTMLElement>("dt span"),
+        swatch => swatch.style.backgroundColor
+      )
+    ).toEqual(colors)
+
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ContextWindowUsageDetails usage={createUsage()} contextWindow={128000} />
+        </I18nextProvider>
+      )
+    })
+    const fallbackStripes = container.querySelector<HTMLElement>(
+      '[data-testid="context-window-usage-progress-fill"]'
+    )?.style.backgroundImage
+    expect(fallbackStripes).toContain("repeating-linear-gradient")
+    expect(segments.map(segment => segment.style.backgroundImage)).toEqual(
+      Array(3).fill(fallbackStripes)
+    )
+  })
+
+  it.each([
+    {
+      name: "sub-one-percent occupancy",
+      tokens: 8743,
+      breakdown: { systemTokens: 2500, toolsTokens: 2900, messageTokens: 1300 },
+      columns: "minmax(3px, 1300fr) minmax(3px, 1300fr) minmax(3px, 1300fr)",
+      minWidth: "11px"
+    },
+    {
+      name: "tiny fixed components in a long conversation",
+      tokens: 500000,
+      breakdown: { systemTokens: 100, toolsTokens: 200, messageTokens: 499700 },
+      columns: "minmax(3px, 100fr) minmax(3px, 200fr) minmax(3px, 499700fr)",
+      minWidth: "11px"
+    },
+    {
+      name: "no conversation messages",
+      tokens: 5400,
+      breakdown: { systemTokens: 2500, toolsTokens: 2900, messageTokens: 0 },
+      columns: "minmax(3px, 2500fr) minmax(3px, 2900fr)",
+      minWidth: "7px"
+    }
+  ])("keeps nonzero colors visible for $name", async ({ tokens, breakdown, columns, minWidth }) => {
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ContextWindowUsageDetails
+            usage={createUsage({ tokens, breakdown })}
+            contextWindow={1000000}
+          />
+        </I18nextProvider>
+      )
+    })
+
+    const fill = container.querySelector<HTMLElement>(
+      '[data-testid="context-window-usage-progress-fill"]'
+    )
+    expect(fill?.style.width).toBe(`${(tokens / 1000000) * 100}%`)
+    expect(fill?.style.minWidth).toBe(minWidth)
+    expect(fill?.style.gridTemplateColumns).toBe(columns)
+    expect(fill?.children).toHaveLength(Object.values(breakdown).filter(value => value > 0).length)
   })
 
   it("shows localized composition when the model capacity is unknown", async () => {
@@ -205,6 +271,7 @@ describe("ContextWindowUsageIndicator", () => {
     )
     expect(fill?.style.width).toBe(width)
     expect(fill?.children).toHaveLength(segments)
+    expect(fill?.style.minWidth).toBe(segments > 0 ? "7px" : "")
     expect(
       container.querySelector('[data-testid="context-window-usage-segment-toolsTokens"]')
     ).toBeNull()

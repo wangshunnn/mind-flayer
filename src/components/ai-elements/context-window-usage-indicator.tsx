@@ -25,10 +25,14 @@ const RING_COLOR_BY_LEVEL: Record<UsageLevel, string> = {
 }
 
 const BREAKDOWN_ROWS = [
-  { key: "systemTokens", label: "contextWindowUsage.systemPrompt", color: "bg-zinc-400" },
-  { key: "toolsTokens", label: "contextWindowUsage.tools", color: "bg-violet-400" },
-  { key: "messageTokens", label: "contextWindowUsage.messages", color: "bg-blue-500" }
+  { key: "systemTokens", label: "contextWindowUsage.systemPrompt", color: "#adb2b8" },
+  { key: "toolsTokens", label: "contextWindowUsage.tools", color: "#a78bfa" },
+  { key: "messageTokens", label: "contextWindowUsage.messages", color: "#4d93f8" }
 ] as const
+
+const MIN_SEGMENT_WIDTH = 3
+const PROGRESS_STRIPES =
+  "repeating-linear-gradient(-45deg, rgba(255,255,255,0.35) 0 4px, rgba(255,255,255,0.08) 4px 8px)"
 
 export interface ContextWindowUsageIndicatorProps {
   usage?: ContextTokenUsage
@@ -124,6 +128,17 @@ export function ContextWindowUsageDetails({
   const breakdownTotal = breakdown
     ? breakdown.systemTokens + breakdown.toolsTokens + breakdown.messageTokens
     : 0
+  const segments =
+    breakdown && breakdownTotal > 0 && usageView && usageView.percent > 0
+      ? BREAKDOWN_ROWS.filter(row => breakdown[row.key] > 0).map(row => ({
+          ...row,
+          // Keep fixed components no wider than a nonzero message segment.
+          weight:
+            breakdown.messageTokens > 0
+              ? Math.min(breakdown[row.key], breakdown.messageTokens)
+              : breakdown[row.key]
+        }))
+      : []
   const detailSummary = usageView
     ? t("contextWindowUsage.detailSummary", {
         used: usedTokensText,
@@ -156,28 +171,31 @@ export function ContextWindowUsageDetails({
             data-testid="context-window-usage-progress"
           >
             <div
-              className="flex h-full overflow-hidden rounded-full"
+              className="grid h-full gap-px overflow-hidden rounded-full"
               data-testid="context-window-usage-progress-fill"
               style={{
                 width: `${Math.min(100, usageView.percent)}%`,
+                // Preserve tiny colors without clipping them to subpixel occupancy.
+                minWidth:
+                  segments.length > 0
+                    ? segments.length * MIN_SEGMENT_WIDTH + segments.length - 1
+                    : undefined,
+                gridTemplateColumns: segments
+                  .map(segment => `minmax(${MIN_SEGMENT_WIDTH}px, ${segment.weight}fr)`)
+                  .join(" "),
                 backgroundColor:
                   breakdownTotal > 0 ? undefined : (progressColor ?? "var(--color-border)"),
-                backgroundImage:
-                  breakdownTotal > 0
-                    ? undefined
-                    : "repeating-linear-gradient(-45deg, rgba(255,255,255,0.35) 0 4px, rgba(255,255,255,0.08) 4px 8px)"
+                backgroundImage: breakdownTotal > 0 ? undefined : PROGRESS_STRIPES
               }}
             >
-              {breakdown && breakdownTotal > 0 && usageView.percent > 0
-                ? BREAKDOWN_ROWS.filter(row => breakdown[row.key] > 0).map(row => (
-                    <span
-                      key={row.key}
-                      className={cn("h-full", row.color)}
-                      data-testid={`context-window-usage-segment-${row.key}`}
-                      style={{ width: `${(breakdown[row.key] / breakdownTotal) * 100}%` }}
-                    />
-                  ))
-                : null}
+              {segments.map(segment => (
+                <span
+                  key={segment.key}
+                  className="h-full rounded-[1px]"
+                  data-testid={`context-window-usage-segment-${segment.key}`}
+                  style={{ backgroundColor: segment.color, backgroundImage: PROGRESS_STRIPES }}
+                />
+              ))}
             </div>
           </div>
         </div>
@@ -194,7 +212,11 @@ export function ContextWindowUsageDetails({
           {BREAKDOWN_ROWS.map(row => (
             <div key={row.key} className="flex items-center justify-between gap-4">
               <dt className="flex items-center gap-2 text-muted-foreground">
-                <span aria-hidden className={cn("size-2 shrink-0 rounded-xs", row.color)} />
+                <span
+                  aria-hidden
+                  className="size-2 shrink-0 rounded-xs"
+                  style={{ backgroundColor: row.color }}
+                />
                 {t(row.label)}
               </dt>
               <dd className="shrink-0 tabular-nums">

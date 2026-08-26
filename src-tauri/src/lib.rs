@@ -1,4 +1,5 @@
 mod app_support;
+mod chat_context;
 mod keychain;
 mod setup;
 mod shortcuts;
@@ -122,6 +123,12 @@ pub fn run() {
                             ",
                             kind: tauri_plugin_sql::MigrationKind::Up,
                         },
+                        tauri_plugin_sql::Migration {
+                            version: 2,
+                            description: "add conversation context checkpoints",
+                            sql: chat_context::CONTEXT_MIGRATION,
+                            kind: tauri_plugin_sql::MigrationKind::Up,
+                        },
                     ],
                 )
                 .build(),
@@ -136,6 +143,7 @@ pub fn run() {
     let app = builder
         .invoke_handler(tauri::generate_handler![
             greet,
+            chat_context::commit_chat_context,
             save_provider_config,
             get_provider_config,
             delete_provider_config,

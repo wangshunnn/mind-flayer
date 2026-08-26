@@ -1,9 +1,14 @@
-import type { UIMessage } from "ai"
+import type { LanguageModelUsage, UIMessage } from "ai"
 import { MockLanguageModelV4 } from "ai/test"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { emptyContextState } from "../../../../shared/context"
 import { ConversationContext } from "../../context/engine"
-import { estimateConversationUsage, prepareConversationOptions } from "../stream-handler"
+import { buildProviderOptions } from "../../utils/provider-options"
+import {
+  compactConversation,
+  estimateConversationUsage,
+  prepareConversationOptions
+} from "../stream-handler"
 
 const discover = vi.hoisted(() => vi.fn())
 const workspace = vi.hoisted(() => vi.fn())
@@ -53,6 +58,87 @@ describe("conversation prompt preparation", () => {
     const result = await prepareConversationOptions({ ...options(), channel: "telegram" })
     expect(result.instructions).toContain("Attachments:")
     expect(result.instructions).toContain("channel: telegram")
+  })
+
+  const measuredConversation = async () => {
+    const config = {
+      ...options(),
+      modelProvider: "deepseek",
+      modelId: "deepseek-v4-pro",
+      reasoningEnabled: true,
+      messages: [
+        { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] },
+        { id: "a1", role: "assistant", parts: [{ type: "text", text: "Hello" }] }
+      ] as UIMessage[]
+    }
+    const prepared = await prepareConversationOptions(config)
+    const context = new ConversationContext({
+      ...prepared,
+      requestOptions: buildProviderOptions(config)
+    })
+    await context.update(config.messages)
+    const usage: LanguageModelUsage = {
+      inputTokens: 6843,
+      outputTokens: 54,
+      totalTokens: 6897,
+      inputTokenDetails: { noCacheTokens: 187, cacheReadTokens: 6656, cacheWriteTokens: 0 },
+      outputTokenDetails: { textTokens: 15, reasoningTokens: 39 }
+    }
+    context.recordUsage(usage, 1, context.entries[1].models)
+    config.messages[1].metadata = { contextUsage: structuredClone(context.state.usage) }
+    return { config, prepared, context }
+  }
+
+  it("preserves measured usage when manual compaction has nothing to summarize", async () => {
+    const { config, context } = await measuredConversation()
+    const result = await compactConversation({ ...config, contextState: context.state })
+    expect(result.compacted).toBe(false)
+    expect(result.contextState.usage).toEqual(context.state.usage)
+    expect(result.contextState.events).toEqual([])
+    expect(config.model.doGenerateCalls).toHaveLength(0)
+  })
+
+  it("recovers a valid message measurement after an older manual inspection replaced it", async () => {
+    const { config, prepared, context } = await measuredConversation()
+    const stale = new ConversationContext(prepared, context.state)
+    await stale.update(config.messages)
+    const state = { ...context.state, usage: stale.usage() }
+    expect(state.usage.baselineTokens).toBeUndefined()
+    const result = await compactConversation({ ...config, contextState: state })
+    expect(result.compacted).toBe(false)
+    expect(result.contextState.usage).toEqual(context.state.usage)
+    expect(config.model.doGenerateCalls).toHaveLength(0)
+  })
+
+  it.each([
+    "reasoning",
+    "model",
+    "history"
+  ])("does not recover an old measurement after %s changes", async change => {
+    const { config, context } = await measuredConversation()
+    if (change === "reasoning") {
+      config.reasoningEnabled = false
+    }
+    if (change === "model") {
+      config.modelId = "deepseek-v4-flash"
+    }
+    if (change === "history") {
+      config.messages[0].parts = [{ type: "text", text: "Changed input" }]
+    }
+    const result = await compactConversation({
+      ...config,
+      contextState: context.state
+    })
+    expect(result.compacted).toBe(false)
+    expect(result.contextState.usage?.source).toBe("estimated")
+    expect(result.contextState.usage?.baselineTokens).toBeUndefined()
+    if (change === "history") {
+      expect(result.contextState.usage?.prefixHash).not.toBe(context.state.usage?.prefixHash)
+    } else {
+      expect(result.contextState.usage?.requestFingerprint).not.toBe(
+        context.state.usage?.requestFingerprint
+      )
+    }
   })
 
   it("estimates legacy history locally, including system context, without using cumulative usage", async () => {

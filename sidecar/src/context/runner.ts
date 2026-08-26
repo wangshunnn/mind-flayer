@@ -10,6 +10,11 @@ import type {
 import { createUIMessageStream, isStepCount, isToolUIPart, streamText } from "ai"
 import type { ContextState, ConversationCheckpoint } from "../../../shared/context"
 import { emptyContextState } from "../../../shared/context"
+import {
+  getMessageStepCount,
+  hasCompleteCacheDetails,
+  type MessageUsageMetadata
+} from "../../../shared/message-usage"
 import type { ReasoningEffort } from "../type"
 import { buildProviderOptions } from "../utils/provider-options"
 import { addUsage, appendTemporalContext, ConversationContext } from "./engine"
@@ -58,10 +63,20 @@ export function createConversationStream(options: ConversationRunOptions) {
   let rawMessages = structuredClone(options.messages)
   const previousAssistant = rawMessages.at(-1)
   const assistantId = previousAssistant?.role === "assistant" ? previousAssistant.id : randomUUID()
-  const startedAt = Date.now()
-  let firstTokenAt: number | undefined
-  let lastTokenAt: number | undefined
-  let totalUsage: LanguageModelUsage | undefined
+  const previousMetadata =
+    previousAssistant?.role === "assistant"
+      ? (previousAssistant.metadata as MessageUsageMetadata | undefined)
+      : undefined
+  const startedAt = previousMetadata?.createdAt ?? Date.now()
+  let firstTokenAt = previousMetadata?.firstTokenAt
+  let lastTokenAt = previousMetadata?.lastTokenAt
+  let totalUsage: LanguageModelUsage | undefined = previousMetadata?.totalUsage
+  let lastStepUsage = previousMetadata?.lastStepUsage
+  let lastStepAt = previousMetadata?.lastStepAt
+  let stepCount = previousAssistant ? getMessageStepCount(previousAssistant) : 0
+  let cacheDetailsIncomplete =
+    previousMetadata?.cacheDetailsIncomplete ??
+    (totalUsage ? !hasCompleteCacheDetails(totalUsage) : false)
   let finishReason: FinishReason = "stop"
   let context: ConversationContext | undefined
   let overflowRecovered = false
@@ -81,6 +96,7 @@ export function createConversationStream(options: ConversationRunOptions) {
         if (!context) {
           return
         }
+        context.state.usage = context.usage()
         const state = structuredClone(context.state)
         await options.onCheckpoint?.(rawMessages, state)
         const changed = rawMessages.filter(
@@ -93,7 +109,9 @@ export function createConversationStream(options: ConversationRunOptions) {
           contextState: state
         }
         writer.write({ type: "data-context-checkpoint", data, transient: true })
-        for (const message of changed) sentMessages.set(message.id, JSON.stringify(message))
+        for (const message of changed) {
+          sentMessages.set(message.id, JSON.stringify(message))
+        }
       }
       try {
         context = new ConversationContext(
@@ -201,9 +219,23 @@ export function createConversationStream(options: ConversationRunOptions) {
           options.abortSignal.throwIfAborted()
           const finalStep = await result.finalStep
           finishReason = finalStep.finishReason
+          if (finishReason !== "error") {
+            stepCount++
+          }
           totalUsage = addUsage(totalUsage, finalStep.usage)
+          cacheDetailsIncomplete ||= !hasCompleteCacheDetails(finalStep.usage)
           await context.update(rawMessages)
-          context.recordUsage(finalStep.usage.inputTokens, inputCount, finalStep.response.messages)
+          if (
+            context.recordUsage(
+              finalStep.usage,
+              inputCount,
+              finalStep.response.messages,
+              finishReason
+            )
+          ) {
+            lastStepUsage = finalStep.usage
+            lastStepAt = Math.max(Date.now(), (lastStepAt ?? 0) + 1)
+          }
           const assistant = rawMessages.at(-1)
           if (assistant?.role === "assistant") {
             assistant.metadata = {
@@ -215,6 +247,10 @@ export function createConversationStream(options: ConversationRunOptions) {
               firstTokenAt,
               lastTokenAt,
               totalUsage,
+              lastStepUsage,
+              lastStepAt,
+              stepCount,
+              cacheDetailsIncomplete,
               contextUsage: context.usage(),
               modelProvider: options.modelProvider,
               modelId: options.modelId,

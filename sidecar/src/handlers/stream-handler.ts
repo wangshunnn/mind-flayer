@@ -55,7 +55,7 @@ export async function estimateConversationUsage(
   options.abortSignal.throwIfAborted()
   const context = new ConversationContext(
     { ...prepared, requestOptions: buildProviderOptions(options) },
-    { ...(options.contextState ?? emptyContextState()), usage: undefined }
+    options.contextState
   )
   await context.update(options.messages)
   options.abortSignal.throwIfAborted()
@@ -75,7 +75,10 @@ export async function compactConversation(
   const release = acquireConversation(options.chatId)
   try {
     const prepared = await prepareConversationOptions(options)
-    const context = new ConversationContext(prepared, options.contextState ?? emptyContextState())
+    const context = new ConversationContext(
+      { ...prepared, requestOptions: buildProviderOptions(options) },
+      options.contextState ?? emptyContextState()
+    )
     await context.update(options.messages)
     const compacted = await context.compact("manual", instructions)
     context.state.usage = context.usage()

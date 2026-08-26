@@ -44,6 +44,9 @@ const compactionEventSchema = z.object({
 
 export const contextUsageSchema = z.object({
   tokens: z.number().nonnegative(),
+  baselineTokens: z.number().positive().optional(),
+  modelProvider: z.string().optional(),
+  modelId: z.string().optional(),
   contextWindow: z.number().positive().nullable(),
   source: z.enum(["measured", "estimated"]),
   prefixHash: z.string(),

@@ -7,12 +7,14 @@ import { z } from "zod"
 import type { ContextState } from "../../../shared/context"
 import { acquireConversation, createConversationStream, isContextOverflow } from "./runner"
 
-function response(parts: LanguageModelV4StreamPart[], input = 100) {
+function response(parts: LanguageModelV4StreamPart[], input = 100, cacheRead = 0) {
   return {
     stream: new ReadableStream<LanguageModelV4StreamPart>({
       start(controller) {
         controller.enqueue({ type: "stream-start", warnings: [] })
-        for (const part of parts) controller.enqueue(part)
+        for (const part of parts) {
+          controller.enqueue(part)
+        }
         controller.enqueue({
           type: "finish",
           finishReason: {
@@ -20,7 +22,7 @@ function response(parts: LanguageModelV4StreamPart[], input = 100) {
             raw: undefined
           },
           usage: {
-            inputTokens: { total: input, noCache: input, cacheRead: 0, cacheWrite: 0 },
+            inputTokens: { total: input, noCache: input - cacheRead, cacheRead, cacheWrite: 0 },
             outputTokens: { total: 10, text: 10, reasoning: 0 }
           }
         })
@@ -41,12 +43,69 @@ async function consume(stream: ReadableStream<UIMessageChunk>, initialMessage?: 
     stream,
     message: initialMessage,
     terminateOnError: true
-  }))
+  })) {
     last = message
+  }
   return last
 }
 
 describe("shared conversation runner", () => {
+  it.each([
+    false,
+    true
+  ])("preserves completed step usage when the next step fails (abort=%s)", async aborted => {
+    const abort = new AbortController()
+    let calls = 0
+    let saved: UIMessage[] = []
+    let state: ContextState | undefined
+    const model = new MockLanguageModelV4({
+      doStream: async () => {
+        calls++
+        if (calls === 1) {
+          return response([
+            { type: "tool-call", toolCallId: "c1", toolName: "example", input: "{}" }
+          ])
+        }
+        if (aborted) {
+          abort.abort()
+        }
+        throw new Error("Provider unavailable")
+      }
+    })
+    const result = consume(
+      createConversationStream({
+        chatId: `usage-failure-${aborted}`,
+        model,
+        modelProvider: "custom",
+        modelId: "model",
+        instructions: "System",
+        messages: [{ id: "u", role: "user", parts: [{ type: "text", text: "Work" }] }],
+        tools: { example: tool({ inputSchema: z.object({}), execute: async () => "Result" }) },
+        toolChoice: "auto",
+        abortSignal: abort.signal,
+        reasoningEnabled: false,
+        reasoningEffort: "default",
+        onCheckpoint: async (messages, contextState) => {
+          saved = structuredClone(messages)
+          state = structuredClone(contextState)
+        }
+      })
+    )
+    if (aborted) {
+      await result
+    } else {
+      await expect(result).rejects.toThrow("Provider unavailable")
+    }
+    expect(saved.at(-1)?.metadata).toMatchObject({
+      totalUsage: { inputTokens: 100, outputTokens: 10 },
+      lastStepUsage: { totalTokens: 110 },
+      stepCount: 1,
+      isAbort: aborted,
+      isError: !aborted
+    })
+    expect(state?.usage?.baselineTokens).toBe(110)
+  })
+
   it("continues after a tool error instead of treating the failed tool as pending approval", async () => {
     const execute = vi.fn(async (): Promise<string> => {
       throw new Error("File does not exist")
@@ -120,6 +179,7 @@ describe("shared conversation runner", () => {
     if (!assistant) {
       throw new Error("Missing approval message")
     }
+    const originalMetadata = assistant.metadata as { createdAt: number; firstTokenAt: number }
     assistant.parts = assistant.parts.map(part =>
       part.type === "tool-example" && part.state === "approval-requested"
         ? { ...part, state: "approval-responded", approval: { ...part.approval, approved: true } }
@@ -129,6 +189,14 @@ describe("shared conversation runner", () => {
       createConversationStream({ ...base, messages: history, contextState: state }),
       assistant
     )
+    expect(result?.metadata).toMatchObject({
+      totalUsage: { inputTokens: 200, outputTokens: 20, totalTokens: 220 },
+      stepCount: 2,
+      lastStepUsage: { inputTokens: 100, totalTokens: 110 },
+      createdAt: originalMetadata.createdAt,
+      firstTokenAt: originalMetadata.firstTokenAt,
+      contextUsage: { tokens: 110, baselineTokens: 110, source: "measured" }
+    })
     expect(execute).toHaveBeenCalledTimes(1)
     expect(model.doStreamCalls).toHaveLength(2)
     expect(result?.parts).toContainEqual(
@@ -251,8 +319,12 @@ describe("shared conversation runner", () => {
     const execute = vi.fn(async () => "tool result")
     const model = new MockLanguageModelV4({
       doStream: [
-        response([{ type: "tool-call", toolCallId: "call-1", toolName: "example", input: "{}" }]),
-        response(textParts("Done"), 150)
+        response(
+          [{ type: "tool-call", toolCallId: "call-1", toolName: "example", input: "{}" }],
+          100,
+          80
+        ),
+        response(textParts("Done"), 150, 75)
       ]
     })
     let saved: UIMessage[] = []
@@ -283,8 +355,14 @@ describe("shared conversation runner", () => {
     )
     expect(saved.at(-1)?.parts).toEqual(result?.parts)
     expect(result?.metadata).toMatchObject({
-      totalUsage: { inputTokens: 250 },
-      contextUsage: { tokens: expect.any(Number) }
+      totalUsage: { inputTokens: 250, inputTokenDetails: { cacheReadTokens: 155 } },
+      lastStepUsage: { inputTokens: 150, inputTokenDetails: { cacheReadTokens: 75 } },
+      contextUsage: {
+        tokens: 160,
+        baselineTokens: 160,
+        source: "measured"
+      },
+      stepCount: 2
     })
     expect(state?.usage?.tokens).toBeLessThan(250)
     expect(model.doStreamCalls[1].prompt).toEqual(

@@ -1,4 +1,4 @@
-import type { UIMessage } from "ai"
+import type { LanguageModelUsage, UIMessage } from "ai"
 import { MockLanguageModelV4 } from "ai/test"
 import { describe, expect, it, vi } from "vitest"
 import { emptyContextState } from "../../../shared/context"
@@ -184,7 +184,101 @@ describe("Pi-style token estimates", () => {
   })
 })
 
+const usage = (input: number, output: number, cacheRead = 0): LanguageModelUsage => ({
+  inputTokens: input,
+  outputTokens: output,
+  totalTokens: input + output,
+  inputTokenDetails: {
+    noCacheTokens: input - cacheRead,
+    cacheReadTokens: cacheRead,
+    cacheWriteTokens: 0
+  },
+  outputTokenDetails: { textTokens: output, reasoningTokens: 0 }
+})
+
 describe("conversation context", () => {
+  it("uses total step usage without counting cache or assistant output twice", async () => {
+    const context = new ConversationContext(options())
+    const raw = [message("u", "user"), message("a", "assistant", "Long answer".repeat(100))]
+    await context.update(raw)
+    expect(context.recordUsage(usage(100, 20, 80), 1, context.entries[1].models)).toBe(true)
+    expect(context.usage()).toMatchObject({
+      tokens: 120,
+      baselineTokens: 120,
+      source: "measured",
+      modelProvider: "test",
+      modelId: "test"
+    })
+    context.recordUsage({ ...usage(100, 20, 80), totalTokens: 0 }, 1, context.entries[1].models)
+    expect(context.usage().tokens).toBe(120)
+  })
+
+  it("adds tool results and new entries once, then replaces the estimate with fresh usage", async () => {
+    const context = new ConversationContext(options())
+    const assistant: UIMessage = {
+      id: "a",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-example",
+          toolCallId: "call",
+          state: "output-available",
+          input: {},
+          output: "Large result".repeat(50)
+        }
+      ]
+    }
+    const raw = [message("u", "user"), assistant]
+    await context.update(raw)
+    const response = context.entries[1].models
+    const toolTokens = estimateTokens(response.filter(item => item.role === "tool"))
+    context.recordUsage(usage(100, 20, 80), 1, response)
+    expect(context.usage()).toMatchObject({ tokens: 120 + toolTokens, source: "estimated" })
+    await context.update([...raw, message("next", "user", "Continue")])
+    const expected = 120 + toolTokens + estimateTokens(context.entries[2].models)
+    expect(context.usage().tokens).toBe(expected)
+    context.state.usage = context.usage()
+    expect(context.usage().tokens).toBe(expected)
+    await context.update([
+      ...raw,
+      message("next", "user", "Continue"),
+      message("done", "assistant")
+    ])
+    context.recordUsage(usage(200, 40), 3, context.entries[3].models)
+    expect(context.usage()).toMatchObject({ tokens: 240, baselineTokens: 240, source: "measured" })
+  })
+
+  it("preserves the valid baseline across zero usage and errors", async () => {
+    const context = new ConversationContext(options())
+    await context.update([message("u", "user"), message("a", "assistant")])
+    context.recordUsage(usage(100, 20), 1, [])
+    expect(context.recordUsage(usage(0, 0), 2, [])).toBe(false)
+    expect(context.recordUsage(usage(900, 20), 2, [], "error")).toBe(false)
+    expect(context.usage().baselineTokens).toBe(120)
+  })
+
+  it("invalidates measurement anchors on compaction, model changes, and changed prefixes", async () => {
+    const config = options()
+    const context = new ConversationContext(config)
+    const raw = history()
+    await context.update(raw)
+    context.recordUsage(usage(6000, 100), raw.length, [])
+    const restored = new ConversationContext({ ...config, modelId: "different" }, context.state)
+    await restored.update(raw)
+    expect(restored.usage().baselineTokens).toBeUndefined()
+    expect(restored.usage().source).toBe("estimated")
+    raw[0].parts = [{ type: "text", text: "Changed history".repeat(200) }]
+    await context.update(raw)
+    expect(context.usage().baselineTokens).toBeUndefined()
+    context.recordUsage(usage(6000, 100), raw.length, [])
+    await context.compact("manual")
+    expect(context.usage().baselineTokens).toBeUndefined()
+    expect(context.usage().compactionId).toBeDefined()
+    expect(context.usage().tokens).toBeGreaterThan(0)
+    context.recordUsage(usage(200, 20), context.entries.length, [])
+    expect(context.usage()).toMatchObject({ baselineTokens: 220, source: "measured" })
+  })
+
   it("uses the standalone prompt template while preserving the summary input and focus", async () => {
     const model = new MockLanguageModelV4({
       doGenerate: {

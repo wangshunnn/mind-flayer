@@ -3,7 +3,8 @@ import { asSchema } from "@ai-sdk/provider-utils"
 import type { LanguageModel, LanguageModelUsage, ModelMessage, ToolSet, UIMessage } from "ai"
 import { convertToModelMessages, generateText, isToolUIPart } from "ai"
 import type { CompactionEntry, ContextState, ContextUsage } from "../../../shared/context"
-import { emptyContextState } from "../../../shared/context"
+import { contextUsageSchema, emptyContextState } from "../../../shared/context"
+import { getMessageUsageTokenBreakdown } from "../../../shared/message-usage"
 import { getModelContextWindow } from "../../../shared/model-context"
 import { buildProviderOptions } from "../utils/provider-options"
 import {
@@ -309,21 +310,50 @@ export class ConversationContext {
 
   usage(): ContextUsage {
     const projection = this.project()
-    const previous = this.state.usage
-    const valid =
-      previous &&
-      previous.requestFingerprint === this.requestFingerprint &&
-      previous.compactionId === projection.compaction?.id &&
-      previous.entryCount <= this.entries.length &&
-      previous.prefixHash === entryHash(this.entries.slice(0, previous.entryCount))
-    const tokens = valid
-      ? previous.tokens +
-        estimateTokens(this.entries.slice(previous.entryCount).flatMap(entry => entry.models))
+    const isValid = (usage: ContextUsage | undefined): usage is ContextUsage =>
+      Boolean(
+        usage &&
+          usage.requestFingerprint === this.requestFingerprint &&
+          usage.compactionId === projection.compaction?.id &&
+          usage.entryCount <= this.entries.length &&
+          usage.prefixHash === entryHash(this.entries.slice(0, usage.entryCount))
+      )
+    let previous = this.state.usage
+    if (!isValid(previous) || previous.baselineTokens === undefined) {
+      // An older inspection may have replaced the checkpoint, while the response
+      // still carries its valid measurement. Never restore it across a changed prompt.
+      for (let index = this.entries.length - 1; index >= 0; index--) {
+        const message = this.entries[index].message
+        if (message.role !== "assistant") {
+          continue
+        }
+        const metadata = message.metadata as { contextUsage?: unknown } | undefined
+        const candidate = contextUsageSchema.safeParse(metadata?.contextUsage)
+        if (
+          candidate.success &&
+          candidate.data.baselineTokens !== undefined &&
+          isValid(candidate.data)
+        ) {
+          previous = candidate.data
+          break
+        }
+      }
+    }
+    const checkpoint = isValid(previous) ? previous : undefined
+    const tokens = checkpoint
+      ? checkpoint.tokens +
+        estimateTokens(this.entries.slice(checkpoint.entryCount).flatMap(entry => entry.models))
       : this.overhead() + estimateTokens(projection.messages)
     return {
       tokens,
+      baselineTokens: checkpoint?.baselineTokens,
+      modelProvider: this.options.modelProvider,
+      modelId: this.options.modelId,
       contextWindow: this.window,
-      source: valid && previous.entryCount === this.entries.length ? previous.source : "estimated",
+      source:
+        checkpoint && checkpoint.entryCount === this.entries.length
+          ? checkpoint.source
+          : "estimated",
       prefixHash: entryHash(this.entries),
       entryCount: this.entries.length,
       requestFingerprint: this.requestFingerprint,
@@ -332,24 +362,26 @@ export class ConversationContext {
   }
 
   recordUsage(
-    inputTokens: number | undefined,
+    usage: LanguageModelUsage,
     inputEntryCount: number,
-    response: ModelMessage[]
-  ): void {
-    if (!inputTokens || !Number.isFinite(inputTokens)) {
-      return
+    response: ModelMessage[],
+    finishReason?: string
+  ): boolean {
+    const baselineTokens = getMessageUsageTokenBreakdown(usage).total
+    if (finishReason === "error" || baselineTokens <= 0 || inputEntryCount > this.entries.length) {
+      return false
     }
-    // Input includes cached tokens. Add only replayable output/tool results, not cumulative billing usage.
+    // The API total includes the assistant output, but not subsequent local tool results.
+    const trailingTokens = estimateTokens(response.filter(message => message.role === "tool"))
     this.state.usage = {
       ...this.usage(),
-      tokens: inputTokens + estimateTokens(response),
-      source: "estimated",
+      tokens: baselineTokens + trailingTokens,
+      baselineTokens,
+      source: trailingTokens > 0 ? "estimated" : "measured",
       entryCount: this.entries.length,
       prefixHash: entryHash(this.entries)
     }
-    if (inputEntryCount > this.entries.length) {
-      this.state.usage = undefined
-    }
+    return true
   }
 
   async prepare(

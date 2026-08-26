@@ -1,4 +1,43 @@
-import type { LanguageModelUsage } from "ai"
+import type { LanguageModelUsage, UIMessage } from "ai"
+
+export interface MessageUsageMetadata {
+  totalUsage?: LanguageModelUsage
+  lastStepUsage?: LanguageModelUsage
+  lastStepAt?: number
+  stepCount?: number
+  cacheDetailsIncomplete?: boolean
+  createdAt?: number
+  firstTokenAt?: number
+  lastTokenAt?: number
+}
+
+export type UsageMessage = Pick<UIMessage, "id" | "role" | "metadata"> & {
+  parts?: UIMessage["parts"]
+  stepStartCount?: number
+}
+
+/** Legacy replies retain SDK step boundaries; explicit counts survive approval continuations. */
+export function getMessageStepCount(message: UsageMessage): number {
+  if (message.role !== "assistant") {
+    return 0
+  }
+  const metadata = message.metadata as
+    | (MessageUsageMetadata & { isError?: boolean; isAbort?: boolean; isDisconnect?: boolean })
+    | undefined
+  const explicit = normalizeTokenCount(metadata?.stepCount)
+  if (explicit !== undefined && Number.isInteger(explicit)) {
+    return explicit
+  }
+  const starts =
+    message.stepStartCount ?? message.parts?.filter(part => part.type === "step-start").length ?? 0
+  if (starts > 0) {
+    const unfinished = metadata?.isError || metadata?.isAbort || metadata?.isDisconnect
+    return Math.max(0, starts - (unfinished ? 1 : 0))
+  }
+  return metadata?.totalUsage && getMessageUsageTokenBreakdown(metadata.totalUsage).total > 0
+    ? 1
+    : 0
+}
 
 export interface MessageUsageTokenBreakdown {
   input: number
@@ -41,4 +80,11 @@ export function getMessageUsageTokenBreakdown(
     reasoningOutput,
     total
   }
+}
+
+export function hasCompleteCacheDetails(usage: LanguageModelUsage): boolean {
+  return (
+    normalizeTokenCount(usage.inputTokenDetails?.cacheReadTokens) !== undefined &&
+    normalizeTokenCount(usage.inputTokenDetails?.cacheWriteTokens) !== undefined
+  )
 }

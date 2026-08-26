@@ -1093,7 +1093,8 @@ const AppChatInner = ({
         {
           id: userMessageId,
           role: "user",
-          parts
+          parts,
+          metadata: { createdAt: Date.now() }
         }
       ])
 
@@ -1781,6 +1782,7 @@ const AppChatInner = ({
                         {isUserMessage && (
                           <UserMessageActionsBar
                             messageText={messageText}
+                            createdAt={metadata?.createdAt}
                             onEdit={() => {
                               /** noop */
                             }}

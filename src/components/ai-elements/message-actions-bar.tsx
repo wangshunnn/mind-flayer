@@ -9,6 +9,28 @@ import { useActionConstants } from "@/lib/constants"
 import type { ModelPricing } from "@/lib/provider-constants"
 import { cn } from "@/lib/utils"
 
+const MessageTime = ({ timestamp, className }: { timestamp?: number; className: string }) => {
+  if (timestamp === undefined || !Number.isFinite(timestamp) || timestamp < 0) {
+    return null
+  }
+
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+
+  const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`
+
+  return (
+    <time
+      dateTime={date.toISOString()}
+      className={cn("shrink-0 text-xs tabular-nums text-muted-foreground", className)}
+    >
+      {time}
+    </time>
+  )
+}
+
 // Copy button with feedback
 export type CopyButtonProps = ComponentProps<typeof Button> & {
   text: string
@@ -70,11 +92,13 @@ export const CopyButton = ({
 // User message actions bar (show on hover)
 export type UserMessageActionsBarProps = ComponentProps<"div"> & {
   messageText: string
+  createdAt?: number
   onEdit?: () => void
 }
 
 export const UserMessageActionsBar = ({
   messageText,
+  createdAt,
   onEdit,
   className,
   ...props
@@ -84,12 +108,14 @@ export const UserMessageActionsBar = ({
   return (
     <div
       className={cn(
-        "flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100",
+        "flex items-center gap-0.5",
+        "opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100",
         "justify-end",
         className
       )}
       {...props}
     >
+      <MessageTime timestamp={createdAt} className="mr-2" />
       <CopyButton text={messageText} />
       <TooltipProvider>
         <Tooltip disableHoverableContent={true}>
@@ -149,7 +175,13 @@ export const AssistantMessageActionsBar = ({
   const { regenerate } = useActionConstants()
 
   return (
-    <div className={cn("flex items-center gap-0.5 text-muted-foreground", className)} {...props}>
+    <div
+      className={cn(
+        "group/message-actions flex items-center gap-0.5 text-muted-foreground",
+        className
+      )}
+      {...props}
+    >
       <CopyButton text={messageText} />
       {showRefresh && (
         <TooltipProvider>
@@ -185,6 +217,13 @@ export const AssistantMessageActionsBar = ({
           modelPricing={modelPricing}
         />
       )}
+      <MessageTime
+        timestamp={lastTokenAt}
+        className={cn(
+          "ml-2 opacity-0 transition-opacity group-hover/message-actions:opacity-100",
+          "group-focus-within/message-actions:opacity-100"
+        )}
+      />
     </div>
   )
 }

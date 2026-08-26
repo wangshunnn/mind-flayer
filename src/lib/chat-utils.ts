@@ -18,7 +18,14 @@ export function uiMessageToStored(message: UIMessage, chatId: ChatId): StoredMes
  * Convert StoredMessage to UIMessage
  */
 export function storedMessageToUI(stored: MessageRow): UIMessage {
-  return JSON.parse(stored.content_json) as UIMessage
+  const message = JSON.parse(stored.content_json) as UIMessage<{ createdAt?: number }>
+  if (message.role === "user" && message.metadata?.createdAt == null) {
+    return {
+      ...message,
+      metadata: { ...message.metadata, createdAt: stored.created_at }
+    }
+  }
+  return message
 }
 
 /**

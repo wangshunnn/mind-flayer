@@ -86,15 +86,11 @@ export function getMessageUsageTokenBreakdown(
       : noCacheInput)
 
   const textOutput = normalizeTokenCount(usage.outputTokenDetails?.textTokens) ?? 0
-  const reasoningOutput =
-    normalizeTokenCount(usage.outputTokenDetails?.reasoningTokens) ??
-    normalizeTokenCount(usage.reasoningTokens) ??
-    0
+  const reasoningOutput = normalizeTokenCount(usage.outputTokenDetails?.reasoningTokens) ?? 0
   const normalizedOutput = normalizeTokenCount(usage.outputTokens)
   const hasAnyOutputDetails =
     usage.outputTokenDetails?.textTokens !== undefined ||
-    usage.outputTokenDetails?.reasoningTokens !== undefined ||
-    usage.reasoningTokens !== undefined
+    usage.outputTokenDetails?.reasoningTokens !== undefined
   const output = normalizedOutput ?? (hasAnyOutputDetails ? textOutput + reasoningOutput : 0)
 
   const total = normalizeTokenCount(usage.totalTokens) ?? input + output
@@ -123,20 +119,24 @@ export function computeMessageUsageCost(
   const cachedWritePrice = normalizePrice(pricing?.cachedWrite)
 
   const missingPricingFields: PricingField[] = []
-  if (inputPrice === undefined) {
+  if (tokens.noCacheInput > 0 && inputPrice === undefined) {
     missingPricingFields.push("input")
   }
-  if (outputPrice === undefined) {
+  if (tokens.output > 0 && outputPrice === undefined) {
     missingPricingFields.push("output")
   }
-  if (cachedReadPrice === undefined) {
+  if (tokens.cachedReadInput > 0 && cachedReadPrice === undefined) {
     missingPricingFields.push("cachedRead")
   }
-  if (cachedWritePrice === undefined) {
+  if (tokens.cachedWriteInput > 0 && cachedWritePrice === undefined) {
     missingPricingFields.push("cachedWrite")
   }
 
-  const hasAnyPricing = missingPricingFields.length < 4
+  const hasAnyPricing =
+    inputPrice !== undefined ||
+    outputPrice !== undefined ||
+    cachedReadPrice !== undefined ||
+    cachedWritePrice !== undefined
 
   const costs: MessageUsageCostBreakdown = {
     input: costFor(tokens.noCacheInput, inputPrice),

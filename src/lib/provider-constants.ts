@@ -48,11 +48,23 @@ export const MODEL_PROVIDERS: Provider[] = [
   {
     id: "minimax",
     name: "MiniMax",
-    defaultBaseUrl: "https://api.minimaxi.com/anthropic/v1",
+    defaultBaseUrl: "https://api.minimaxi.com/v1",
     apiKeyUrl: "https://platform.minimaxi.com/user-center/basic-information/interface-key",
     icon: Bot,
     logo: MinimaxIcon,
     models: [
+      {
+        label: "MiniMax-M3",
+        api_id: "MiniMax-M3",
+        contextWindow: 1_000_000,
+        pricing: {
+          currency: "CNY",
+          input: 2.1,
+          output: 8.4,
+          cachedRead: 0.42,
+          cachedWrite: null
+        }
+      },
       {
         label: "MiniMax-M2.7",
         api_id: "MiniMax-M2.7",
@@ -74,54 +86,6 @@ export const MODEL_PROVIDERS: Provider[] = [
           input: 4.2,
           output: 16.8,
           cachedRead: 0.42,
-          cachedWrite: 2.625
-        }
-      },
-      {
-        label: "MiniMax-M2.5",
-        api_id: "MiniMax-M2.5",
-        contextWindow: 204_800,
-        pricing: {
-          currency: "CNY",
-          input: 2.1,
-          output: 8.4,
-          cachedRead: 0.21,
-          cachedWrite: 2.625
-        }
-      },
-      {
-        label: "MiniMax-M2.5-highspeed",
-        api_id: "MiniMax-M2.5-highspeed",
-        contextWindow: 204_800,
-        pricing: {
-          currency: "CNY",
-          input: 4.2,
-          output: 16.8,
-          cachedRead: 0.21,
-          cachedWrite: 2.625
-        }
-      },
-      {
-        label: "MiniMax-M2.1",
-        api_id: "MiniMax-M2.1",
-        contextWindow: 204_800,
-        pricing: {
-          currency: "CNY",
-          input: 2.1,
-          output: 8.4,
-          cachedRead: 0.21,
-          cachedWrite: 2.625
-        }
-      },
-      {
-        label: "MiniMax-M2.1-highspeed",
-        api_id: "MiniMax-M2.1-highspeed",
-        contextWindow: 204_800,
-        pricing: {
-          currency: "CNY",
-          input: 4.2,
-          output: 16.8,
-          cachedRead: 0.21,
           cachedWrite: 2.625
         }
       }
@@ -240,6 +204,28 @@ export const MODEL_PROVIDERS: Provider[] = [
         }
       }
     ]
+  },
+  {
+    id: "zhipu",
+    name: "Z.AI",
+    defaultBaseUrl: "https://open.bigmodel.cn/api/paas/v4",
+    apiKeyUrl: "https://open.bigmodel.cn/usercenter/apikeys",
+    icon: Bot,
+    logo: ZhipuIcon,
+    models: [
+      {
+        label: "GLM-5.2",
+        api_id: "glm-5.2",
+        contextWindow: 1_000_000,
+        pricing: {
+          currency: "CNY",
+          input: 8,
+          output: 28,
+          cachedRead: 2,
+          cachedWrite: 0
+        }
+      }
+    ]
   }
 ]
 
@@ -281,16 +267,6 @@ export const UPCOMING_PROVIDERS: Provider[] = [
     apiKeyUrl: "https://platform.moonshot.cn/console/api-keys",
     icon: Bot,
     logo: KimiIcon,
-    disabled: true,
-    models: []
-  },
-  {
-    id: "zhipu",
-    name: "Zhipu",
-    defaultBaseUrl: "https://open.bigmodel.cn/api/paas/v4",
-    apiKeyUrl: "https://open.bigmodel.cn/usercenter/apikeys",
-    icon: Bot,
-    logo: ZhipuIcon,
     disabled: true,
     models: []
   }

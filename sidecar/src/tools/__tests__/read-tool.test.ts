@@ -10,6 +10,7 @@ type ReadToolContext = Parameters<ReadToolExecute>[1]
 const TOOL_CONTEXT: ReadToolContext = {
   toolCallId: "test-read-tool-call",
   messages: [],
+  context: {},
   abortSignal: new AbortController().signal
 }
 

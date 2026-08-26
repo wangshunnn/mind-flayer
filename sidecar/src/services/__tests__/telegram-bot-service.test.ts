@@ -11,7 +11,7 @@ const buildToolChoiceMock = vi.fn()
 const loadWorkspacePromptContextSafelyMock = vi.fn()
 
 vi.mock("ai", () => ({
-  stepCountIs: vi.fn((value: number) => value),
+  isStepCount: vi.fn((value: number) => value),
   streamText: (...args: unknown[]) => streamTextMock(...args)
 }))
 
@@ -1596,13 +1596,13 @@ describe("TelegramBotService", () => {
     streamTextMock.mockImplementation(
       (options: {
         onChunk?: (event: { chunk: { type: string } }) => void | Promise<void>
-        onFinish?: (event: { totalUsage: unknown }) => void
+        onEnd?: (event: { totalUsage: unknown }) => void
       }) => {
         currentTime = 1_350
         void options.onChunk?.({ chunk: { type: "text-delta" } })
         currentTime = 2_100
         void options.onChunk?.({ chunk: { type: "text-delta" } })
-        options.onFinish?.({ totalUsage: usage })
+        options.onEnd?.({ totalUsage: usage })
         return {
           textStream: createTextStream("Assistant reply")
         }

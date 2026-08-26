@@ -161,7 +161,9 @@ describe("computeMessageUsageCost", () => {
   it("returns null total cost when no pricing is available", () => {
     const usage = createUsage({
       inputTokens: 500,
+      inputTokenDetails: undefined,
       outputTokens: 200,
+      outputTokenDetails: undefined,
       totalTokens: 700
     })
 
@@ -176,7 +178,35 @@ describe("computeMessageUsageCost", () => {
     })
     expect(result.isEstimated).toBe(false)
     expect(result.hasAnyPricing).toBe(false)
-    expect(result.missingPricingFields).toEqual(["input", "output", "cachedRead", "cachedWrite"])
+    expect(result.missingPricingFields).toEqual(["input", "output"])
+  })
+
+  it("does not estimate when an unpriced token category has zero usage", () => {
+    const usage = createUsage({
+      inputTokens: 1500,
+      inputTokenDetails: {
+        noCacheTokens: 1000,
+        cacheReadTokens: 500,
+        cacheWriteTokens: 0
+      },
+      outputTokens: 100,
+      totalTokens: 1600
+    })
+
+    const result = computeMessageUsageCost(
+      usage,
+      createPricing({
+        cachedWrite: null
+      })
+    )
+
+    expect(result.costs.input).toBeCloseTo(0.0003, 10)
+    expect(result.costs.cachedRead).toBeCloseTo(0.000015, 10)
+    expect(result.costs.cachedWrite).toBeNull()
+    expect(result.costs.output).toBeCloseTo(0.00012, 10)
+    expect(result.costs.total).toBeCloseTo(0.000435, 10)
+    expect(result.isEstimated).toBe(false)
+    expect(result.missingPricingFields).toEqual([])
   })
 
   it("treats DeepSeek cache write tokens as cache miss input", () => {

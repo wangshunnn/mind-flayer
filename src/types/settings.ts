@@ -79,6 +79,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     openai: false,
     anthropic: false,
     deepseek: false,
+    zhipu: false,
     parallel: false
   },
   enabledChannels: {

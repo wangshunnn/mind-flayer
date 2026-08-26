@@ -52,7 +52,9 @@ describe("handleTitleGenerator", () => {
     expect(generateTextMock).toHaveBeenCalledTimes(1)
     expect(generateTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining("You are generating a title, not replying to the user."),
+        instructions: expect.stringContaining(
+          "You are generating a title, not replying to the user."
+        ),
         prompt: expect.stringContaining("Do not answer it")
       })
     )

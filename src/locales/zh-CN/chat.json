@@ -53,13 +53,14 @@
     "belowMinimumCost": "<{{symbol}}0.0001"
   },
   "contextWindowUsage": {
-    "title": "上下文窗口",
+    "title": "对话容量",
     "summary": "{{used}} / {{limit}} tokens · {{percent}}%",
     "detailSummary": "{{used}} / {{limit}} tokens",
-    "compressionHint": "会话上下文会自动压缩",
-    "unavailable": "当前模型未提供上下文窗口上限。",
-    "usedInputOnly": "当前输入已使用：{{used}} tokens",
-    "ariaLabel": "上下文窗口使用情况：{{summary}}"
+    "compressionHint": "对话较长时会自动整理要点，聊天记录不会被删除。",
+    "unavailable": "暂时无法显示这次对话的容量上限。",
+    "usedInputOnly": "当前对话占用：{{used}} tokens",
+    "ariaLabel": "对话容量：{{summary}}",
+    "noStatistics": "暂无统计"
   },
   "sources": {
     "used": "使用了 {{count}} 个来源"
@@ -134,5 +135,21 @@
     "expand": "展开详情",
     "collapse": "收起详情",
     "fallbackPart": "消息片段：{{type}}"
+  },
+  "compaction": {
+    "action": "整理对话",
+    "compacting": "正在整理对话…",
+    "completed": "整理好了，可以继续聊天。聊天记录保持不变。",
+    "unnecessary": "目前不需要整理，继续聊天即可。",
+    "failed": "暂时没能整理好，请稍后重试。聊天记录没有改变。",
+    "history": "整理记录",
+    "estimated": "用量为估算值",
+    "measured": "实际用量",
+    "summary": "对话要点",
+    "tokens": "占用：{{before}} → {{after}} tokens",
+    "cancel": "停止整理",
+    "cancelled": "已停止整理，聊天记录没有改变。",
+    "tooLarge": "这次的内容太长了，请减少文字或附件，或新建对话后重试。",
+    "busy": "这次对话还在处理中，请稍后再试。"
   }
 }

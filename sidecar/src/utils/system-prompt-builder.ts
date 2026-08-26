@@ -162,23 +162,6 @@ function buildRuntimeContext(options: BuildSystemPromptOptions): string {
           ? "Linux"
           : "Unknown"
 
-  const now = new Date()
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC"
-
-  // Only date, no time component for better KV cache hit rate
-  const localDate = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).format(now)
-
-  // Calculate UTC offset (e.g., UTC+8, UTC-5)
-  const offsetMinutes = -now.getTimezoneOffset()
-  const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60)
-  const offsetMins = Math.abs(offsetMinutes) % 60
-  const offsetSign = offsetMinutes >= 0 ? "+" : "-"
-  const utcOffset = `UTC${offsetSign}${offsetHours}${offsetMins > 0 ? `:${offsetMins.toString().padStart(2, "0")}` : ""}`
   const normalizedChannel = channel?.trim()
   const displayProvider = modelProviderLabel?.trim() || modelProvider
   const displayModel = modelLabel?.trim() || modelId
@@ -187,8 +170,6 @@ function buildRuntimeContext(options: BuildSystemPromptOptions): string {
     "Runtime context:",
     `- os: ${osName}`,
     `- platform: ${platform}`,
-    `- current_date: ${localDate}`,
-    `- time_zone: ${tz} (${utcOffset})`,
     `- model: ${displayProvider}/${displayModel}`,
     normalizedChannel ? `- channel: ${normalizedChannel}` : null
   ]

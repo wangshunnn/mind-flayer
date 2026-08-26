@@ -1,7 +1,8 @@
 import type { UIMessage } from "ai"
 import { nanoid } from "nanoid"
 import { useCallback, useEffect, useState } from "react"
-import { storedMessageToUI, uiMessageToStored } from "@/lib/chat-utils"
+import { commitChatContext } from "@/lib/chat-context"
+import { storedMessageToUI } from "@/lib/chat-utils"
 import { getDatabase } from "@/lib/database"
 import { getSidecarUrl } from "@/lib/sidecar-client"
 import type { Chat, ChatId, ChatRow, MessageRow } from "@/types/chat"
@@ -116,6 +117,8 @@ export function useChatStorage() {
       try {
         const db = await getDatabase()
 
+        await db.execute("DELETE FROM chat_context_events WHERE chat_id = ?", [chatId])
+        await db.execute("DELETE FROM chat_context_usage WHERE chat_id = ?", [chatId])
         await db.execute("DELETE FROM messages WHERE chat_id = ?", [chatId])
         await db.execute("DELETE FROM chats WHERE id = ?", [chatId])
 
@@ -172,25 +175,11 @@ export function useChatStorage() {
             console.log(`[ChatStorage] Message ${idx} metadata before save:`, msg.metadata)
           }
         })
-        const db = await getDatabase()
-
-        await db.execute("DELETE FROM messages WHERE chat_id = ?", [chatId])
-
-        for (const message of messages) {
-          const storedMessage = uiMessageToStored(message, chatId)
-          await db.execute(
-            "INSERT INTO messages (id, chat_id, role, content_json, created_at) VALUES (?, ?, ?, ?, ?)",
-            [
-              storedMessage.id,
-              storedMessage.chat_id,
-              storedMessage.role,
-              storedMessage.content_json,
-              storedMessage.created_at
-            ]
-          )
-        }
-
-        await db.execute("UPDATE chats SET updated_at = ? WHERE id = ?", [Date.now(), chatId])
+        await commitChatContext(
+          chatId,
+          messages,
+          messages.map(message => message.id)
+        )
 
         await loadChats()
         setError(null)
@@ -205,55 +194,13 @@ export function useChatStorage() {
   )
 
   /**
-   * Insert only new messages for a chat (incremental save)
-   * This is more efficient than saveMessages as it only inserts new messages
-   */
-  const insertChatNewMessages = useCallback(
-    async (chatId: string, newMessages: UIMessage[], _totalMessageCount: number): Promise<void> => {
-      try {
-        if (newMessages.length === 0) {
-          return
-        }
-
-        console.log("[ChatStorage] Inserting new messages:", newMessages.length)
-        const db = await getDatabase()
-
-        for (const message of newMessages) {
-          const storedMessage = uiMessageToStored(message, chatId)
-          await db.execute(
-            "INSERT OR IGNORE INTO messages (id, chat_id, role, content_json, created_at) VALUES (?, ?, ?, ?, ?)",
-            [
-              storedMessage.id,
-              storedMessage.chat_id,
-              storedMessage.role,
-              storedMessage.content_json,
-              storedMessage.created_at
-            ]
-          )
-        }
-
-        await db.execute("UPDATE chats SET updated_at = ? WHERE id = ?", [Date.now(), chatId])
-
-        await loadChats()
-        setError(null)
-      } catch (err) {
-        console.error("Failed to insert new messages:", err)
-        const error = err instanceof Error ? err : new Error("Failed to insert new messages")
-        setError(error)
-        throw error
-      }
-    },
-    [loadChats]
-  )
-
-  /**
    * Load messages for a chat
    */
   const loadMessages = useCallback(async (chatId: string): Promise<UIMessage[]> => {
     try {
       const db = await getDatabase()
       const result = await db.select<MessageRow[]>(
-        "SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at ASC",
+        "SELECT * FROM messages WHERE chat_id = ? AND active = 1 ORDER BY ordinal ASC, created_at ASC, rowid ASC",
         [chatId]
       )
 
@@ -302,7 +249,6 @@ export function useChatStorage() {
     deleteChat,
     updateChatTitle,
     saveChatAllMessages,
-    insertChatNewMessages,
     loadMessages,
     switchChat,
     loadChats

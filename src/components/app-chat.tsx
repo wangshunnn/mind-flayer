@@ -71,28 +71,32 @@ import { NewChatEmptyState } from "@/components/new-chat-empty-state"
 import { SelectModel } from "@/components/select-model"
 import { ToolButton } from "@/components/tool-button"
 import { TopFloatingHeader } from "@/components/top-floating-header"
-import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useAvailableModels } from "@/hooks/use-available-models"
 import { useLatest } from "@/hooks/use-latest"
 import { useSetting } from "@/hooks/use-settings-store"
 import {
+  commitChatContext,
+  estimateMissingChatUsage,
+  getContextErrorKey,
+  loadChatContext,
+  waitForChatCommit
+} from "@/lib/chat-context"
+import {
   CHAT_MESSAGE_TIMELINE_SCROLL_TOLERANCE,
   getActiveTimelineAnchorIndex
 } from "@/lib/chat-message-timeline"
 import { generateChatTitle } from "@/lib/chat-utils"
-import {
-  useMessageConstants,
-  useToastConstants,
-  useToolButtonConstants,
-  useTooltipConstants
-} from "@/lib/constants"
+import { useToastConstants, useToolButtonConstants, useTooltipConstants } from "@/lib/constants"
+import { resolveConversationContextUsage } from "@/lib/context-window-usage"
 import { findModelPricing } from "@/lib/provider-constants"
 import { generateTitle, getSidecarUrl } from "@/lib/sidecar-client"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import type { ChatId, MessageId, Chat as StoredChat } from "@/types/chat"
 import type { ReasoningEffort } from "@/types/settings"
+import type { ContextState, ContextUsage, ConversationCheckpoint } from "../../shared/context"
+import { contextStateSchema, emptyContextState } from "../../shared/context"
 
 interface AppChatProps {
   activeChatId?: ChatId | null
@@ -128,6 +132,7 @@ type AssistantMessageMetadata = {
   createdAt?: number
   firstTokenAt?: number
   lastTokenAt?: number
+  contextUsage?: ContextUsage
   totalUsage?: LanguageModelUsage
   modelProvider?: string
   modelProviderLabel?: string
@@ -157,6 +162,9 @@ type PinSession = {
 
 interface SessionRuntime {
   chatId: ChatId
+  contextState: ContextState
+  compactionAbort?: AbortController
+  requestHeaders: () => Record<string, string>
   chat: AiChat<UIMessage>
   hydrated: boolean
   isHydrating: boolean
@@ -212,7 +220,6 @@ const AppChatInner = ({
   sidecarApi
 }: AppChatInnerProps) => {
   const { t } = useTranslation(["common", "chat"])
-  const messageConstants = useMessageConstants()
   const toastConstants = useToastConstants()
   const toolButtonConstants = useToolButtonConstants()
   const tooltipConstants = useTooltipConstants()
@@ -251,6 +258,8 @@ const AppChatInner = ({
   const messageNodeRefCallbacksRef = useRef<Map<MessageId, (node: HTMLDivElement | null) => void>>(
     new Map()
   )
+  const [contextStates, setContextStates] = useState<Record<string, ContextState>>({})
+  const [compactingChats, setCompactingChats] = useState<Record<string, boolean>>({})
   const pendingPinRef = useRef<PendingPin | null>(null)
   const pinSessionRef = useRef<PinSession | null>(null)
   const spacerHeightRef = useRef(0)
@@ -272,7 +281,7 @@ const AppChatInner = ({
   const focusTargetKey = activeChatId ?? `new:${newChatToken ?? "default"}`
 
   const showChatErrorToast = useCallback(
-    (error: Error) => {
+    (error: Error, fallbackDescription?: string) => {
       if (error.message.includes("API_KEY_NOT_CONFIGURED") || error.message.includes("401")) {
         toast.error(toastConstants.error, {
           description: toastConstants.apiKeyNotConfigured,
@@ -283,8 +292,11 @@ const AppChatInner = ({
           duration: 3000
         })
       } else {
+        const contextErrorKey = getContextErrorKey(error.message)
         toast.error(toastConstants.error, {
-          description: error.message
+          description: contextErrorKey
+            ? t(`chat:compaction.${contextErrorKey}`)
+            : (fallbackDescription ?? error.message)
         })
       }
     },
@@ -601,13 +613,6 @@ const AppChatInner = ({
         }
 
         if (options?.isAbort) {
-          if (lastMessage.parts.filter(isTextUIPart).length === 0) {
-            lastMessage.parts.push({
-              type: "text",
-              text: messageConstants.abortedMessage
-            } as TextUIPart)
-          }
-
           if (activeChatIdRef.current === chatId) {
             runtime.chat.messages = allMessagesWithMetadata
           }
@@ -616,7 +621,7 @@ const AppChatInner = ({
 
       await saveChatAllMessages(chatId, allMessagesWithMetadata, options?.isNewChat ?? false)
     },
-    [messageConstants.abortedMessage, saveChatAllMessages]
+    [saveChatAllMessages]
   )
 
   const createSessionRuntime = useCallback(
@@ -624,8 +629,21 @@ const AppChatInner = ({
       chatId: ChatId,
       options?: { hydrated?: boolean; initialMessages?: UIMessage[] }
     ): SessionRuntime => {
+      const requestHeaders = () => ({
+        "X-Model-Provider": selectedModelRef.current?.provider ?? "",
+        "X-Model-Provider-Label": selectedModelRef.current?.providerLabel ?? "",
+        "X-Model-Id": selectedModelRef.current?.api_id ?? "",
+        "X-Model-Label": selectedModelRef.current?.label ?? "",
+        "X-Use-Web-Search": useWebSearchRef.current.toString(),
+        "X-Web-Search-Mode": webSearchModeRef.current,
+        "X-Reasoning-Enabled": reasoningEnabledRef.current.toString(),
+        "X-Reasoning-Effort": reasoningEffortRef.current,
+        "X-Chat-Id": chatId
+      })
       const runtime: SessionRuntime = {
         chatId,
+        contextState: emptyContextState(),
+        requestHeaders,
         hydrated: options?.hydrated ?? false,
         isHydrating: false,
         thinkingDurations: new Map<MessageId, number>(),
@@ -636,23 +654,57 @@ const AppChatInner = ({
           messages: options?.initialMessages ?? [],
           transport: new DefaultChatTransport({
             api: sidecarApi,
-            headers: () => ({
-              "X-Model-Provider": selectedModelRef.current?.provider ?? "",
-              "X-Model-Provider-Label": selectedModelRef.current?.providerLabel ?? "",
-              "X-Model-Id": selectedModelRef.current?.api_id ?? "",
-              "X-Model-Label": selectedModelRef.current?.label ?? "",
-              "X-Use-Web-Search": useWebSearchRef.current.toString(),
-              "X-Web-Search-Mode": webSearchModeRef.current,
-              "X-Reasoning-Enabled": reasoningEnabledRef.current.toString(),
-              "X-Reasoning-Effort": reasoningEffortRef.current,
-              "X-Chat-Id": chatId
-            })
+            headers: requestHeaders,
+            prepareSendMessagesRequest: async ({ id, messages, trigger, messageId }) => {
+              if (runtime.compactionAbort) {
+                throw new Error("CHAT_NOT_READY")
+              }
+              await waitForChatCommit(chatId)
+              runtime.contextState = await loadChatContext(chatId)
+              return {
+                body: {
+                  id,
+                  chatId,
+                  messages,
+                  trigger,
+                  messageId,
+                  contextState: runtime.contextState
+                }
+              }
+            }
           }),
           sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+          onData: part => {
+            if (part.type === "data-compaction-status") {
+              const data = part.data as { chatId: string; status: string }
+              if (data.chatId === chatId) {
+                setCompactingChats(previous => ({
+                  ...previous,
+                  [chatId]: data.status === "compacting"
+                }))
+              }
+            }
+            if (part.type !== "data-context-checkpoint") {
+              return
+            }
+            const data = part.data as ConversationCheckpoint
+            if (data.chatId !== chatId) {
+              return
+            }
+            const contextState = contextStateSchema.parse(data.contextState)
+            runtime.contextState = contextState
+            setContextStates(previous => ({ ...previous, [chatId]: contextState }))
+            void commitChatContext(chatId, data.messages, data.messageIds, contextState).catch(
+              error => {
+                void runtime.chat.stop()
+                showChatErrorToast(error instanceof Error ? error : new Error(String(error)))
+              }
+            )
+          },
           onFinish: ({ messages, isAbort, isDisconnect, isError }) => {
             void (async () => {
               try {
-                if (!isError) {
+                {
                   const lastMessage = messages.at(-1)
                   if (lastMessage?.role === "assistant") {
                     finishReasoningDurationsForMessage(lastMessage.id)
@@ -674,11 +726,13 @@ const AppChatInner = ({
               } catch (error) {
                 console.error("[AppChat] Failed to persist finished messages:", error)
               } finally {
+                setCompactingChats(previous => ({ ...previous, [chatId]: false }))
                 onChatReplyingChange?.(chatId, false)
               }
             })()
           },
           onError: error => {
+            setCompactingChats(previous => ({ ...previous, [chatId]: false }))
             onChatReplyingChange?.(chatId, false)
             showChatErrorToast(error)
           }
@@ -872,6 +926,7 @@ const AppChatInner = ({
       })
 
       runtime.cleanup = () => {
+        runtime.compactionAbort?.abort()
         unsubscribeMessages()
         unsubscribeStatus()
         prevIsReplying = false
@@ -932,7 +987,10 @@ const AppChatInner = ({
       hydrationRequestSeqRef.current.set(chatId, nextSeq)
 
       try {
-        const loadedMessages = await loadMessages(chatId)
+        const [loadedMessages, contextState] = await Promise.all([
+          loadMessages(chatId),
+          loadChatContext(chatId)
+        ])
         const latestSeq = hydrationRequestSeqRef.current.get(chatId)
         const latestRuntime = sessionRuntimesRef.current.get(chatId)
 
@@ -947,6 +1005,8 @@ const AppChatInner = ({
           latestRuntime.chat.messages = loadedMessages
         }
 
+        latestRuntime.contextState = contextState
+        setContextStates(previous => ({ ...previous, [chatId]: contextState }))
         latestRuntime.hydrated = true
       } catch (error) {
         console.error("[AppChat] Failed to load chat messages:", error)
@@ -991,6 +1051,9 @@ const AppChatInner = ({
 
   const appendUserMessageAndSend = useCallback(
     async (runtime: SessionRuntime, messageText: string, files: FileUIPart[]) => {
+      if (runtime.compactionAbort || !runtime.hydrated) {
+        throw new Error("CHAT_NOT_READY")
+      }
       const parts: UIMessage["parts"] = [
         ...files,
         ...(messageText ? [{ type: "text", text: messageText } as TextUIPart] : [])
@@ -1126,16 +1189,85 @@ const AppChatInner = ({
     void hydrateSessionRuntime(activeChatId, runtimeForActiveChat)
   }, [activeChatId, hydrateSessionRuntime, runtimeForActiveChat])
 
-  const {
-    status,
+  const { status, messages, error, clearError, addToolApprovalResponse, regenerate, stop } =
+    useChat({ chat: runtimeForActiveChat?.chat ?? draftChatRef.current })
+
+  const displayedContextState = activeChatId ? contextStates[activeChatId] : undefined
+  const displayedContextUsage = useMemo(
+    () => resolveConversationContextUsage(messages, displayedContextState),
+    [messages, displayedContextState]
+  )
+  const inspectionHeadersKey = JSON.stringify([
+    selectedModel?.provider,
+    selectedModel?.providerLabel,
+    selectedModel?.api_id,
+    selectedModel?.label,
+    useWebSearch,
+    webSearchMode,
+    reasoningEnabled,
+    preferredReasoningEffort
+  ])
+  const contextCompacting = Boolean(activeChatId && compactingChats[activeChatId])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: These inputs invalidate asynchronous reads of the mutable chat runtime.
+  useEffect(() => {
+    const runtime = runtimeForActiveChat
+    if (
+      !activeChatId ||
+      !runtime ||
+      displayedContextUsage ||
+      !selectedModelRef.current ||
+      contextCompacting
+    ) {
+      return
+    }
+    const controller = new AbortController()
+    const chatId = activeChatId
+    void estimateMissingChatUsage(
+      sidecarApi,
+      () => ({
+        chatId,
+        messages: runtime.chat.messages,
+        contextState: runtime.contextState,
+        status: runtime.chat.status,
+        hydrated: runtime.hydrated,
+        compacting: Boolean(runtime.compactionAbort),
+        headers: runtime.requestHeaders()
+      }),
+      controller.signal
+    )
+      .then(usage => {
+        if (
+          !usage ||
+          controller.signal.aborted ||
+          sessionRuntimesRef.current.get(chatId) !== runtime
+        ) {
+          return
+        }
+        // Inspection is display-only; the next actual request commits authoritative usage.
+        setContextStates(previous => ({
+          ...previous,
+          [chatId]: { ...runtime.contextState, usage }
+        }))
+      })
+      .catch(error => {
+        if (!controller.signal.aborted) {
+          console.warn("[AppChat] Context usage estimate unavailable", error)
+        }
+      })
+    return () => controller.abort()
+  }, [
+    activeChatId,
+    runtimeForActiveChat,
+    displayedContextUsage,
+    displayedContextState,
     messages,
-    error,
-    clearError,
-    setMessages,
-    addToolApprovalResponse,
-    regenerate,
-    stop
-  } = useChat({ chat: runtimeForActiveChat?.chat ?? draftChatRef.current })
+    status,
+    inspectionHeadersKey,
+    contextCompacting,
+    sidecarApi,
+    selectedModelRef
+  ])
 
   useLayoutEffect(() => {
     if (!pendingPinRef.current) {
@@ -1193,29 +1325,11 @@ const AppChatInner = ({
   }, [scheduleRecalculateTopPinSpacer])
 
   useEffect(() => {
-    const runtime = activeChatId ? sessionRuntimesRef.current.get(activeChatId) : null
-    const lastMessage = messages[messages.length - 1]
-
-    if (!runtime || !error || lastMessage?.parts.length !== 0) {
-      return
+    // Errors are shown by the toast and retained as metadata, never forged as model text.
+    if (error) {
+      clearError()
     }
-
-    const messagesWithError = messages.slice(0, -1).concat([
-      {
-        ...lastMessage,
-        parts: [
-          {
-            type: "text",
-            text: error.message
-          } as TextUIPart
-        ]
-      }
-    ])
-
-    setMessages(messagesWithError)
-    void saveAllMessagesAsync(runtime.chatId, messagesWithError)
-    clearError()
-  }, [activeChatId, clearError, error, messages, saveAllMessagesAsync, setMessages])
+  }, [clearError, error])
 
   useEffect(() => {
     const el = inputContainerRef.current
@@ -1415,8 +1529,73 @@ const AppChatInner = ({
     [clearPendingPin, releasePinSessionConstraint, timelineAnchors]
   )
 
+  const handleCompact = async () => {
+    if (!activeChatId) {
+      return
+    }
+    const runtime = sessionRuntimesRef.current.get(activeChatId)
+    if (
+      !runtime ||
+      runtime.chat.status === "streaming" ||
+      runtime.chat.status === "submitted" ||
+      compactingChats[activeChatId]
+    ) {
+      return
+    }
+    const chatId = activeChatId
+    setCompactingChats(previous => ({ ...previous, [chatId]: true }))
+    const compactionAbort = new AbortController()
+    runtime.compactionAbort = compactionAbort
+    try {
+      await waitForChatCommit(chatId)
+      const response = await fetch(`${sidecarApi}/compact`, {
+        signal: compactionAbort.signal,
+        method: "POST",
+        headers: { ...runtime.requestHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId,
+          messages: runtime.chat.messages,
+          contextState: runtime.contextState
+        })
+      })
+      const result = await response.json()
+      if (!response.ok) {
+        throw new Error(result.error || t("chat:compaction.failed"))
+      }
+      const contextState = contextStateSchema.parse(result.contextState)
+      await commitChatContext(
+        chatId,
+        [],
+        runtime.chat.messages.map(message => message.id),
+        contextState
+      )
+      runtime.contextState = contextState
+      setContextStates(previous => ({ ...previous, [chatId]: contextState }))
+      if (result.compacted) {
+        toast.success(t("chat:compaction.completed"))
+      } else {
+        toast.info(t("chat:compaction.unnecessary"))
+      }
+    } catch (error) {
+      if (compactionAbort.signal.aborted) {
+        toast.info(t("chat:compaction.cancelled"))
+      } else {
+        console.warn("[AppChat] Manual compaction failed", error)
+        showChatErrorToast(
+          error instanceof Error ? error : new Error(String(error)),
+          t("chat:compaction.failed")
+        )
+      }
+    } finally {
+      runtime.compactionAbort = undefined
+      setCompactingChats(previous => ({ ...previous, [chatId]: false }))
+    }
+  }
+
   const isStreaming = status === "streaming"
-  const isSubmitDisabled = isStreaming ? false : !input.trim() || status !== "ready"
+  const isSubmitDisabled = isStreaming
+    ? false
+    : !input.trim() || status !== "ready" || Boolean(activeChatId && compactingChats[activeChatId])
   const submitTooltip = isStreaming ? tooltipConstants.stop : tooltipConstants.submit
   const showIntroEmptyState = !activeChatId && messages.length === 0 && status === "ready"
 
@@ -1424,19 +1603,6 @@ const AppChatInner = ({
   const isAwaitingAssistantReply =
     (status === "submitted" && lastMessage?.role === "user") ||
     ((status === "streaming" || status === "error") && lastMessage?.parts.length === 0)
-  const latestAssistantUsage = useMemo(() => {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const message = messages[index]
-      if (message.role !== "assistant") {
-        continue
-      }
-      const metadata = message.metadata as AssistantMessageMetadata | undefined
-      if (metadata?.totalUsage) {
-        return metadata.totalUsage
-      }
-    }
-    return undefined
-  }, [messages])
 
   useLayoutEffect(() => {
     timelineItemRefs.current.length = timelineAnchors.length
@@ -1546,7 +1712,12 @@ const AppChatInner = ({
                                   firstReasoningPartIndex >= 0 ? firstReasoningPartIndex : undefined
                                 }
                                 key={`activity-${message.id}-${segment.startPartIndex}`}
-                                onToolApprovalResponse={addToolApprovalResponse}
+                                onToolApprovalResponse={response => {
+                                  if (runtimeForActiveChat?.compactionAbort) {
+                                    return
+                                  }
+                                  return addToolApprovalResponse(response)
+                                }}
                                 parts={segment.parts}
                                 reasoningDurations={messageReasoningDurations}
                                 thinkingDuration={
@@ -1582,6 +1753,9 @@ const AppChatInner = ({
                               modelLabel={metadata?.modelLabel}
                               modelPricing={messageModelPricing}
                               onRefresh={() => {
+                                if (runtimeForActiveChat?.compactionAbort) {
+                                  return
+                                }
                                 void regenerate({ messageId: message.id })
                               }}
                               showRefresh={isLastMessage}
@@ -1711,12 +1885,27 @@ const AppChatInner = ({
                 <PromptInputTools className="gap-2">
                   <ContextWindowUsageIndicator
                     contextWindow={selectedModel?.contextWindow}
-                    usage={latestAssistantUsage}
+                    usage={
+                      displayedContextUsage
+                        ? { inputTokens: displayedContextUsage.tokens }
+                        : undefined
+                    }
+                    contextState={displayedContextState}
+                    withSeparator
+                    onCompact={activeChatId ? handleCompact : undefined}
+                    onCancelCompact={() => {
+                      const runtime = activeChatId
+                        ? sessionRuntimesRef.current.get(activeChatId)
+                        : undefined
+                      if (runtime?.compactionAbort) {
+                        runtime.compactionAbort.abort()
+                      } else {
+                        void runtime?.chat.stop()
+                      }
+                    }}
+                    compacting={Boolean(activeChatId && compactingChats[activeChatId])}
+                    compactDisabled={status === "streaming" || status === "submitted"}
                   />
-
-                  {latestAssistantUsage && (
-                    <Separator orientation="vertical" className="h-3! mr-1" />
-                  )}
 
                   {/* Submit button */}
                   <Tooltip disableHoverableContent={true} open={undefined}>

@@ -1,355 +1,99 @@
+import type { UIMessage } from "ai"
+import { MockLanguageModelV4 } from "ai/test"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { emptyContextState } from "../../../../shared/context"
+import { ConversationContext } from "../../context/engine"
+import { estimateConversationUsage, prepareConversationOptions } from "../stream-handler"
 
-const streamTextMock = vi.fn()
-const compactMessagesMock = vi.fn()
-const discoverSkillsSafelyMock = vi.fn()
-const buildSystemPromptMock = vi.fn()
-const loadWorkspacePromptContextSafelyMock = vi.fn()
-
-vi.mock("ai", () => ({
-  InvalidToolInputError: {
-    isInstance: () => false
-  },
-  NoSuchToolError: {
-    isInstance: () => false
-  },
-  isStepCount: vi.fn((value: number) => value),
-  streamText: (...args: unknown[]) => streamTextMock(...args)
+const discover = vi.hoisted(() => vi.fn())
+const workspace = vi.hoisted(() => vi.fn())
+vi.mock("../../skills/catalog", async original => ({
+  ...(await original<typeof import("../../skills/catalog")>()),
+  discoverSkillsSafely: discover
+}))
+vi.mock("../../workspace", async original => ({
+  ...(await original<typeof import("../../workspace")>()),
+  loadWorkspacePromptContextSafely: workspace
 }))
 
-vi.mock("../../utils/message-compaction", () => ({
-  compactMessages: (...args: unknown[]) => compactMessagesMock(...args)
-}))
-
-vi.mock("../../skills/catalog", async importOriginal => {
-  const actual = await importOriginal<typeof import("../../skills/catalog")>()
-  return {
-    ...actual,
-    discoverSkillsSafely: (...args: unknown[]) => discoverSkillsSafelyMock(...args)
-  }
-})
-
-vi.mock("../../utils/system-prompt-builder", async importOriginal => {
-  const actual = await importOriginal<typeof import("../../utils/system-prompt-builder")>()
-  return {
-    ...actual,
-    buildSystemPrompt: (...args: unknown[]) => buildSystemPromptMock(...args)
-  }
-})
-
-vi.mock("../../workspace", async importOriginal => {
-  const actual = await importOriginal<typeof import("../../workspace")>()
-  return {
-    ...actual,
-    loadWorkspacePromptContextSafely: (...args: unknown[]) =>
-      loadWorkspacePromptContextSafelyMock(...args)
-  }
-})
-
-import { createStreamResponse } from "../stream-handler"
-
-describe("createStreamResponse", () => {
+describe("conversation prompt preparation", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-
-    discoverSkillsSafelyMock.mockResolvedValue([])
-    compactMessagesMock.mockResolvedValue([{ role: "user", parts: [] }])
-    buildSystemPromptMock.mockReturnValue("system prompt")
-    loadWorkspacePromptContextSafelyMock.mockResolvedValue({
-      workspaceDir: "/tmp/app-support/workspace",
-      needsBootstrap: true,
-      setupCompletedAt: null,
-      files: []
-    })
-    streamTextMock.mockReturnValue({
-      toUIMessageStreamResponse: vi.fn(() => "stream-response")
-    })
+    discover.mockResolvedValue([])
+    workspace.mockResolvedValue(undefined)
   })
-
-  it("uses safe skill discovery for stream requests", async () => {
-    discoverSkillsSafelyMock.mockResolvedValueOnce([
-      {
-        id: "bundled:reader",
-        name: "reader",
-        source: "bundled",
-        description: "Read files",
-        location: "~/skills/builtin/reader/SKILL.md"
-      },
-      {
-        id: "user:writer",
-        name: "writer",
-        source: "user",
-        description: "Write files",
-        location: "~/skills/user/writer/SKILL.md"
-      }
+  const options = () => ({
+    chatId: "chat",
+    model: new MockLanguageModelV4(),
+    modelProvider: "openai",
+    modelId: "gpt-5.4",
+    messages: [],
+    tools: {},
+    toolChoice: "auto" as const,
+    abortSignal: new AbortController().signal,
+    reasoningEnabled: false,
+    reasoningEffort: "default" as const
+  })
+  it("builds a stable prompt without a clock or calendar date", async () => {
+    const first = await prepareConversationOptions(options())
+    const second = await prepareConversationOptions(options())
+    expect(first.instructions).toEqual(second.instructions)
+    expect(first.instructions).not.toContain("current_date")
+    expect(first.instructions).toContain("openai/gpt-5.4")
+  })
+  it("sorts enabled skills and excludes disabled skills", async () => {
+    discover.mockResolvedValue([
+      { id: "b", name: "B", description: "B skill", source: "user", location: "/b" },
+      { id: "a", name: "A", description: "A skill", source: "user", location: "/a" }
     ])
-
-    const response = await createStreamResponse({
-      model: {} as never,
-      modelProvider: "minimax",
-      modelProviderLabel: "MiniMax",
-      modelId: "model-a",
-      modelLabel: "MiniMax-M2.5",
-      messages: [{ role: "user", parts: [] }] as never,
-      tools: {},
-      toolChoice: "auto" as never,
-      abortSignal: new AbortController().signal,
-      reasoningEnabled: true,
-      reasoningEffort: "default",
-      disabledSkillIds: ["user:writer"]
-    })
-
-    expect(response).toBe("stream-response")
-    expect(buildSystemPromptMock).toHaveBeenCalledWith({
-      modelProvider: "minimax",
-      modelProviderLabel: "MiniMax",
-      modelId: "model-a",
-      modelLabel: "MiniMax-M2.5",
-      workspaceContext: {
-        workspaceDir: "/tmp/app-support/workspace",
-        needsBootstrap: true,
-        setupCompletedAt: null,
-        files: []
-      },
-      skills: [
-        {
-          id: "bundled:reader",
-          name: "reader",
-          source: "bundled",
-          description: "Read files",
-          location: "~/skills/builtin/reader/SKILL.md"
-        }
-      ]
-    })
-    expect(streamTextMock).toHaveBeenCalled()
-    expect(discoverSkillsSafelyMock).toHaveBeenCalledWith("stream request")
+    const result = await prepareConversationOptions({ ...options(), disabledSkillIds: ["b"] })
+    expect(result.instructions).toContain('id="a"')
+    expect(result.instructions).not.toContain('id="b"')
+  })
+  it("keeps channel-specific instructions", async () => {
+    const result = await prepareConversationOptions({ ...options(), channel: "telegram" })
+    expect(result.instructions).toContain("Attachments:")
+    expect(result.instructions).toContain("channel: telegram")
   })
 
-  it("continues without workspace context when workspace loading fails", async () => {
-    loadWorkspacePromptContextSafelyMock.mockResolvedValueOnce(undefined)
-
-    const response = await createStreamResponse({
-      model: {} as never,
-      modelProvider: "minimax",
-      modelProviderLabel: "MiniMax",
-      modelId: "model-a",
-      modelLabel: "MiniMax-M2.5",
-      messages: [{ role: "user", parts: [] }] as never,
-      tools: {},
-      toolChoice: "auto" as never,
-      abortSignal: new AbortController().signal,
-      reasoningEnabled: true,
-      reasoningEffort: "default"
-    })
-
-    expect(response).toBe("stream-response")
-    expect(buildSystemPromptMock).toHaveBeenCalledWith({
-      modelProvider: "minimax",
-      modelProviderLabel: "MiniMax",
-      modelId: "model-a",
-      modelLabel: "MiniMax-M2.5",
-      skills: [],
-      workspaceContext: undefined
-    })
+  it("estimates legacy history locally, including system context, without using cumulative usage", async () => {
+    const { model: _model, ...config } = options()
+    const messages: UIMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "Hello" }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Old response" }],
+        metadata: { totalUsage: { inputTokens: 900000, totalTokens: 1000000 } }
+      }
+    ]
+    const state = emptyContextState()
+    const result = await estimateConversationUsage({ ...config, messages, contextState: state })
+    expect(result.source).toBe("estimated")
+    expect(result.tokens).toBeGreaterThan(20)
+    expect(result.tokens).toBeLessThan(10000)
+    expect(state).toEqual(emptyContextState())
+    expect(result.contextWindow).toBe(1050000)
   })
 
-  it("passes providerOptions to streamText for supported anthropic models", async () => {
-    await createStreamResponse({
-      model: {} as never,
-      modelProvider: "anthropic",
-      modelId: "claude-sonnet-4-5-20251022",
-      messages: [{ role: "user", parts: [] }] as never,
-      tools: {},
-      toolChoice: "auto" as never,
-      abortSignal: new AbortController().signal,
-      reasoningEnabled: true,
-      reasoningEffort: "high"
+  it("estimates the summary projection rather than all archived history", async () => {
+    const { model: _model, ...config } = options()
+    const messages: UIMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "Old request ".repeat(2000) }] },
+      { id: "a1", role: "assistant", parts: [{ type: "text", text: "Old output ".repeat(2000) }] },
+      { id: "u2", role: "user", parts: [{ type: "text", text: "Continue" }] }
+    ]
+    const context = new ConversationContext({
+      ...config,
+      instructions: "System",
+      keepRecentTokens: 2,
+      summarize: async () => ({ text: "Goal: continue the work." })
     })
-
-    expect(streamTextMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        providerOptions: {
-          anthropic: {
-            thinking: {
-              type: "adaptive"
-            },
-            effort: "high"
-          }
-        }
-      })
-    )
-  })
-
-  it("omits providerOptions for unsupported models", async () => {
-    await createStreamResponse({
-      model: {} as never,
-      modelProvider: "openai",
-      modelId: "gpt-4",
-      messages: [{ role: "user", parts: [] }] as never,
-      tools: {},
-      toolChoice: "auto" as never,
-      abortSignal: new AbortController().signal,
-      reasoningEnabled: true,
-      reasoningEffort: "xhigh"
-    })
-
-    expect(streamTextMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        providerOptions: undefined
-      })
-    )
-  })
-
-  it("includes provider and model labels in streamed message metadata", async () => {
-    const toUIMessageStreamResponseMock = vi.fn((_: unknown) => "stream-response")
-    streamTextMock.mockReturnValueOnce({
-      toUIMessageStreamResponse: toUIMessageStreamResponseMock
-    })
-
-    await createStreamResponse({
-      model: {} as never,
-      modelProvider: "minimax",
-      modelProviderLabel: "MiniMax",
-      modelId: "model-a",
-      modelLabel: "MiniMax-M2.5",
-      messages: [{ role: "user", parts: [] }] as never,
-      tools: {},
-      toolChoice: "auto" as never,
-      abortSignal: new AbortController().signal,
-      reasoningEnabled: true,
-      reasoningEffort: "default"
-    })
-
-    expect(toUIMessageStreamResponseMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        messageMetadata: expect.any(Function)
-      })
-    )
-
-    const streamResponseOptions = toUIMessageStreamResponseMock.mock.calls[0]?.[0]
-
-    expect(streamResponseOptions).toBeDefined()
-    if (!streamResponseOptions) {
-      return
-    }
-
-    const typedStreamResponseOptions = streamResponseOptions as unknown as {
-      messageMetadata: (value: {
-        part: { type: "start" | "finish"; totalUsage?: unknown }
-      }) => unknown
-    }
-
-    expect(typedStreamResponseOptions.messageMetadata({ part: { type: "start" } })).toMatchObject({
-      createdAt: expect.any(Number),
-      modelProvider: "minimax",
-      modelProviderLabel: "MiniMax",
-      modelId: "model-a",
-      modelLabel: "MiniMax-M2.5"
-    })
-  })
-
-  it("records first and last timing-relevant chunk timestamps in finish metadata", async () => {
-    let currentTime = 1_000
-    const dateNowSpy = vi.spyOn(Date, "now").mockImplementation(() => currentTime)
-    const toUIMessageStreamResponseMock = vi.fn((_: unknown) => "stream-response")
-    streamTextMock.mockReturnValueOnce({
-      toUIMessageStreamResponse: toUIMessageStreamResponseMock
-    })
-
-    await createStreamResponse({
-      model: {} as never,
-      modelProvider: "openai",
-      modelId: "gpt-5",
-      messages: [{ role: "user", parts: [] }] as never,
-      tools: {},
-      toolChoice: "auto" as never,
-      abortSignal: new AbortController().signal,
-      reasoningEnabled: false,
-      reasoningEffort: "default"
-    })
-
-    const streamTextOptions = streamTextMock.mock.calls[0]?.[0] as {
-      onChunk?: (event: { chunk: { type: string } }) => void | Promise<void>
-    }
-    const streamResponseOptions = toUIMessageStreamResponseMock.mock.calls[0]?.[0] as {
-      messageMetadata: (value: {
-        part: { type: "start" | "finish"; totalUsage?: unknown }
-      }) => Record<string, unknown>
-    }
-
-    currentTime = 1_250
-    await streamTextOptions.onChunk?.({ chunk: { type: "reasoning-delta" } })
-    currentTime = 1_400
-    await streamTextOptions.onChunk?.({ chunk: { type: "text-delta" } })
-    currentTime = 2_300
-    await streamTextOptions.onChunk?.({ chunk: { type: "text-delta" } })
-
-    expect(streamResponseOptions.messageMetadata({ part: { type: "start" } })).toMatchObject({
-      createdAt: 1_000
-    })
-    expect(
-      streamResponseOptions.messageMetadata({
-        part: {
-          type: "finish",
-          totalUsage: { outputTokens: 42 }
-        }
-      })
-    ).toMatchObject({
-      firstTokenAt: 1_250,
-      lastTokenAt: 2_300,
-      totalUsage: { outputTokens: 42 }
-    })
-
-    dateNowSpy.mockRestore()
-  })
-
-  it("keeps finish timing metadata empty when no timing-relevant chunk arrives", async () => {
-    let currentTime = 5_000
-    const dateNowSpy = vi.spyOn(Date, "now").mockImplementation(() => currentTime)
-    const toUIMessageStreamResponseMock = vi.fn((_: unknown) => "stream-response")
-    streamTextMock.mockReturnValueOnce({
-      toUIMessageStreamResponse: toUIMessageStreamResponseMock
-    })
-
-    await createStreamResponse({
-      model: {} as never,
-      modelProvider: "openai",
-      modelId: "gpt-5",
-      messages: [{ role: "user", parts: [] }] as never,
-      tools: {},
-      toolChoice: "auto" as never,
-      abortSignal: new AbortController().signal,
-      reasoningEnabled: false,
-      reasoningEffort: "default"
-    })
-
-    const streamTextOptions = streamTextMock.mock.calls[0]?.[0] as {
-      onChunk?: (event: { chunk: { type: string } }) => void | Promise<void>
-    }
-    const streamResponseOptions = toUIMessageStreamResponseMock.mock.calls[0]?.[0] as {
-      messageMetadata: (value: {
-        part: { type: "start" | "finish"; totalUsage?: unknown }
-      }) => Record<string, unknown>
-    }
-
-    currentTime = 5_500
-    await streamTextOptions.onChunk?.({ chunk: { type: "source" } })
-
-    expect(
-      streamResponseOptions.messageMetadata({
-        part: {
-          type: "finish",
-          totalUsage: { outputTokens: 0 }
-        }
-      })
-    ).toEqual({
-      totalUsage: { outputTokens: 0 },
-      modelProvider: "openai",
-      modelId: "gpt-5",
-      modelProviderLabel: undefined,
-      modelLabel: undefined
-    })
-
-    dateNowSpy.mockRestore()
+    await context.update(messages)
+    await context.compact("manual")
+    const state = structuredClone(context.state)
+    const compacted = await estimateConversationUsage({ ...config, messages, contextState: state })
+    const full = await estimateConversationUsage({ ...config, messages })
+    expect(compacted.tokens).toBeLessThan(full.tokens / 2)
+    expect(state).toEqual(context.state)
   })
 })

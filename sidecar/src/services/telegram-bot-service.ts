@@ -1,10 +1,15 @@
+import chatEnglish from "../../../src/locales/en/chat.json"
+
+const tCompaction = (key: keyof typeof chatEnglish.compaction) => chatEnglish.compaction[key]
+
 import { randomInt, randomUUID } from "node:crypto"
 import type { LanguageModel, LanguageModelUsage } from "ai"
-import { isStepCount, streamText, type UIMessage } from "ai"
-import { discoverSkillsSafely, filterDisabledSkills } from "../skills/catalog"
+import { readUIMessageStream, type UIMessage } from "ai"
+import type { ContextState, ContextUsage } from "../../../shared/context"
+import { emptyContextState } from "../../../shared/context"
+import { createConversationStream } from "../context/runner"
+import { compactConversation, prepareConversationOptions } from "../handlers/stream-handler"
 import { ConflictError, NotFoundError } from "../utils/http-errors"
-import { compactMessages } from "../utils/message-compaction"
-import { buildSystemPrompt } from "../utils/system-prompt-builder"
 import {
   type TelegramMediaSendMethod,
   type TelegramMediaUpload,
@@ -12,7 +17,6 @@ import {
 } from "../utils/telegram-media-message"
 import { toTelegramHtml } from "../utils/telegram-rich-text"
 import { buildToolChoice } from "../utils/tool-choice"
-import { loadWorkspacePromptContextSafely } from "../workspace"
 import type { ChannelRuntimeConfigService } from "./channel-runtime-config-service"
 import type { ProviderService } from "./provider-service"
 import type {
@@ -182,6 +186,7 @@ export interface TelegramSessionSummary {
   firstMessagePreview: string
   lastMessageRole: UIMessage["role"] | null
   lastMessagePreview: string
+  contextUsage?: ContextUsage
   latestAssistantUsage?: LanguageModelUsage
   latestModelProvider?: string
   latestModelProviderLabel?: string
@@ -203,6 +208,7 @@ export interface TelegramWhitelistRequest {
 export type TelegramWhitelistDecision = "approve" | "reject"
 
 export class TelegramBotService {
+  private sessionContexts = new Map<string, ContextState>()
   private initialized = false
   private pollingAbortController: AbortController | null = null
   private pollingTask: Promise<void> | null = null
@@ -286,6 +292,7 @@ export class TelegramBotService {
         firstMessagePreview: this.toTextPreview(firstMessageText),
         lastMessageRole: lastMessage?.role ?? null,
         lastMessagePreview: this.toTextPreview(lastMessageText),
+        contextUsage: this.sessionContexts.get(sessionKey)?.usage,
         latestAssistantUsage: latestAssistantMetadata?.totalUsage,
         latestModelProvider: latestAssistantMetadata?.modelProvider,
         latestModelProviderLabel: latestAssistantMetadata?.modelProviderLabel,
@@ -319,6 +326,7 @@ export class TelegramBotService {
 
     await this.withPersistedSessionMutation(() => {
       this.sessionMessages.delete(sessionKey)
+      this.sessionContexts.delete(sessionKey)
       this.sessionStartedAt.delete(sessionKey)
       this.sessionUpdatedAt.delete(sessionKey)
     })
@@ -668,6 +676,45 @@ export class TelegramBotService {
       return
     }
 
+    const compactCommand = /^\/compact(?:@[A-Za-z0-9_]+)?(?:\s+([\s\S]*))?$/u.exec(incomingText)
+    if (compactCommand) {
+      const sessionKey = await this.getOrCreateActiveSessionKey(chatId)
+      const messages = this.sessionMessages.get(sessionKey) ?? []
+      try {
+        const result = await compactConversation(
+          {
+            chatId: sessionKey,
+            model,
+            modelProvider: selectedModel.provider,
+            modelId: selectedModel.modelId,
+            channel: "telegram",
+            messages,
+            contextState: this.sessionContexts.get(sessionKey),
+            tools: this.toolService.getRequestTools({
+              useWebSearch: true,
+              chatId: this.toSafeToolSessionId(sessionKey),
+              source: "channel"
+            }),
+            toolChoice: "auto",
+            abortSignal: this.pollingAbortController?.signal ?? new AbortController().signal,
+            reasoningEnabled: false,
+            reasoningEffort: "default",
+            disabledSkillIds: this.channelRuntimeConfigService.getDisabledSkillIds()
+          },
+          compactCommand[1]
+        )
+        await this.setSessionMessages(sessionKey, messages, result.contextState)
+        await this.sendTextMessage(
+          chatId,
+          tCompaction(result.compacted ? "completed" : "unnecessary")
+        )
+      } catch (error) {
+        this.logError("Manual compaction failed", error, { chatId })
+        await this.sendTextMessage(chatId, tCompaction("failed"))
+      }
+      return
+    }
+
     let currentChatAction: TelegramChatAction = "typing"
     let chatActionAbortController: AbortController | null = null
     let chatActionTask: Promise<void> | null = null
@@ -744,73 +791,39 @@ export class TelegramBotService {
         webSearchMode: "auto",
         messages: messagesWithLatestInput
       })
-      const [skills, modelMessages, workspaceContext] = await Promise.all([
-        discoverSkillsSafely("Telegram request"),
-        compactMessages(messagesWithLatestInput, tools),
-        loadWorkspacePromptContextSafely("Telegram request")
-      ])
-      const enabledSkills = filterDisabledSkills(
-        skills,
-        this.channelRuntimeConfigService.getDisabledSkillIds()
-      )
-
-      console.info("[TelegramBotService] handling message", {
-        chatId,
-        model: `${selectedModel.provider}/${selectedModel.modelId}`,
-        inputMessage: this.toTextPreview(incomingText)
-      })
-
-      const requestStartedAt = Date.now()
-      let firstTokenAt: number | undefined
-      let lastTokenAt: number | undefined
-      let assistantMetadata = this.createAssistantMessageMetadata(selectedModel, {
-        createdAt: requestStartedAt
-      })
-
-      const result = streamText({
-        model,
-        instructions: buildSystemPrompt({
+      const activeSessionKey = sessionKey
+      const stream = createConversationStream(
+        await prepareConversationOptions({
+          chatId: sessionKey,
+          model,
           modelProvider: selectedModel.provider,
           modelProviderLabel: selectedModel.providerLabel,
           modelId: selectedModel.modelId,
           modelLabel: selectedModel.modelLabel,
           channel: "telegram",
-          skills: enabledSkills,
-          workspaceContext
-        }),
-        messages: modelMessages,
-        tools,
-        toolChoice,
-        stopWhen: Object.keys(tools).length > 0 ? isStepCount(20) : isStepCount(1),
-        onChunk: ({ chunk }) => {
-          const chunkType = (chunk as { type: string }).type
-          if (chunkType === "source" || chunkType === "raw") {
-            return
-          }
-
-          const now = Date.now()
-          if (firstTokenAt === undefined) {
-            firstTokenAt = now
-          }
-          lastTokenAt = now
-        },
-        onEnd: event => {
-          assistantMetadata = this.createAssistantMessageMetadata(selectedModel, {
-            createdAt: requestStartedAt,
-            firstTokenAt,
-            lastTokenAt,
-            totalUsage: event.totalUsage
-          })
-        }
-      })
+          messages: messagesWithLatestInput,
+          contextState: this.sessionContexts.get(sessionKey) ?? emptyContextState(),
+          tools,
+          toolChoice,
+          abortSignal: this.pollingAbortController?.signal ?? new AbortController().signal,
+          reasoningEnabled: false,
+          reasoningEffort: "default",
+          disabledSkillIds: this.channelRuntimeConfigService.getDisabledSkillIds(),
+          onCheckpoint: (messages, state) =>
+            this.setSessionMessages(activeSessionKey, messages, state)
+        })
+      )
 
       let assistantText = ""
       let lastDraftAt = 0
       let draftSupported = true
       const draftId = this.createDraftId()
 
-      for await (const chunk of result.textStream) {
-        assistantText += chunk
+      for await (const assistant of readUIMessageStream({ stream, terminateOnError: true })) {
+        assistantText = assistant.parts
+          .filter(part => part.type === "text")
+          .map(part => part.text)
+          .join("\n")
 
         if (!draftSupported) {
           continue
@@ -844,10 +857,6 @@ export class TelegramBotService {
       if (!normalizedAssistantText) {
         const fallbackText = "I could not generate a response. Please try again."
         await this.sendTextMessage(chatId, fallbackText)
-        await this.setSessionMessages(sessionKey, [
-          ...messagesWithLatestInput,
-          this.createTextMessage("assistant", fallbackText, assistantMetadata)
-        ])
         return
       }
 
@@ -881,10 +890,7 @@ export class TelegramBotService {
         })
       })
 
-      await this.setSessionMessages(sessionKey, [
-        ...messagesWithLatestInput,
-        this.createTextMessage("assistant", sanitizedText, assistantMetadata)
-      ])
+      // Raw model messages were saved by the shared runner, before delivery transforms.
     } catch (error) {
       this.logError("Failed to process message", error, {
         chatId,
@@ -1503,7 +1509,8 @@ export class TelegramBotService {
         {
           command: "new",
           description: TELEGRAM_NEW_SESSION_DESCRIPTION
-        }
+        },
+        { command: "compact", description: tCompaction("action") }
       ]
     })
   }
@@ -1591,32 +1598,6 @@ export class TelegramBotService {
     return `telegram:${chatId}:${sessionId}`
   }
 
-  private createAssistantMessageMetadata(
-    selectedModel: {
-      provider: string
-      providerLabel?: string
-      modelId: string
-      modelLabel?: string
-    },
-    options?: {
-      createdAt?: number
-      firstTokenAt?: number
-      lastTokenAt?: number
-      totalUsage?: LanguageModelUsage
-    }
-  ): AssistantMessageMetadata {
-    return {
-      createdAt: options?.createdAt ?? Date.now(),
-      ...(options?.firstTokenAt !== undefined ? { firstTokenAt: options.firstTokenAt } : {}),
-      ...(options?.lastTokenAt !== undefined ? { lastTokenAt: options.lastTokenAt } : {}),
-      ...(options?.totalUsage ? { totalUsage: options.totalUsage } : {}),
-      modelProvider: selectedModel.provider,
-      ...(selectedModel.providerLabel ? { modelProviderLabel: selectedModel.providerLabel } : {}),
-      modelId: selectedModel.modelId,
-      ...(selectedModel.modelLabel ? { modelLabel: selectedModel.modelLabel } : {})
-    }
-  }
-
   private createTextMessage(
     role: "user" | "assistant",
     text: string,
@@ -1644,9 +1625,16 @@ export class TelegramBotService {
     return normalized || "telegram_session"
   }
 
-  private async setSessionMessages(sessionKey: string, messages: UIMessage[]): Promise<void> {
+  private async setSessionMessages(
+    sessionKey: string,
+    messages: UIMessage[],
+    contextState?: ContextState
+  ): Promise<void> {
     await this.withPersistedSessionMutation(() => {
       this.sessionMessages.set(sessionKey, messages)
+      if (contextState) {
+        this.sessionContexts.set(sessionKey, structuredClone(contextState))
+      }
       const updatedAt = Date.now()
       this.sessionUpdatedAt.set(sessionKey, updatedAt)
       if (!this.sessionStartedAt.has(sessionKey)) {
@@ -1657,6 +1645,7 @@ export class TelegramBotService {
 
   private hydrateSessions(snapshot: TelegramSessionStoreSnapshot): void {
     this.sessionMessages.clear()
+    this.sessionContexts.clear()
     this.sessionStartedAt.clear()
     this.sessionUpdatedAt.clear()
     this.activeSessionKeyByChatId.clear()
@@ -1666,6 +1655,9 @@ export class TelegramBotService {
         session.sessionKey,
         JSON.parse(JSON.stringify(session.messages)) as UIMessage[]
       )
+      if (session.contextState) {
+        this.sessionContexts.set(session.sessionKey, structuredClone(session.contextState))
+      }
       this.sessionStartedAt.set(session.sessionKey, session.startedAt)
       this.sessionUpdatedAt.set(session.sessionKey, session.updatedAt)
     }
@@ -1688,7 +1680,8 @@ export class TelegramBotService {
         startedAt:
           this.sessionStartedAt.get(sessionKey) ?? this.sessionUpdatedAt.get(sessionKey) ?? 0,
         updatedAt: this.sessionUpdatedAt.get(sessionKey) ?? 0,
-        messages: JSON.parse(JSON.stringify(messages)) as UIMessage[]
+        messages: JSON.parse(JSON.stringify(messages)) as UIMessage[],
+        contextState: this.sessionContexts.get(sessionKey)
       })
     )
 

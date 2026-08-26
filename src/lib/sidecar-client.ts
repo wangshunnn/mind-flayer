@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core"
 import type { LanguageModelUsage, UIMessage } from "ai"
+import type { ContextUsage } from "../../shared/context"
 
 const DEFAULT_WAIT_TIMEOUT_MS = 15_000
 
@@ -205,6 +206,7 @@ export interface TelegramChannelSessionSummary {
   firstMessagePreview: string
   lastMessageRole: UIMessage["role"] | null
   lastMessagePreview: string
+  contextUsage?: ContextUsage
   latestAssistantUsage?: LanguageModelUsage
   latestModelProvider?: string
   latestModelProviderLabel?: string

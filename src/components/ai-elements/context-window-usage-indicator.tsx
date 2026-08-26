@@ -1,16 +1,20 @@
-import type { LanguageModelUsage } from "ai"
 import type { TFunction } from "i18next"
+import { LoaderCircleIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Separator } from "@/components/ui/separator"
 import {
+  type ContextTokenUsage,
   computeContextWindowUsage,
   formatContextWindowTokens,
   resolveUsedTokens,
   type UsageLevel
 } from "@/lib/context-window-usage"
+import { findModelPricing } from "@/lib/provider-constants"
 import { cn } from "@/lib/utils"
+import type { ContextState } from "../../../shared/context"
+import { TokenUsageDetails } from "./token-usage-details"
 
 const RING_COLOR_BY_LEVEL: Record<UsageLevel, string> = {
   green: "var(--color-status-positive)",
@@ -21,20 +25,26 @@ const RING_COLOR_BY_LEVEL: Record<UsageLevel, string> = {
 const PERCENT_MAX_FRACTION_DIGITS = 1
 
 export interface ContextWindowUsageIndicatorProps {
-  usage?: LanguageModelUsage
+  usage?: ContextTokenUsage
   contextWindow?: number | null
   className?: string
   interactive?: boolean
   showPercent?: boolean
+  contextState?: ContextState
+  onCompact?: () => void
+  onCancelCompact?: () => void
+  compacting?: boolean
+  compactDisabled?: boolean
+  withSeparator?: boolean
 }
 
 export interface ContextWindowUsageDetailsProps {
-  usage?: LanguageModelUsage
+  usage?: ContextTokenUsage
   contextWindow?: number | null
 }
 
 function buildUsageSummary(params: {
-  usage?: LanguageModelUsage
+  usage?: ContextTokenUsage
   contextWindow?: number | null
   t: TFunction<"chat">
 }) {
@@ -106,7 +116,14 @@ export function ContextWindowUsageDetails({
   })
 
   if (!usage || !usedTokensText || !usageSummary) {
-    return null
+    return (
+      <div className="w-48 space-y-1.5">
+        <p className="text-xs font-medium">{t("contextWindowUsage.title")}</p>
+        <p className="text-xs text-muted-foreground" data-testid="context-window-usage-empty">
+          {t("contextWindowUsage.noStatistics")}
+        </p>
+      </div>
+    )
   }
 
   const detailSummary = usageView
@@ -174,16 +191,23 @@ export function ContextWindowUsageIndicator({
   contextWindow,
   className,
   interactive = true,
+  contextState,
+  onCompact,
+  onCancelCompact,
+  compacting = false,
+  compactDisabled = false,
+  withSeparator = false,
   showPercent = false
 }: ContextWindowUsageIndicatorProps) {
   const { t } = useTranslation("chat")
+  const resolvedUsage = contextState?.usage ? { inputTokens: contextState.usage.tokens } : usage
 
-  if (!usage) {
+  if (!resolvedUsage && !onCompact) {
     return null
   }
 
   const { usageView, usageSummary, percentText } = buildUsageSummary({
-    usage,
+    usage: resolvedUsage,
     contextWindow,
     t
   })
@@ -197,36 +221,99 @@ export function ContextWindowUsageIndicator({
     background: `conic-gradient(${ringColor} ${ringDegrees}deg, var(--color-border) ${ringDegrees}deg 360deg)`
   } as const
 
+  const separator = withSeparator ? (
+    <Separator
+      orientation="vertical"
+      className="h-3! mr-1"
+      data-testid="context-window-usage-separator"
+    />
+  ) : null
   if (!interactive) {
-    return <ContextWindowUsageRing className={className} ringStyle={ringStyle} />
+    return (
+      <>
+        <ContextWindowUsageRing className={className} ringStyle={ringStyle} />
+        {separator}
+      </>
+    )
   }
 
-  const triggerAriaLabel = t("contextWindowUsage.ariaLabel", { summary: usageSummary })
+  const triggerAriaLabel = usageSummary
+    ? t("contextWindowUsage.ariaLabel", { summary: usageSummary })
+    : t("contextWindowUsage.ariaLabel", { summary: t("contextWindowUsage.noStatistics") })
 
   return (
-    <HoverCard closeDelay={100} openDelay={100}>
-      <HoverCardTrigger asChild>
-        <Button
-          aria-label={triggerAriaLabel}
-          className={cn(
-            showPercent ? "h-8 gap-1.5 px-2 text-xs font-medium tabular-nums" : "size-6",
-            "text-muted-foreground hover:text-foreground",
-            className
+    <>
+      <HoverCard closeDelay={100} openDelay={100}>
+        <HoverCardTrigger asChild>
+          <Button
+            aria-label={compacting ? t("compaction.compacting") : triggerAriaLabel}
+            className={cn(
+              showPercent ? "h-8 gap-1.5 px-2 text-xs font-medium tabular-nums" : "size-6",
+              "text-muted-foreground hover:text-foreground",
+              className
+            )}
+            size={showPercent ? "sm" : "icon-xs"}
+            type="button"
+            variant="ghost"
+          >
+            {compacting ? (
+              <LoaderCircleIcon className="size-4 animate-spin" />
+            ) : (
+              <ContextWindowUsageRing
+                className={showPercent ? "size-5" : undefined}
+                ringStyle={ringStyle}
+              />
+            )}
+            {showPercent && usageView && percentText && <span>{percentText}%</span>}
+          </Button>
+        </HoverCardTrigger>
+        <HoverCardContent align="end" className="w-auto p-3">
+          <ContextWindowUsageDetails usage={resolvedUsage} contextWindow={contextWindow} />
+          {contextState?.usage && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {t(`compaction.${contextState.usage.source}`)}
+            </p>
           )}
-          size={showPercent ? "sm" : "icon-xs"}
-          type="button"
-          variant="ghost"
-        >
-          <ContextWindowUsageRing
-            className={showPercent ? "size-5" : undefined}
-            ringStyle={ringStyle}
-          />
-          {showPercent && usageView && percentText && <span>{percentText}%</span>}
-        </Button>
-      </HoverCardTrigger>
-      <HoverCardContent align="end" className="w-auto p-3">
-        <ContextWindowUsageDetails usage={usage} contextWindow={contextWindow} />
-      </HoverCardContent>
-    </HoverCard>
+          {onCompact && (
+            <Button
+              className="mt-2 w-full"
+              size="sm"
+              variant="outline"
+              onClick={compacting ? onCancelCompact : onCompact}
+              disabled={compacting ? !onCancelCompact : compactDisabled}
+            >
+              {t(compacting ? "compaction.cancel" : "compaction.action")}
+            </Button>
+          )}
+          {contextState?.events.some(event => event.type === "compaction") && (
+            <details className="mt-2 max-w-96 text-xs">
+              <summary className="cursor-pointer">{t("compaction.history")}</summary>
+              {contextState.events
+                .filter(event => event.type === "compaction")
+                .map(event => (
+                  <details key={event.id} className="mt-2">
+                    <summary className="cursor-pointer">
+                      {t("compaction.tokens", {
+                        before: formatContextWindowTokens(event.tokensBefore),
+                        after: formatContextWindowTokens(event.tokensAfter)
+                      })}
+                    </summary>
+                    <pre className="max-h-64 overflow-auto whitespace-pre-wrap py-2">
+                      {event.summary}
+                    </pre>
+                    {event.usage && (
+                      <TokenUsageDetails
+                        usage={event.usage}
+                        modelPricing={findModelPricing(event.modelProvider, event.modelId)}
+                      />
+                    )}
+                  </details>
+                ))}
+            </details>
+          )}
+        </HoverCardContent>
+      </HoverCard>
+      {separator}
+    </>
   )
 }

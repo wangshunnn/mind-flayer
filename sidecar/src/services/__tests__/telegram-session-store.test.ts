@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
@@ -33,11 +33,44 @@ describe("FileTelegramSessionStore", () => {
           chatId: "1001",
           startedAt: 10,
           updatedAt: 20,
+          contextState: {
+            version: 1,
+            events: [
+              {
+                type: "compaction",
+                id: "c1",
+                summary: "Earlier work",
+                createdAt: 15,
+                firstKeptEntryId: "a1:0",
+                prefixHash: "source",
+                reason: "manual",
+                tokensBefore: 100,
+                tokensAfter: 50,
+                modelProvider: "custom",
+                modelId: "model"
+              }
+            ]
+          },
           messages: [
             {
               id: "message-1",
               role: "user",
               parts: [{ type: "text", text: "hello" }]
+            },
+            {
+              id: "a1",
+              role: "assistant",
+              parts: [
+                { type: "reasoning", text: "Reasoning" },
+                {
+                  type: "tool-read",
+                  toolCallId: "read1",
+                  state: "output-available",
+                  input: { path: "/file" },
+                  output: "Full file contents"
+                },
+                { type: "text", text: "Answer" }
+              ]
             }
           ]
         }
@@ -51,6 +84,9 @@ describe("FileTelegramSessionStore", () => {
     const loaded = await store.load()
 
     expect(loaded).toEqual(snapshot)
+    expect(
+      JSON.parse(await readFile(join(tempDir, "telegram-sessions.json"), "utf8")).version
+    ).toBe(2)
   })
 
   it("falls back to an empty snapshot when the file is invalid", async () => {

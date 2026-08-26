@@ -12,6 +12,7 @@ describe("buildProviderOptions", () => {
       })
     ).toEqual({
       anthropic: {
+        cacheControl: { type: "ephemeral" },
         thinking: {
           type: "adaptive"
         },
@@ -30,6 +31,7 @@ describe("buildProviderOptions", () => {
       })
     ).toEqual({
       anthropic: {
+        cacheControl: { type: "ephemeral" },
         thinking: {
           type: "disabled"
         }
@@ -133,6 +135,7 @@ describe("buildProviderOptions", () => {
       })
     ).toEqual({
       anthropic: {
+        cacheControl: { type: "ephemeral" },
         thinking: {
           type: "adaptive"
         }

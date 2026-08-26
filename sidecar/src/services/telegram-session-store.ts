@@ -3,24 +3,19 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
 import type { UIMessage } from "ai"
 import { z } from "zod"
+import type { ContextState } from "../../../shared/context"
+import { contextStateSchema } from "../../../shared/context"
 
 const APP_SUPPORT_DIR_ENV_KEY = "MINDFLAYER_APP_SUPPORT_DIR"
 const CHANNELS_DIR_NAME = "channels"
 const TELEGRAM_SESSIONS_FILE_NAME = "telegram-sessions.json"
-const TELEGRAM_SESSION_STORE_VERSION = 1
-
-const persistedTextPartSchema = z
-  .object({
-    type: z.literal("text"),
-    text: z.string()
-  })
-  .passthrough()
+const TELEGRAM_SESSION_STORE_VERSION = 2
 
 const persistedMessageSchema = z
   .object({
     id: z.string().min(1),
     role: z.enum(["user", "assistant"]),
-    parts: z.array(persistedTextPartSchema).min(1),
+    parts: z.array(z.object({ type: z.string().min(1) }).passthrough()),
     metadata: z.object({}).passthrough().optional()
   })
   .passthrough()
@@ -30,13 +25,14 @@ const persistedTelegramSessionSchema = z.object({
   chatId: z.string().min(1),
   startedAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
+  contextState: contextStateSchema.optional(),
   messages: z
     .array(persistedMessageSchema)
     .transform(messages => messages as unknown as UIMessage[])
 })
 
 const persistedTelegramSessionStateSchema = z.object({
-  version: z.literal(TELEGRAM_SESSION_STORE_VERSION),
+  version: z.union([z.literal(1), z.literal(TELEGRAM_SESSION_STORE_VERSION)]),
   sessions: z.array(persistedTelegramSessionSchema),
   activeSessionKeyByChatId: z.record(z.string(), z.string())
 })
@@ -47,6 +43,7 @@ export interface PersistedTelegramSession {
   startedAt: number
   updatedAt: number
   messages: UIMessage[]
+  contextState?: ContextState
 }
 
 export interface TelegramSessionStoreSnapshot {
@@ -77,7 +74,8 @@ function normalizeSnapshot(snapshot: TelegramSessionStoreSnapshot): TelegramSess
       chatId: session.chatId,
       startedAt: session.startedAt,
       updatedAt: session.updatedAt,
-      messages: JSON.parse(JSON.stringify(session.messages)) as UIMessage[]
+      messages: JSON.parse(JSON.stringify(session.messages)) as UIMessage[],
+      ...(session.contextState ? { contextState: structuredClone(session.contextState) } : {})
     })
   }
 

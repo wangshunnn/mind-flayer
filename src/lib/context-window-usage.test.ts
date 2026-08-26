@@ -1,9 +1,10 @@
-import type { LanguageModelUsage } from "ai"
+import type { LanguageModelUsage, UIMessage } from "ai"
 import { describe, expect, it } from "vitest"
 import {
   computeContextWindowUsage,
   formatContextWindowTokens,
   getUsageLevel,
+  resolveConversationContextUsage,
   resolveUsedTokens
 } from "@/lib/context-window-usage"
 
@@ -31,6 +32,37 @@ describe("getUsageLevel", () => {
     expect(getUsageLevel(50)).toBe("yellow")
     expect(getUsageLevel(79.99)).toBe("yellow")
     expect(getUsageLevel(80)).toBe("red")
+  })
+})
+
+describe("resolveConversationContextUsage", () => {
+  it("ignores legacy cumulative usage and prefers independent state over message statistics", () => {
+    const messages: UIMessage[] = [
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [{ type: "text", text: "History" }],
+        metadata: { totalUsage: createUsage({ inputTokens: 900000 }) }
+      }
+    ]
+    expect(resolveConversationContextUsage(messages)).toBeUndefined()
+    const usage = {
+      tokens: 1000,
+      contextWindow: 128000,
+      source: "estimated" as const,
+      prefixHash: "source",
+      entryCount: 1,
+      requestFingerprint: "request"
+    }
+    messages[0].metadata = { totalUsage: createUsage({ inputTokens: 900000 }), contextUsage: usage }
+    expect(resolveConversationContextUsage(messages)?.tokens).toBe(1000)
+    expect(
+      resolveConversationContextUsage(messages, {
+        version: 1,
+        events: [],
+        usage: { ...usage, tokens: 500 }
+      })?.tokens
+    ).toBe(500)
   })
 })
 

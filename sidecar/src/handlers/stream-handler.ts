@@ -1,157 +1,86 @@
-import type { LanguageModel } from "ai"
-import {
-  InvalidToolInputError,
-  isStepCount,
-  NoSuchToolError,
-  streamText,
-  type ToolChoice,
-  type ToolSet,
-  type UIMessage
-} from "ai"
+import { createUIMessageStreamResponse } from "ai"
+import type { ContextState, ContextUsage } from "../../../shared/context"
+import { emptyContextState } from "../../../shared/context"
+import { ConversationContext } from "../context/engine"
+import type { ConversationRunOptions } from "../context/runner"
+import { acquireConversation, createConversationStream } from "../context/runner"
 import { discoverSkillsSafely, filterDisabledSkills } from "../skills/catalog"
-import type { ReasoningEffort } from "../type"
-import { compactMessages } from "../utils/message-compaction"
 import { buildProviderOptions } from "../utils/provider-options"
 import { buildSystemPrompt } from "../utils/system-prompt-builder"
 import { loadWorkspacePromptContextSafely } from "../workspace"
 
-/**
- * Options for creating a stream response.
- */
-export interface StreamHandlerOptions {
-  model: LanguageModel
-  modelProvider: string
-  modelProviderLabel?: string
-  modelId: string
-  modelLabel?: string
-  messages: UIMessage[]
-  tools: ToolSet
-  toolChoice: ToolChoice<ToolSet>
-  abortSignal: AbortSignal
-  reasoningEnabled: boolean
-  reasoningEffort: ReasoningEffort
+export interface StreamHandlerOptions
+  extends Omit<ConversationRunOptions, "instructions" | "chatId"> {
+  chatId: string
   disabledSkillIds?: string[]
+  channel?: string
 }
 
-/**
- * Create a streaming AI response with proper error handling.
- * Encapsulates AI SDK streamText call and response formatting.
- *
- * @param options - Stream configuration options
- * @returns Stream response for the client
- */
-export async function createStreamResponse(options: StreamHandlerOptions) {
-  const {
-    model,
-    modelProvider,
-    modelProviderLabel,
-    modelId,
-    modelLabel,
-    messages,
-    tools,
-    toolChoice,
-    abortSignal,
-    reasoningEnabled,
-    reasoningEffort
-  } = options
+type ContextInspectionOptions = Omit<StreamHandlerOptions, "model">
 
-  const [skills, compactedMessages, workspaceContext] = await Promise.all([
-    discoverSkillsSafely("stream request"),
-    compactMessages(messages, tools),
-    loadWorkspacePromptContextSafely("stream request")
+export function prepareConversationOptions(
+  options: StreamHandlerOptions
+): Promise<ConversationRunOptions>
+export function prepareConversationOptions(
+  options: ContextInspectionOptions
+): Promise<ContextInspectionOptions & { instructions: string }>
+export async function prepareConversationOptions(
+  options: StreamHandlerOptions | ContextInspectionOptions
+) {
+  const [skills, workspaceContext] = await Promise.all([
+    discoverSkillsSafely("conversation request"),
+    loadWorkspacePromptContextSafely("conversation request")
   ])
-  const enabledSkills = filterDisabledSkills(skills, options.disabledSkillIds ?? [])
-  const systemPrompt = buildSystemPrompt({
-    modelProvider,
-    modelProviderLabel,
-    modelId,
-    modelLabel,
-    skills: enabledSkills,
-    workspaceContext
-  })
-  console.info("[sidecar] Prepared stream request", {
-    messageCount: compactedMessages.length,
-    skillCount: enabledSkills.length,
-    workspaceFileCount: workspaceContext?.files.length ?? 0,
-    bootstrapActive: workspaceContext?.needsBootstrap ?? false,
-    systemPromptLength: systemPrompt.length
-  })
+  return {
+    ...options,
+    instructions: buildSystemPrompt({
+      modelProvider: options.modelProvider,
+      modelProviderLabel: options.modelProviderLabel,
+      modelId: options.modelId,
+      modelLabel: options.modelLabel,
+      ...(options.channel ? { channel: options.channel } : {}),
+      skills: filterDisabledSkills(skills, options.disabledSkillIds ?? []).sort((a, b) =>
+        a.id.localeCompare(b.id)
+      ),
+      workspaceContext
+    })
+  }
+}
 
-  const providerOptions = buildProviderOptions({
-    modelProvider,
-    modelId,
-    reasoningEnabled,
-    reasoningEffort
-  })
-  const requestStartedAt = Date.now()
-  let firstTokenAt: number | undefined
-  let lastTokenAt: number | undefined
+/** Inspect the effective prompt without calling a model, compacting, or changing history. */
+export async function estimateConversationUsage(
+  options: ContextInspectionOptions
+): Promise<ContextUsage> {
+  const prepared = await prepareConversationOptions(options)
+  options.abortSignal.throwIfAborted()
+  const context = new ConversationContext(
+    { ...prepared, requestOptions: buildProviderOptions(options) },
+    { ...(options.contextState ?? emptyContextState()), usage: undefined }
+  )
+  await context.update(options.messages)
+  options.abortSignal.throwIfAborted()
+  return context.usage()
+}
 
-  // Create streaming response
-  const result = streamText({
-    model,
-    instructions: systemPrompt,
-    messages: compactedMessages,
-    tools,
-    toolChoice,
-    stopWhen: Object.keys(tools).length ? isStepCount(20) : isStepCount(1),
-    abortSignal,
-    providerOptions,
-    onChunk: ({ chunk }) => {
-      const chunkType = chunk.type
-      if (chunkType === "source" || chunkType === "raw") {
-        return
-      }
-
-      const now = Date.now()
-      if (firstTokenAt === undefined) {
-        firstTokenAt = now
-      }
-      lastTokenAt = now
-    }
+export async function createStreamResponse(options: StreamHandlerOptions) {
+  return createUIMessageStreamResponse({
+    stream: createConversationStream(await prepareConversationOptions(options))
   })
+}
 
-  return result.toUIMessageStreamResponse({
-    sendSources: true,
-    messageMetadata: ({ part }) => {
-      if (part.type === "start") {
-        return {
-          createdAt: requestStartedAt,
-          modelProvider,
-          modelProviderLabel,
-          modelId,
-          modelLabel
-        }
-      }
-      if (part.type === "finish") {
-        return {
-          totalUsage: part.totalUsage,
-          ...(firstTokenAt !== undefined ? { firstTokenAt } : {}),
-          ...(lastTokenAt !== undefined ? { lastTokenAt } : {}),
-          modelProvider,
-          modelProviderLabel,
-          modelId,
-          modelLabel
-        }
-      }
-    },
-    onError: error => {
-      console.info("[sidecar] Stream handler caught error:", error)
-      // Handle abort as normal control flow
-      if (error instanceof Error && error.name === "AbortError") {
-        console.info("[sidecar] Request aborted by client or server shutdown")
-        return "Request cancelled"
-      }
-      if (NoSuchToolError.isInstance(error)) {
-        return "Error: The model tried to call a unknown tool."
-      }
-      if (InvalidToolInputError.isInstance(error)) {
-        return "Error: The model called a tool with invalid inputs."
-      }
-      if (error instanceof Error && error.message) {
-        return `Error: ${error?.message}`
-      }
-      return "Error: An unknown error occurred."
-    }
-  })
+export async function compactConversation(
+  options: StreamHandlerOptions,
+  instructions?: string
+): Promise<{ contextState: ContextState; compacted: boolean }> {
+  const release = acquireConversation(options.chatId)
+  try {
+    const prepared = await prepareConversationOptions(options)
+    const context = new ConversationContext(prepared, options.contextState ?? emptyContextState())
+    await context.update(options.messages)
+    const compacted = await context.compact("manual", instructions)
+    context.state.usage = context.usage()
+    return { contextState: context.state, compacted }
+  } finally {
+    release()
+  }
 }

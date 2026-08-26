@@ -10,6 +10,7 @@ import {
   ZhipuIcon
 } from "@/components/icons"
 import type { ProviderFormData } from "@/types/settings"
+import { getModelContextWindow } from "../../shared/model-context"
 
 type ProviderIconComponent = React.ComponentType<{ className?: string }>
 
@@ -56,7 +57,7 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "MiniMax-M3",
         api_id: "MiniMax-M3",
-        contextWindow: 1_000_000,
+        contextWindow: getModelContextWindow("minimax", "MiniMax-M3"),
         pricing: {
           currency: "CNY",
           input: 2.1,
@@ -68,7 +69,7 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "MiniMax-M2.7",
         api_id: "MiniMax-M2.7",
-        contextWindow: 204_800,
+        contextWindow: getModelContextWindow("minimax", "MiniMax-M2.7"),
         pricing: {
           currency: "CNY",
           input: 2.1,
@@ -80,7 +81,7 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "MiniMax-M2.7-highspeed",
         api_id: "MiniMax-M2.7-highspeed",
-        contextWindow: 204_800,
+        contextWindow: getModelContextWindow("minimax", "MiniMax-M2.7-highspeed"),
         pricing: {
           currency: "CNY",
           input: 4.2,
@@ -102,7 +103,7 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "GPT-5.4-Pro",
         api_id: "gpt-5.4-pro",
-        contextWindow: 1_050_000,
+        contextWindow: getModelContextWindow("openai", "gpt-5.4-pro"),
         pricing: {
           currency: "USD",
           input: 30,
@@ -114,7 +115,7 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "GPT-5.4",
         api_id: "gpt-5.4",
-        contextWindow: 1_050_000,
+        contextWindow: getModelContextWindow("openai", "gpt-5.4"),
         pricing: {
           currency: "USD",
           input: 2.5,
@@ -126,7 +127,7 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "GPT-5.3-Chat-Latest",
         api_id: "gpt-5.3-chat-latest",
-        contextWindow: 128_000,
+        contextWindow: getModelContextWindow("openai", "gpt-5.3-chat-latest"),
         pricing: {
           currency: "USD",
           input: 1.75,
@@ -148,7 +149,7 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "Claude Opus 4.6",
         api_id: "claude-opus-4-6",
-        contextWindow: 1_000_000,
+        contextWindow: getModelContextWindow("anthropic", "claude-opus-4-6"),
         pricing: {
           currency: "USD",
           input: 5,
@@ -160,7 +161,7 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "Claude Sonnet 4.6",
         api_id: "claude-sonnet-4-6",
-        contextWindow: 1_000_000,
+        contextWindow: getModelContextWindow("anthropic", "claude-sonnet-4-6"),
         pricing: {
           currency: "USD",
           input: 3,
@@ -182,7 +183,7 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "DeepSeek-V4-Flash",
         api_id: "deepseek-v4-flash",
-        contextWindow: 1_000_000,
+        contextWindow: getModelContextWindow("deepseek", "deepseek-v4-flash"),
         pricing: {
           currency: "USD",
           input: 0.14,
@@ -194,7 +195,7 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "DeepSeek-V4-Pro",
         api_id: "deepseek-v4-pro",
-        contextWindow: 1_000_000,
+        contextWindow: getModelContextWindow("deepseek", "deepseek-v4-pro"),
         pricing: {
           currency: "USD",
           input: 1.74,
@@ -216,7 +217,7 @@ export const MODEL_PROVIDERS: Provider[] = [
       {
         label: "GLM-5.2",
         api_id: "glm-5.2",
-        contextWindow: 1_000_000,
+        contextWindow: getModelContextWindow("zhipu", "glm-5.2"),
         pricing: {
           currency: "CNY",
           input: 8,

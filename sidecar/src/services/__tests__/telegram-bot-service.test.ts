@@ -4,20 +4,68 @@ import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const streamTextMock = vi.fn()
-const compactMessagesMock = vi.fn()
 const buildSystemPromptMock = vi.fn()
 const discoverSkillsSafelyMock = vi.fn()
 const buildToolChoiceMock = vi.fn()
 const loadWorkspacePromptContextSafelyMock = vi.fn()
 
-vi.mock("ai", () => ({
-  isStepCount: vi.fn((value: number) => value),
-  streamText: (...args: unknown[]) => streamTextMock(...args)
-}))
-
-vi.mock("../../utils/message-compaction", () => ({
-  compactMessages: (...args: unknown[]) => compactMessagesMock(...args)
-}))
+// Channel tests stub the shared runner; its real SDK/tool behavior is tested in context/runner.test.ts.
+vi.mock("../../context/runner", async () => {
+  const { createUIMessageStream } = await import("ai")
+  return {
+    acquireConversation: () => () => undefined,
+    createConversationStream: (options: import("../../context/runner").ConversationRunOptions) =>
+      createUIMessageStream({
+        execute: async ({ writer }) => {
+          const createdAt = Date.now()
+          let firstTokenAt: number | undefined
+          let lastTokenAt: number | undefined
+          let totalUsage: unknown
+          const result = streamTextMock({
+            ...options,
+            onChunk: () => {
+              firstTokenAt ??= Date.now()
+              lastTokenAt = Date.now()
+            },
+            onEnd: (event: { totalUsage: unknown }) => {
+              totalUsage = event.totalUsage
+            }
+          })
+          writer.write({ type: "start", messageId: "test-assistant" })
+          writer.write({ type: "text-start", id: "text" })
+          let text = ""
+          for await (const chunk of result.textStream) {
+            text += chunk
+            writer.write({ type: "text-delta", id: "text", delta: chunk })
+          }
+          writer.write({ type: "text-end", id: "text" })
+          const metadata = {
+            createdAt,
+            firstTokenAt,
+            lastTokenAt,
+            totalUsage,
+            modelProvider: options.modelProvider,
+            modelId: options.modelId,
+            modelProviderLabel: options.modelProviderLabel,
+            modelLabel: options.modelLabel
+          }
+          await options.onCheckpoint?.(
+            [
+              ...options.messages,
+              {
+                id: `assistant-${options.messages.length}`,
+                role: "assistant",
+                parts: [{ type: "text", text }],
+                metadata
+              }
+            ],
+            options.contextState ?? { version: 1, events: [] }
+          )
+          writer.write({ type: "finish" })
+        }
+      })
+  }
+})
 
 vi.mock("../../utils/system-prompt-builder", async importOriginal => {
   const actual = await importOriginal<typeof import("../../utils/system-prompt-builder")>()
@@ -137,7 +185,6 @@ describe("TelegramBotService", () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
-    compactMessagesMock.mockImplementation(async (messages: unknown) => messages)
     buildSystemPromptMock.mockReturnValue("system prompt")
     discoverSkillsSafelyMock.mockResolvedValue([])
     buildToolChoiceMock.mockReturnValue("auto")
@@ -1763,7 +1810,8 @@ describe("TelegramBotService", () => {
         {
           command: "new",
           description: "Start a new conversation"
-        }
+        },
+        { command: "compact", description: "Summarize conversation" }
       ]
     })
   })
@@ -1853,7 +1901,7 @@ describe("TelegramBotService", () => {
         files: []
       }
     })
-    expect(discoverSkillsSafelyMock).toHaveBeenCalledWith("Telegram request")
+    expect(discoverSkillsSafelyMock).toHaveBeenCalledWith("conversation request")
     expect(streamTextMock).toHaveBeenCalled()
   })
 

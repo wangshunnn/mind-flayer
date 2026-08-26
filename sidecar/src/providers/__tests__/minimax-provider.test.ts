@@ -4,11 +4,17 @@ import type {
   LanguageModelV3DataContent,
   LanguageModelV3StreamPart
 } from "@ai-sdk/provider"
+import type { ToolSet, UIMessage } from "ai"
 import { generateText, streamText } from "ai"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { MODEL_PROVIDERS } from "../../config/constants"
+import { createContextEntries } from "../../context/engine"
 import type { ProviderConfig } from "../../type"
-import { compactMessages } from "../../utils/message-compaction"
+
+async function convertHistory(messages: UIMessage[], tools: ToolSet = {}) {
+  return (await createContextEntries(messages, tools)).flatMap(entry => entry.models)
+}
+
 import {
   MinimaxProvider,
   withMiniMaxAiSdk7Compatibility,
@@ -420,7 +426,7 @@ describe("MinimaxProvider", () => {
         )
       })
       vi.stubGlobal("fetch", fetchMock)
-      const messages = await compactMessages([
+      const messages = await convertHistory([
         {
           id: "image-message",
           role: "user",

@@ -117,8 +117,16 @@ describe("ChannelTelegramChat", () => {
           firstMessagePreview: "hello",
           lastMessageRole: "assistant",
           lastMessagePreview: "latest answer",
+          contextUsage: {
+            tokens: 32_000,
+            contextWindow: 128_000,
+            source: "estimated",
+            prefixHash: "source",
+            entryCount: 2,
+            requestFingerprint: "request"
+          },
           latestAssistantUsage: {
-            inputTokens: 32_000,
+            inputTokens: 96_000,
             outputTokens: 400,
             totalTokens: 32_400
           },
@@ -311,7 +319,7 @@ describe("ChannelTelegramChat", () => {
     ).toContain(latestStartedAtText)
     expect(container.textContent).toContain("25%")
     const contextWindowButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label^="Context window usage:"]'
+      'button[aria-label^="Conversation capacity:"]'
     )
     expect(contextWindowButton).not.toBeNull()
     expect(contextWindowButton?.getAttribute("aria-label")).toContain(

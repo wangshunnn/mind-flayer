@@ -1,6 +1,33 @@
-import type { LanguageModelUsage } from "ai"
+import type { LanguageModelUsage, UIMessage } from "ai"
+import type { ContextState, ContextUsage } from "../../shared/context"
+import { contextUsageSchema } from "../../shared/context"
+
+export type ContextTokenUsage = Pick<LanguageModelUsage, "inputTokens"> &
+  Partial<Pick<LanguageModelUsage, "inputTokenDetails">>
 
 export type UsageLevel = "green" | "yellow" | "red"
+
+/** Cumulative billing usage from older messages is deliberately not a capacity fallback. */
+export function resolveConversationContextUsage(
+  messages: UIMessage[],
+  state?: ContextState
+): ContextUsage | undefined {
+  if (state?.usage) {
+    return state.usage
+  }
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index]
+    if (message.role !== "assistant") {
+      continue
+    }
+    const metadata = message.metadata as { contextUsage?: unknown } | undefined
+    const usage = contextUsageSchema.safeParse(metadata?.contextUsage)
+    if (usage.success) {
+      return usage.data
+    }
+  }
+  return undefined
+}
 
 export interface ContextWindowUsageViewModel {
   usedTokens: number
@@ -22,7 +49,7 @@ const normalizeTokenCount = (value: number | undefined): number | undefined => {
 
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value))
 
-export function resolveUsedTokens(usage: LanguageModelUsage): number {
+export function resolveUsedTokens(usage: ContextTokenUsage): number {
   const directInputTokens = normalizeTokenCount(usage.inputTokens)
   if (directInputTokens !== undefined) {
     return directInputTokens
@@ -47,7 +74,7 @@ export function getUsageLevel(percent: number): UsageLevel {
 }
 
 export function computeContextWindowUsage(
-  usage: LanguageModelUsage,
+  usage: ContextTokenUsage,
   contextWindow: number | null | undefined
 ): ContextWindowUsageViewModel | null {
   if (

@@ -54,13 +54,14 @@
     "belowMinimumCost": "<{{symbol}}0.0001"
   },
   "contextWindowUsage": {
-    "title": "Context Window",
+    "title": "Conversation capacity",
     "summary": "{{used}} / {{limit}} tokens · {{percent}}%",
     "detailSummary": "{{used}} / {{limit}} tokens",
-    "compressionHint": "Conversation context will be compressed automatically.",
-    "unavailable": "Context window limit is unavailable for this model.",
-    "usedInputOnly": "Current input usage: {{used}} tokens",
-    "ariaLabel": "Context window usage: {{summary}}"
+    "compressionHint": "Long conversations are summarized automatically. Your chat history stays available.",
+    "unavailable": "We can't show this conversation's capacity limit right now.",
+    "usedInputOnly": "Conversation size: {{used}} tokens",
+    "ariaLabel": "Conversation capacity: {{summary}}",
+    "noStatistics": "No usage statistics yet"
   },
   "sources": {
     "used": "Used {{count}} sources"
@@ -135,5 +136,21 @@
     "expand": "Show details",
     "collapse": "Hide details",
     "fallbackPart": "Message part: {{type}}"
+  },
+  "compaction": {
+    "action": "Summarize conversation",
+    "compacting": "Summarizing conversation…",
+    "completed": "Summary ready. You can keep chatting; your chat history is unchanged.",
+    "unnecessary": "No need to summarize yet. You can keep chatting.",
+    "failed": "Couldn't summarize this time. Please try again. Your chat history is unchanged.",
+    "history": "Summary history",
+    "estimated": "Estimated usage",
+    "measured": "Reported usage",
+    "summary": "Conversation summary",
+    "tokens": "Size: {{before}} → {{after}} tokens",
+    "cancel": "Stop summarizing",
+    "cancelled": "Summarizing stopped. Your chat history is unchanged.",
+    "tooLarge": "This request is too long. Try sending less text or fewer attachments, or start a new conversation.",
+    "busy": "This conversation is still being processed. Please try again shortly."
   }
 }

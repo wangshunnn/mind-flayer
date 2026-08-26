@@ -4,11 +4,17 @@ import type {
   LanguageModelV4GenerateResult,
   LanguageModelV4StreamPart
 } from "@ai-sdk/provider"
+import type { ToolSet, UIMessage } from "ai"
 import { generateText, isStepCount, jsonSchema, streamText, tool } from "ai"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { MODEL_PROVIDERS } from "../../config/constants"
+import { createContextEntries } from "../../context/engine"
 import type { ProviderConfig } from "../../type"
-import { compactMessages } from "../../utils/message-compaction"
+
+async function convertHistory(messages: UIMessage[], tools: ToolSet = {}) {
+  return (await createContextEntries(messages, tools)).flatMap(entry => entry.models)
+}
+
 import { buildProviderOptions } from "../../utils/provider-options"
 import { withZaiReasoningStream, ZaiProvider } from "../zai-provider"
 
@@ -524,7 +530,7 @@ describe("ZaiProvider", () => {
 
       await Promise.all(
         ["Reasoning A", "Reasoning B"].map(async reasoning => {
-          const messages = await compactMessages([
+          const messages = await convertHistory([
             { id: "user-1", role: "user", parts: [{ type: "text", text: "First question" }] },
             {
               id: "assistant-1",
@@ -558,7 +564,7 @@ describe("ZaiProvider", () => {
           execute
         })
       }
-      const messages = await compactMessages(
+      const messages = await convertHistory(
         [
           { id: "user-1", role: "user", parts: [{ type: "text", text: "Read the file." }] },
           {

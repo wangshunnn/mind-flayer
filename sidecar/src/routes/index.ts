@@ -41,6 +41,13 @@ export function registerRoutes(
   // AI streaming chat endpoint
   app.post("/api/chat", c => handleChat(c, globalAbortController, channelRuntimeConfigService))
 
+  app.post("/api/chat/compact", c =>
+    handleChat(c, globalAbortController, channelRuntimeConfigService)
+  )
+  app.post("/api/chat/context-usage", c =>
+    handleChat(c, globalAbortController, channelRuntimeConfigService)
+  )
+
   // Chat title generation endpoint
   app.post("/api/title", handleTitleGenerator)
 

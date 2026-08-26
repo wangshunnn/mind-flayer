@@ -125,6 +125,17 @@ export function buildProviderOptions({
   reasoningEnabled,
   reasoningEffort
 }: ProviderOptionsConfig): ProviderOptions | undefined {
+  if (modelProvider === "anthropic") {
+    return {
+      anthropic: {
+        cacheControl: { type: "ephemeral" },
+        ...(supportsAdjustableReasoningEffort(modelProvider, modelId)
+          ? mapAnthropicReasoningEffort(reasoningEnabled, reasoningEffort)
+          : {})
+      }
+    } as ProviderOptions
+  }
+
   if (!supportsAdjustableReasoningEffort(modelProvider, modelId)) {
     return undefined
   }
@@ -145,11 +156,6 @@ export function buildProviderOptions({
         ...(reasoningEnabled && reasoningEffort !== "default" ? { reasoningEffort } : {})
       }
     }
-  }
-
-  if (modelProvider === "anthropic") {
-    const anthropic = mapAnthropicReasoningEffort(reasoningEnabled, reasoningEffort)
-    return Object.keys(anthropic).length ? ({ anthropic } as ProviderOptions) : undefined
   }
 
   if (modelProvider === "deepseek") {

@@ -1,6 +1,11 @@
 import type { UIMessage } from "ai"
 import type { Context } from "hono"
-import { createStreamResponse } from "../handlers/stream-handler"
+import { contextStateSchema, uiMessagesSchema } from "../../../shared/context"
+import {
+  compactConversation,
+  createStreamResponse,
+  estimateConversationUsage
+} from "../handlers/stream-handler"
 import type { ChannelRuntimeConfigService } from "../services/channel-runtime-config-service"
 import { providerService } from "../services/provider-service"
 import { toolService } from "../services/tool-service"
@@ -39,7 +44,18 @@ export async function handleChat(
       body.reasoningEffort ||
       "default") as "default" | "low" | "medium" | "high" | "xhigh"
     const chatId = c.req.header("x-chat-id") || body.chatId
-    const messages = body?.messages as UIMessage[]
+    const parsedMessages = uiMessagesSchema.safeParse(body?.messages)
+    if (!parsedMessages.success) {
+      throw new BadRequestError("Invalid conversation messages")
+    }
+    const messages = parsedMessages.data
+    const parsedContext = contextStateSchema.optional().safeParse(body.contextState)
+    if (!parsedContext.success) {
+      throw new BadRequestError("Invalid context state")
+    }
+    if (typeof chatId !== "string" || !chatId) {
+      throw new BadRequestError("Chat ID is required")
+    }
 
     // Validate request
     if (!modelId) {
@@ -47,6 +63,31 @@ export async function handleChat(
     }
     if (!messages || !Array.isArray(messages)) {
       throw new BadRequestError("Messages array is required")
+    }
+
+    const requestTools = toolService.getRequestTools({ useWebSearch, chatId })
+    const toolChoice = buildToolChoice({ useWebSearch, webSearchMode, messages })
+    const abortSignal = AbortSignal.any([c.req.raw.signal, globalAbortController.signal])
+
+    // Usage inspection is local and must also work for unconfigured or retired providers.
+    if (c.req.path.endsWith("/context-usage")) {
+      return c.json({
+        usage: await estimateConversationUsage({
+          chatId,
+          modelProvider: provider,
+          modelProviderLabel,
+          modelId,
+          modelLabel,
+          messages,
+          contextState: parsedContext.data,
+          tools: requestTools,
+          toolChoice,
+          abortSignal,
+          reasoningEnabled,
+          reasoningEffort,
+          disabledSkillIds: channelRuntimeConfigService.getDisabledSkillIds()
+        })
+      })
     }
 
     // Check provider configuration
@@ -78,21 +119,16 @@ export async function handleChat(
       ...(shouldReplayDeepSeekReasoning ? { deepSeekReasoningReplayMessages: messages } : {})
     })
 
-    // Get tools
-    const requestTools = toolService.getRequestTools({ useWebSearch, chatId })
-
-    // Determine tool choice strategy
-    const toolChoice = buildToolChoice({
-      useWebSearch,
-      webSearchMode,
-      messages
-    })
-
-    // Combine request abort signal with global abort controller
-    const abortSignal = AbortSignal.any([c.req.raw.signal, globalAbortController.signal])
-
     // Create and return streaming response
-    return await createStreamResponse({
+    const options = {
+      chatId,
+      contextState: parsedContext.data,
+      createModel: (replayMessages: UIMessage[]) =>
+        providerService.createModel(provider, modelId, {
+          ...(shouldReplayDeepSeekReasoning
+            ? { deepSeekReasoningReplayMessages: replayMessages }
+            : {})
+        }),
       model,
       modelProvider: provider,
       modelProviderLabel,
@@ -105,7 +141,16 @@ export async function handleChat(
       reasoningEnabled,
       reasoningEffort,
       disabledSkillIds: channelRuntimeConfigService.getDisabledSkillIds()
-    })
+    }
+    if (c.req.path.endsWith("/compact")) {
+      return c.json(
+        await compactConversation(
+          options,
+          typeof body.instructions === "string" ? body.instructions : undefined
+        )
+      )
+    }
+    return await createStreamResponse(options)
   } catch (error) {
     // Handle abort errors at info level
     if (error instanceof Error && error.name === "AbortError") {
@@ -113,6 +158,9 @@ export async function handleChat(
       return c.json({ error: "Request cancelled" }, 400)
     }
 
+    if (error instanceof Error && error.message === "CONVERSATION_BUSY") {
+      return c.json({ error: "CONVERSATION_BUSY" }, 409)
+    }
     console.error("[sidecar] Chat error:", error)
     const errorResponse = mapErrorToResponse(error)
     return c.json(errorResponse.body, errorResponse.statusCode)

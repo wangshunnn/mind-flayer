@@ -304,7 +304,7 @@ export function ChannelTelegramChat() {
   )
 
   const selectedSessionUsageView = useMemo(() => {
-    if (!selectedSession?.latestAssistantUsage) {
+    if (!selectedSession?.contextUsage) {
       return null
     }
 
@@ -316,9 +316,12 @@ export function ChannelTelegramChat() {
       return null
     }
 
-    return computeContextWindowUsage(selectedSession.latestAssistantUsage, contextWindow)
+    return computeContextWindowUsage(
+      { inputTokens: selectedSession.contextUsage.tokens },
+      contextWindow
+    )
   }, [
-    selectedSession?.latestAssistantUsage,
+    selectedSession?.contextUsage,
     selectedSession?.latestModelId,
     selectedSession?.latestModelProvider
   ])
@@ -389,7 +392,13 @@ export function ChannelTelegramChat() {
                     className="size-5"
                     contextWindow={selectedSessionUsageView.limitTokens}
                     interactive={false}
-                    usage={selectedSession.latestAssistantUsage}
+                    usage={
+                      selectedSession.contextUsage
+                        ? ({
+                            inputTokens: selectedSession.contextUsage.tokens
+                          } as LanguageModelUsage)
+                        : undefined
+                    }
                   />
                   <span className="text-xs font-medium tabular-nums">
                     {selectedSessionPercentText}%
@@ -399,7 +408,11 @@ export function ChannelTelegramChat() {
               <HoverCardContent align="end" className="w-auto p-3">
                 <ContextWindowUsageDetails
                   contextWindow={selectedSessionUsageView.limitTokens}
-                  usage={selectedSession.latestAssistantUsage}
+                  usage={
+                    selectedSession.contextUsage
+                      ? { inputTokens: selectedSession.contextUsage.tokens }
+                      : undefined
+                  }
                 />
               </HoverCardContent>
             </HoverCard>

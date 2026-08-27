@@ -41,24 +41,31 @@ const REASONING_STREAMDOWN_COMPONENTS = {
   img: () => null,
   code: ReasoningPlainTextCode
 } satisfies NonNullable<ComponentProps<typeof Streamdown>["components"]>
+const REASONING_STREAMDOWN_CONTROLS = { table: false } as const
+const REASONING_STREAMDOWN_LINK_SAFETY = { enabled: false } as const
 
 export type ReasoningPartContentProps = ComponentProps<"div"> & {
   children: string
+  streaming?: boolean
 }
 
 export const ReasoningPartContent = memo(
-  ({ className, children, ...props }: ReasoningPartContentProps) => (
-    <div className={cn("text-muted-foreground pr-4 text-xs", className)} {...props}>
-      <Streamdown
-        controls={{ table: false }}
-        linkSafety={{ enabled: false }}
-        className="streamdown-thinking-process space-y-1"
-        components={REASONING_STREAMDOWN_COMPONENTS}
-      >
-        {children}
-      </Streamdown>
-    </div>
-  )
+  ({ className, children, streaming = false, ...props }: ReasoningPartContentProps) => {
+    return (
+      <div className={cn("text-muted-foreground pr-4 text-xs", className)} {...props}>
+        <Streamdown
+          controls={REASONING_STREAMDOWN_CONTROLS}
+          linkSafety={REASONING_STREAMDOWN_LINK_SAFETY}
+          className="streamdown-thinking-process space-y-1"
+          components={REASONING_STREAMDOWN_COMPONENTS}
+          isAnimating={streaming}
+          mode={streaming ? "streaming" : "static"}
+        >
+          {children}
+        </Streamdown>
+      </div>
+    )
+  }
 )
 
 ReasoningPlainTextCode.displayName = "ReasoningPlainTextCode"

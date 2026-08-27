@@ -390,7 +390,9 @@ const ReasoningActivityRow = memo(
               "text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in"
             )}
           >
-            <ReasoningPartContent className="pr-0">{content}</ReasoningPartContent>
+            <ReasoningPartContent className="pr-0" streaming={isStreaming}>
+              {content}
+            </ReasoningPartContent>
           </CollapsibleContent>
         ) : null}
       </Collapsible>

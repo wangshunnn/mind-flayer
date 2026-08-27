@@ -285,7 +285,22 @@ export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProp
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown> & {
   localImageProxyOrigin?: string
+  streaming?: boolean
 }
+
+const MESSAGE_STREAMDOWN_CONTROLS = {
+  table: true,
+  code: true,
+  mermaid: {
+    download: true,
+    copy: true,
+    fullscreen: false,
+    panZoom: true
+  }
+} as const
+const MESSAGE_STREAMDOWN_LINK_SAFETY = { enabled: false } as const
+const MESSAGE_STREAMDOWN_PLUGINS = { math }
+const MESSAGE_STREAMDOWN_REMARK_PLUGINS = Object.values(defaultRemarkPlugins)
 
 export const MessageResponse = memo(
   ({
@@ -293,13 +308,19 @@ export const MessageResponse = memo(
     children,
     components: componentsProp,
     localImageProxyOrigin,
+    streaming = false,
     ...props
   }: MessageResponseProps) => {
-    const localImageCacheBustKey = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-    const normalizedChildren =
-      typeof children === "string" && localImageProxyOrigin
-        ? normalizeLocalImageMarkdown(children)
-        : children
+    const [localImageCacheBustKey] = useState(
+      () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    )
+    const normalizedChildren = useMemo(
+      () =>
+        typeof children === "string" && localImageProxyOrigin
+          ? normalizeLocalImageMarkdown(children)
+          : children,
+      [children, localImageProxyOrigin]
+    )
 
     const components = useMemo(
       () =>
@@ -310,9 +331,13 @@ export const MessageResponse = memo(
         ),
       [componentsProp, localImageProxyOrigin, localImageCacheBustKey]
     )
-    const remarkPlugins = useMemo(
+    const rewriteLocalImagePlugin = useMemo(
       () => createRewriteLocalImageRemarkPlugin(localImageProxyOrigin, localImageCacheBustKey),
       [localImageProxyOrigin, localImageCacheBustKey]
+    )
+    const remarkPlugins = useMemo(
+      () => [...MESSAGE_STREAMDOWN_REMARK_PLUGINS, rewriteLocalImagePlugin],
+      [rewriteLocalImagePlugin]
     )
 
     return (
@@ -323,33 +348,20 @@ export const MessageResponse = memo(
           "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
           className
         )}
-        plugins={{ math }}
-        linkSafety={{ enabled: false }}
-        controls={{
-          table: true,
-          code: true,
-          mermaid: {
-            download: true,
-            copy: true,
-            fullscreen: false,
-            panZoom: true
-          }
-        }}
+        plugins={MESSAGE_STREAMDOWN_PLUGINS}
+        linkSafety={MESSAGE_STREAMDOWN_LINK_SAFETY}
+        controls={MESSAGE_STREAMDOWN_CONTROLS}
         components={components}
-        remarkPlugins={[...Object.values(defaultRemarkPlugins), remarkPlugins]}
+        isAnimating={streaming}
+        mode={streaming ? "streaming" : "static"}
+        remarkPlugins={remarkPlugins}
         rehypePlugins={streamdownRehypePluginsWithLocalImageSrc}
         {...props}
       >
         {normalizedChildren}
       </Streamdown>
     )
-  },
-  (prevProps, nextProps) =>
-    prevProps.children === nextProps.children &&
-    prevProps.localImageProxyOrigin === nextProps.localImageProxyOrigin &&
-    prevProps.components === nextProps.components &&
-    prevProps.remarkPlugins === nextProps.remarkPlugins &&
-    prevProps.rehypePlugins === nextProps.rehypePlugins
+  }
 )
 
 MessageResponse.displayName = "MessageResponse"

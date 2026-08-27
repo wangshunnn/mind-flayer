@@ -140,7 +140,7 @@ const ChatMessageSeat = memo(function ChatMessageSeat({
               if (segment.type === "text") {
                 return (
                   <MessageContent key={`text-${message.id}-${segment.startPartIndex}`}>
-                    <MessageResponse localImageProxyOrigin={sidecarOrigin}>
+                    <MessageResponse localImageProxyOrigin={sidecarOrigin} streaming={isStreaming}>
                       {segment.text}
                     </MessageResponse>
                   </MessageContent>

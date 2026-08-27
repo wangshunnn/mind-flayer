@@ -6,6 +6,7 @@ import type {
 } from "ai"
 import { isReasoningUIPart, isTextUIPart, isToolUIPart } from "ai"
 import { CircleIcon } from "lucide-react"
+import type { CSSProperties } from "react"
 import { memo, useCallback, useMemo } from "react"
 import {
   AssistantActivityTimeline,
@@ -66,6 +67,12 @@ interface ChatMessageSeatProps extends Omit<ChatTranscriptProps, "store"> {
 const noop = () => {
   // Message editing is not implemented yet.
 }
+
+const SETTLED_MESSAGE_STYLE = {
+  contentVisibility: "auto",
+  containIntrinsicSize: "auto 160px"
+} satisfies CSSProperties
+const STREAMING_MESSAGE_STYLE = { contentVisibility: "visible" } satisfies CSSProperties
 
 const ChatMessageSeat = memo(function ChatMessageSeat({
   store,
@@ -130,7 +137,11 @@ const ChatMessageSeat = memo(function ChatMessageSeat({
   return (
     <MessageBranch defaultBranch={0}>
       <MessageBranchContent>
-        <Message from={message.role} ref={getMessageNodeRef(message.id, message.role)}>
+        <Message
+          from={message.role}
+          ref={getMessageNodeRef(message.id, message.role)}
+          style={isStreaming ? STREAMING_MESSAGE_STYLE : SETTLED_MESSAGE_STYLE}
+        >
           {isUserMessage ? (
             <MessageContent>
               <div className="whitespace-pre-wrap wrap-break-word">{messageText}</div>

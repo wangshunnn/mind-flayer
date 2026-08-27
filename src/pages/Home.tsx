@@ -569,6 +569,7 @@ export default function Page() {
               saveChatAllMessages={saveChatAllMessages}
               updateChatTitle={updateChatTitle}
               draftStore={draftStoreRef.current}
+              desktopChatPaneVisible={activePane === "desktop-chat"}
               isDesktopChatPaneActive={isDesktopChatPaneActive}
               onRequestActivateChat={handleRequestActivateChat}
               onChatUnread={handleChatUnread}

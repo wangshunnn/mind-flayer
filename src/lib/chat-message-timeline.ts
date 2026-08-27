@@ -6,6 +6,22 @@ interface ActiveTimelineAnchorIndexOptions {
   viewportHeight?: number
 }
 
+function lastIndexAtOrBefore(offsets: number[], target: number): number {
+  let low = 0
+  let high = offsets.length
+
+  while (low < high) {
+    const middle = low + Math.floor((high - low) / 2)
+    if (offsets[middle] <= target) {
+      low = middle + 1
+    } else {
+      high = middle
+    }
+  }
+
+  return low - 1
+}
+
 export function getActiveTimelineAnchorIndex(
   anchorOffsets: number[],
   scrollTop: number,
@@ -21,16 +37,7 @@ export function getActiveTimelineAnchorIndex(
     viewportHeight
   } = options
   const targetTop = scrollTop + tolerance
-  let activeIndex = -1
-
-  for (let index = 0; index < anchorOffsets.length; index += 1) {
-    if (anchorOffsets[index] <= targetTop) {
-      activeIndex = index
-      continue
-    }
-
-    break
-  }
+  const activeIndex = lastIndexAtOrBefore(anchorOffsets, targetTop)
 
   if (viewportHeight === undefined || maxScrollTop === undefined) {
     return activeIndex
@@ -42,16 +49,7 @@ export function getActiveTimelineAnchorIndex(
   }
 
   const viewportBottom = scrollTop + viewportHeight - tolerance
-  let lastVisibleIndex = -1
-
-  for (let index = 0; index < anchorOffsets.length; index += 1) {
-    if (anchorOffsets[index] <= viewportBottom) {
-      lastVisibleIndex = index
-      continue
-    }
-
-    break
-  }
+  const lastVisibleIndex = lastIndexAtOrBefore(anchorOffsets, viewportBottom)
 
   if (lastVisibleIndex > activeIndex) {
     return lastVisibleIndex

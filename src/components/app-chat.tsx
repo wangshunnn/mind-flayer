@@ -100,6 +100,7 @@ interface AppChatProps {
   chats: StoredChat[]
   newChatToken: string | null
   draftStore: Map<string, string>
+  desktopChatPaneVisible: boolean
   isDesktopChatPaneActive?: () => boolean
   createChat: (title?: string, options?: { activate?: boolean }) => Promise<ChatId>
   loadMessages: (chatId: ChatId) => Promise<UIMessage[]>
@@ -194,6 +195,7 @@ const AppChatInner = ({
   chats,
   newChatToken,
   draftStore,
+  desktopChatPaneVisible,
   isDesktopChatPaneActive,
   createChat,
   loadMessages,
@@ -265,6 +267,9 @@ const AppChatInner = ({
   const pendingPinTimeoutRef = useRef<number | null>(null)
   const recalcFrameRef = useRef<number | null>(null)
   const timelineItemRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const timelineAnchorOffsetsRef = useRef<number[]>([])
+  const timelineGeometryDirtyRef = useRef(true)
+  const timelineScrollFrameRef = useRef<number | null>(null)
   const [activeTimelineIndex, setActiveTimelineIndex] = useState(-1)
 
   const sidecarOrigin = useMemo(() => {
@@ -628,6 +633,7 @@ const AppChatInner = ({
       options?: { hydrated?: boolean; initialMessages?: UIMessage[] }
     ): SessionRuntime => {
       const renderStore = new ChatRenderStore()
+      renderStore.setVisible(desktopChatPaneVisible && activeChatId === chatId)
       const requestHeaders = () => ({
         "X-Model-Provider": selectedModelRef.current?.provider ?? "",
         "X-Model-Provider-Label": selectedModelRef.current?.providerLabel ?? "",
@@ -962,6 +968,8 @@ const AppChatInner = ({
       onChatUnread,
       onChatReplyingChange,
       isDesktopChatPaneActive,
+      desktopChatPaneVisible,
+      activeChatId,
       sidecarApi,
       reasoningEnabledRef,
       useWebSearchRef,
@@ -1151,6 +1159,10 @@ const AppChatInner = ({
         cancelAnimationFrame(recalcFrameRef.current)
         recalcFrameRef.current = null
       }
+      if (timelineScrollFrameRef.current !== null) {
+        cancelAnimationFrame(timelineScrollFrameRef.current)
+        timelineScrollFrameRef.current = null
+      }
       for (const runtime of sessionRuntimesRef.current.values()) {
         runtime.cleanup?.()
       }
@@ -1213,6 +1225,13 @@ const AppChatInner = ({
   }, [chats])
 
   const runtimeForActiveChat = activeChatId ? ensureSessionRuntime(activeChatId) : undefined
+
+  useEffect(() => {
+    draftRenderStoreRef.current?.setVisible(desktopChatPaneVisible && !activeChatId)
+    for (const [chatId, runtime] of sessionRuntimesRef.current) {
+      runtime.renderStore.setVisible(desktopChatPaneVisible && chatId === activeChatId)
+    }
+  }, [activeChatId, desktopChatPaneVisible])
 
   useEffect(() => {
     if (!activeChatId || !runtimeForActiveChat) {
@@ -1359,6 +1378,7 @@ const AppChatInner = ({
       })
       contentObserver = new ResizeObserver(() => {
         scheduleRecalculateTopPinSpacer()
+        timelineGeometryDirtyRef.current = true
       })
       scrollObserver.observe(scrollElement)
       contentObserver.observe(contentElement)
@@ -1544,6 +1564,20 @@ const AppChatInner = ({
     [orderedMessages]
   )
 
+  const recalculateTimelineAnchorOffsets = useCallback((): number[] | null => {
+    const anchorOffsets: number[] = []
+    for (const anchor of timelineAnchors) {
+      const messageNode = messageNodeByIdRef.current.get(anchor.id)
+      if (!messageNode || !messageNode.isConnected) {
+        return null
+      }
+      anchorOffsets.push(messageNode.offsetTop)
+    }
+    timelineAnchorOffsetsRef.current = anchorOffsets
+    timelineGeometryDirtyRef.current = false
+    return anchorOffsets
+  }, [timelineAnchors])
+
   const syncActiveTimelineIndex = useCallback(() => {
     if (timelineAnchors.length === 0) {
       startTransition(() => {
@@ -1557,27 +1591,44 @@ const AppChatInner = ({
       return
     }
 
-    const anchorOffsets: number[] = []
-    for (const anchor of timelineAnchors) {
-      const messageNode = messageNodeByIdRef.current.get(anchor.id)
-      if (!messageNode || !messageNode.isConnected) {
+    const maxScrollTop = Math.max(0, scrollElement.scrollHeight - scrollElement.clientHeight)
+    const isAtBottom =
+      maxScrollTop <= CHAT_MESSAGE_TIMELINE_SCROLL_TOLERANCE ||
+      scrollElement.scrollTop >= maxScrollTop - CHAT_MESSAGE_TIMELINE_SCROLL_TOLERANCE
+    let nextActiveIndex = timelineAnchors.length - 1
+
+    if (!isAtBottom) {
+      const anchorOffsets =
+        timelineGeometryDirtyRef.current ||
+        timelineAnchorOffsetsRef.current.length !== timelineAnchors.length
+          ? recalculateTimelineAnchorOffsets()
+          : timelineAnchorOffsetsRef.current
+      if (!anchorOffsets) {
         return
       }
-      anchorOffsets.push(messageNode.offsetTop)
+      nextActiveIndex = getActiveTimelineAnchorIndex(anchorOffsets, scrollElement.scrollTop, {
+        maxScrollTop,
+        tolerance: CHAT_MESSAGE_TIMELINE_SCROLL_TOLERANCE,
+        viewportHeight: scrollElement.clientHeight
+      })
     }
-
-    const nextActiveIndex = getActiveTimelineAnchorIndex(anchorOffsets, scrollElement.scrollTop, {
-      maxScrollTop: Math.max(0, scrollElement.scrollHeight - scrollElement.clientHeight),
-      tolerance: CHAT_MESSAGE_TIMELINE_SCROLL_TOLERANCE,
-      viewportHeight: scrollElement.clientHeight
-    })
 
     startTransition(() => {
       setActiveTimelineIndex(currentIndex =>
         currentIndex === nextActiveIndex ? currentIndex : nextActiveIndex
       )
     })
-  }, [timelineAnchors])
+  }, [recalculateTimelineAnchorOffsets, timelineAnchors.length])
+
+  const scheduleActiveTimelineSync = useCallback(() => {
+    if (timelineScrollFrameRef.current !== null) {
+      return
+    }
+    timelineScrollFrameRef.current = requestAnimationFrame(() => {
+      timelineScrollFrameRef.current = null
+      syncActiveTimelineIndex()
+    })
+  }, [syncActiveTimelineIndex])
 
   const scrollToTimelineIndex = useCallback(
     (index: number) => {
@@ -1678,8 +1729,9 @@ const AppChatInner = ({
 
   useLayoutEffect(() => {
     timelineItemRefs.current.length = timelineAnchors.length
+    timelineGeometryDirtyRef.current = true
     syncActiveTimelineIndex()
-  }, [syncActiveTimelineIndex, timelineAnchors.length])
+  }, [syncActiveTimelineIndex, timelineAnchors])
 
   useEffect(() => {
     const scrollElement = conversationContextRef.current?.scrollRef.current
@@ -1687,17 +1739,24 @@ const AppChatInner = ({
       return
     }
 
-    const handleScroll = () => {
-      syncActiveTimelineIndex()
+    const handleResize = () => {
+      timelineGeometryDirtyRef.current = true
+      scheduleActiveTimelineSync()
     }
 
-    scrollElement.addEventListener("scroll", handleScroll, { passive: true })
-    handleScroll()
+    scrollElement.addEventListener("scroll", scheduleActiveTimelineSync, { passive: true })
+    window.addEventListener("resize", handleResize)
+    scheduleActiveTimelineSync()
 
     return () => {
-      scrollElement.removeEventListener("scroll", handleScroll)
+      scrollElement.removeEventListener("scroll", scheduleActiveTimelineSync)
+      window.removeEventListener("resize", handleResize)
+      if (timelineScrollFrameRef.current !== null) {
+        cancelAnimationFrame(timelineScrollFrameRef.current)
+        timelineScrollFrameRef.current = null
+      }
     }
-  }, [syncActiveTimelineIndex])
+  }, [scheduleActiveTimelineSync])
 
   return (
     <div className="flex h-full flex-col">
@@ -1883,6 +1942,7 @@ const AppChat = ({
   chats,
   newChatToken,
   draftStore,
+  desktopChatPaneVisible,
   isDesktopChatPaneActive,
   createChat,
   loadMessages,
@@ -1944,6 +2004,7 @@ const AppChat = ({
       chats={chats}
       newChatToken={newChatToken}
       draftStore={draftStore}
+      desktopChatPaneVisible={desktopChatPaneVisible}
       isDesktopChatPaneActive={isDesktopChatPaneActive}
       createChat={createChat}
       loadMessages={loadMessages}

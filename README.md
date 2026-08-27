@@ -46,6 +46,12 @@
 </p>
 
 <p align="center">
+  <img height="500" alt="Context Window and Tool Execution Screenshot" src="preview/context-window.png" />
+  <br>
+  <em>Context Window and Tool Execution</em>
+</p>
+
+<p align="center">
   <img height="500" alt="App Settings Screenshot" src="preview/img-3.png" />
   <br>
   <em>App Settings</em>

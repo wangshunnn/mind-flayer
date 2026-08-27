@@ -46,6 +46,12 @@
 </p>
 
 <p align="center">
+  <img height="500" alt="上下文窗口与工具执行截图" src="preview/context-window.png" />
+  <br>
+  <em>上下文窗口与工具执行</em>
+</p>
+
+<p align="center">
   <img height="500" alt="应用设置截图" src="preview/img-3.png" />
   <br>
   <em>应用设置</em>

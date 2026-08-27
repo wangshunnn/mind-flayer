@@ -37,4 +37,10 @@ describe("getActiveTimelineAnchorIndex", () => {
       })
     ).toBe(-1)
   })
+
+  it("finds the latest matching anchor in a large timeline with duplicate offsets", () => {
+    const offsets = Array.from({ length: 10_000 }, (_, index) => Math.floor(index / 2) * 24)
+
+    expect(getActiveTimelineAnchorIndex(offsets, 60_000, { tolerance: 0 })).toBe(5_001)
+  })
 })

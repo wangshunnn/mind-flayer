@@ -138,6 +138,8 @@ const ChatMessageSeat = memo(function ChatMessageSeat({
     <MessageBranch defaultBranch={0}>
       <MessageBranchContent>
         <Message
+          data-message-id={message.id}
+          data-streaming={isStreaming || undefined}
           from={message.role}
           ref={getMessageNodeRef(message.id, message.role)}
           style={isStreaming ? STREAMING_MESSAGE_STYLE : SETTLED_MESSAGE_STYLE}

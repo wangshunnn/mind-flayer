@@ -113,4 +113,33 @@ describe("ChatRenderStore", () => {
     expect(removedListener).toHaveBeenCalledOnce()
     expect(store.order().getSnapshot()).toEqual([])
   })
+
+  it("keeps a 500-turn history quiet during a 120-chunk stream", () => {
+    const { clock, flushFrame, pendingFrames } = createClock()
+    const store = new ChatRenderStore(clock)
+    const history = Array.from({ length: 1_000 }, (_, index) =>
+      message(`history-${index}`, `message ${index}`, index % 2 === 0 ? "user" : "assistant")
+    )
+    const activeId = "active"
+    const orderListener = vi.fn()
+    const firstHistoryListener = vi.fn()
+    const activeListener = vi.fn()
+    store.publishMessagesNow([...history, message(activeId, "chunk 0")])
+    store.order().subscribe(orderListener)
+    store.message(history[0]?.id ?? "missing").subscribe(firstHistoryListener)
+    store.message(activeId).subscribe(activeListener)
+
+    for (let index = 1; index <= 120; index += 1) {
+      store.enqueueMessages([...history, message(activeId, `chunk ${index}`)])
+    }
+
+    expect(pendingFrames()).toBe(1)
+    flushFrame()
+    expect(orderListener).not.toHaveBeenCalled()
+    expect(firstHistoryListener).not.toHaveBeenCalled()
+    expect(activeListener).toHaveBeenCalledOnce()
+    expect(store.message(activeId).getSnapshot()?.parts).toEqual([
+      { type: "text", text: "chunk 120" }
+    ])
+  })
 })

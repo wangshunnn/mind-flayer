@@ -25,6 +25,10 @@ class ValueChannel<T> implements ObservableValue<T> {
       return
     }
     this.value = nextValue
+    this.notify()
+  }
+
+  notify(): void {
     for (const listener of this.listeners) {
       listener()
     }
@@ -137,6 +141,13 @@ export class ChatRenderStore {
 
   latest(): readonly UIMessage[] {
     return this.latestMessages
+  }
+
+  notifyMessage(messageId: string): void {
+    if (this.disposed || !this.publishedMessages.has(messageId)) {
+      return
+    }
+    this.messageChannels.get(messageId)?.notify()
   }
 
   dispose(): void {

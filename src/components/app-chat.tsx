@@ -1,16 +1,16 @@
-import { Chat as AiChat, useChat } from "@ai-sdk/react"
+import { Chat as AiChat } from "@ai-sdk/react"
 import {
+  type ChatAddToolApproveResponseFunction,
   DefaultChatTransport,
   type FileUIPart,
   isReasoningUIPart,
   isTextUIPart,
   isToolUIPart,
-  type LanguageModelUsage,
   lastAssistantMessageIsCompleteWithApprovalResponses,
   type TextUIPart,
   type UIMessage
 } from "ai"
-import { BrainIcon, CircleIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
+import { BrainIcon, GlobeIcon, SparklesIcon, ZapIcon } from "lucide-react"
 import { nanoid } from "nanoid"
 import {
   startTransition,
@@ -24,28 +24,12 @@ import {
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import type { StickToBottomContext } from "use-stick-to-bottom"
-import {
-  AssistantActivityTimeline,
-  AssistantFallbackParts,
-  buildAssistantMessageSegments
-} from "@/components/ai-elements/assistant-activity"
 import { ContextWindowUsageIndicator } from "@/components/ai-elements/context-window-usage-indicator"
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton
 } from "@/components/ai-elements/conversation"
-import {
-  Message,
-  MessageBranch,
-  MessageBranchContent,
-  MessageContent,
-  MessageResponse
-} from "@/components/ai-elements/message"
-import {
-  AssistantMessageActionsBar,
-  UserMessageActionsBar
-} from "@/components/ai-elements/message-actions-bar"
 import {
   PromptInput,
   PromptInputActionAddAttachments,
@@ -68,6 +52,7 @@ import {
   ChatMessageTimeline,
   type ChatMessageTimelineAnchor
 } from "@/components/ChatMessageTimeline"
+import { ChatTranscript } from "@/components/chat-transcript"
 import { NewChatEmptyState } from "@/components/new-chat-empty-state"
 import { SelectModel } from "@/components/select-model"
 import { ToolButton } from "@/components/tool-button"
@@ -75,6 +60,7 @@ import { TopFloatingHeader } from "@/components/top-floating-header"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useAvailableModels } from "@/hooks/use-available-models"
 import { useLatest } from "@/hooks/use-latest"
+import { useObservableValue } from "@/hooks/use-observable-value"
 import { useSetting } from "@/hooks/use-settings-store"
 import {
   commitChatContext,
@@ -88,13 +74,13 @@ import {
   CHAT_MESSAGE_TIMELINE_SCROLL_TOLERANCE,
   getActiveTimelineAnchorIndex
 } from "@/lib/chat-message-timeline"
+import { ChatRenderStore } from "@/lib/chat-render-store"
 import { generateChatTitle } from "@/lib/chat-utils"
 import { useToastConstants, useToolButtonConstants, useTooltipConstants } from "@/lib/constants"
 import {
   getContextUsageForModel,
   resolveConversationContextUsage
 } from "@/lib/context-window-usage"
-import { findModelPricing } from "@/lib/provider-constants"
 import {
   mergeSessionUsage,
   type SessionUsageRecords,
@@ -106,7 +92,7 @@ import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import type { ChatId, MessageId, Chat as StoredChat } from "@/types/chat"
 import type { ReasoningEffort } from "@/types/settings"
-import type { ContextState, ContextUsage, ConversationCheckpoint } from "../../shared/context"
+import type { ContextState, ConversationCheckpoint } from "../../shared/context"
 import { contextStateSchema, emptyContextState } from "../../shared/context"
 
 interface AppChatProps {
@@ -139,21 +125,6 @@ type SaveMessageOptions = {
   isNewChat?: boolean
 }
 
-type AssistantMessageMetadata = {
-  createdAt?: number
-  firstTokenAt?: number
-  lastTokenAt?: number
-  contextUsage?: ContextUsage
-  totalUsage?: LanguageModelUsage
-  modelProvider?: string
-  modelProviderLabel?: string
-  modelId?: string
-  modelLabel?: string
-  thinkingDuration?: number
-  reasoningDurations?: Record<string, number>
-  toolDurations?: Record<string, number>
-}
-
 type PendingPin = {
   chatId: ChatId
   messageId: MessageId
@@ -177,6 +148,7 @@ interface SessionRuntime {
   compactionAbort?: AbortController
   requestHeaders: () => Record<string, string>
   chat: AiChat<UIMessage>
+  renderStore: ChatRenderStore
   hydrated: boolean
   isHydrating: boolean
   thinkingDurations: Map<MessageId, number>
@@ -266,7 +238,10 @@ const AppChatInner = ({
   const pendingChatByTokenRef = useRef<Map<string, Promise<ChatId>>>(new Map())
   const draftByKeyRef = useRef<Map<string, string>>(draftStore)
   const hydrationRequestSeqRef = useRef<Map<ChatId, number>>(new Map())
-  const draftChatRef = useRef(new AiChat<UIMessage>({ id: "draft-chat-view", messages: [] }))
+  const draftRenderStoreRef = useRef<ChatRenderStore | null>(null)
+  if (!draftRenderStoreRef.current) {
+    draftRenderStoreRef.current = new ChatRenderStore()
+  }
   const messageNodeByIdRef = useRef<Map<MessageId, HTMLDivElement>>(new Map())
   const messageNodeRefCallbacksRef = useRef<Map<MessageId, (node: HTMLDivElement | null) => void>>(
     new Map()
@@ -652,6 +627,7 @@ const AppChatInner = ({
       chatId: ChatId,
       options?: { hydrated?: boolean; initialMessages?: UIMessage[] }
     ): SessionRuntime => {
+      const renderStore = new ChatRenderStore()
       const requestHeaders = () => ({
         "X-Model-Provider": selectedModelRef.current?.provider ?? "",
         "X-Model-Provider-Label": selectedModelRef.current?.providerLabel ?? "",
@@ -672,6 +648,7 @@ const AppChatInner = ({
         thinkingDurations: new Map<MessageId, number>(),
         reasoningDurations: new Map<MessageId, Record<string, number>>(),
         toolDurations: new Map<MessageId, Record<string, number>>(),
+        renderStore,
         chat: new AiChat<UIMessage>({
           id: chatId,
           messages: options?.initialMessages ?? [],
@@ -733,6 +710,8 @@ const AppChatInner = ({
                   const lastMessage = messages.at(-1)
                   if (lastMessage?.role === "assistant") {
                     finishReasoningDurationsForMessage(lastMessage.id)
+                    renderStore.publishMessagesNow(messages)
+                    renderStore.notifyMessage(lastMessage.id)
                   }
 
                   await saveAllMessagesAsync(chatId, messages, { isAbort, isDisconnect, isError })
@@ -830,6 +809,7 @@ const AppChatInner = ({
       }
 
       const unsubscribeStatus = runtime.chat["~registerStatusCallback"](() => {
+        renderStore.publishStatus(runtime.chat.status)
         const nextIsReplying =
           runtime.chat.status === "submitted" || runtime.chat.status === "streaming"
         if (nextIsReplying === prevIsReplying) {
@@ -841,6 +821,7 @@ const AppChatInner = ({
 
       const unsubscribeMessages = runtime.chat["~registerMessagesCallback"](() => {
         const msgs = runtime.chat.messages
+        renderStore.enqueueMessages(msgs)
         const chatStatus = runtime.chat.status
         const lastMsg = msgs[msgs.length - 1]
 
@@ -950,10 +931,20 @@ const AppChatInner = ({
         }
       })
 
+      const unsubscribeError = runtime.chat["~registerErrorCallback"](() => {
+        renderStore.publishError(runtime.chat.error)
+      })
+
+      renderStore.publishMessagesNow(runtime.chat.messages)
+      renderStore.publishStatus(runtime.chat.status)
+      renderStore.publishError(runtime.chat.error)
+
       runtime.cleanup = () => {
         runtime.compactionAbort?.abort()
         unsubscribeMessages()
         unsubscribeStatus()
+        unsubscribeError()
+        renderStore.dispose()
         prevIsReplying = false
         thinkingStartTimes.clear()
         reasoningStartTimes.clear()
@@ -991,6 +982,7 @@ const AppChatInner = ({
         }
         if (options?.initialMessages && existing.chat.messages.length === 0) {
           existing.chat.messages = options.initialMessages
+          existing.renderStore.publishMessagesNow(existing.chat.messages)
         }
         return existing
       }
@@ -1031,6 +1023,7 @@ const AppChatInner = ({
         ) {
           latestRuntime.chat.messages = loadedMessages
         }
+        latestRuntime.renderStore.publishMessagesNow(latestRuntime.chat.messages)
 
         recordUsageMessages(chatId, usageMessages)
         latestRuntime.contextState = contextState
@@ -1097,6 +1090,7 @@ const AppChatInner = ({
           metadata: { createdAt: Date.now() }
         }
       ])
+      runtime.renderStore.publishMessagesNow(runtime.chat.messages)
 
       await saveAllMessagesAsync(runtime.chatId, runtime.chat.messages, { isNewChat })
       onChatReplyingChange?.(runtime.chatId, true)
@@ -1160,6 +1154,7 @@ const AppChatInner = ({
       for (const runtime of sessionRuntimesRef.current.values()) {
         runtime.cleanup?.()
       }
+      draftRenderStoreRef.current?.dispose()
     },
     [clearPendingPin, clearPinSession]
   )
@@ -1226,18 +1221,27 @@ const AppChatInner = ({
     void hydrateSessionRuntime(activeChatId, runtimeForActiveChat)
   }, [activeChatId, hydrateSessionRuntime, runtimeForActiveChat])
 
-  const { status, messages, error, clearError, addToolApprovalResponse, regenerate, stop } =
-    useChat({ chat: runtimeForActiveChat?.chat ?? draftChatRef.current })
+  const activeRenderStore = runtimeForActiveChat?.renderStore ?? draftRenderStoreRef.current
+  const status = useObservableValue(activeRenderStore.status())
+  const error = useObservableValue(activeRenderStore.error())
+  const messageOrder = useObservableValue(activeRenderStore.order())
+  const orderedMessages = useMemo(
+    () =>
+      messageOrder.flatMap(messageId => {
+        const message = activeRenderStore.message(messageId).getSnapshot()
+        return message ? [message] : []
+      }),
+    [activeRenderStore, messageOrder]
+  )
 
   const displayedContextState = activeChatId ? contextStates[activeChatId] : undefined
-  const displayedContextUsage = useMemo(
-    () =>
-      getContextUsageForModel(
-        resolveConversationContextUsage(messages, displayedContextState),
-        selectedModel?.provider,
-        selectedModel?.api_id
-      ),
-    [messages, displayedContextState, selectedModel?.provider, selectedModel?.api_id]
+  const displayedContextUsage = getContextUsageForModel(
+    resolveConversationContextUsage(
+      runtimeForActiveChat?.chat.messages ?? [],
+      displayedContextState
+    ),
+    selectedModel?.provider,
+    selectedModel?.api_id
   )
   const displayedUsageRecords = activeChatId ? sessionUsageRecords[activeChatId] : undefined
   const sessionUsage = useMemo(
@@ -1312,7 +1316,6 @@ const AppChatInner = ({
     runtimeForActiveChat,
     displayedContextUsage,
     displayedContextState,
-    messages,
     status,
     inspectionHeadersKey,
     contextCompacting,
@@ -1378,9 +1381,9 @@ const AppChatInner = ({
   useEffect(() => {
     // Errors are shown by the toast and retained as metadata, never forged as model text.
     if (error) {
-      clearError()
+      runtimeForActiveChat?.chat.clearError()
     }
-  }, [clearError, error])
+  }, [error, runtimeForActiveChat])
 
   useEffect(() => {
     const el = inputContainerRef.current
@@ -1492,11 +1495,34 @@ const AppChatInner = ({
     ]
   )
 
-  const handleStop = () => {
+  const handleStop = useCallback(() => {
     if (status === "streaming") {
-      void stop()
+      void runtimeForActiveChat?.chat.stop()
     }
-  }
+  }, [runtimeForActiveChat, status])
+
+  const handleToolApprovalResponse = useCallback<ChatAddToolApproveResponseFunction>(
+    async response => {
+      const runtime = activeChatIdRef.current
+        ? sessionRuntimesRef.current.get(activeChatIdRef.current)
+        : undefined
+      if (!runtime || runtime.compactionAbort) {
+        return
+      }
+      await runtime.chat.addToolApprovalResponse(response)
+    },
+    []
+  )
+
+  const handleRegenerate = useCallback((messageId: MessageId) => {
+    const runtime = activeChatIdRef.current
+      ? sessionRuntimesRef.current.get(activeChatIdRef.current)
+      : undefined
+    if (!runtime || runtime.compactionAbort) {
+      return
+    }
+    void runtime.chat.regenerate({ messageId })
+  }, [])
 
   const activeRuntime = runtimeForActiveChat
   const thinkingDurations = activeRuntime?.thinkingDurations
@@ -1504,7 +1530,7 @@ const AppChatInner = ({
   const toolDurations = activeRuntime?.toolDurations
   const timelineAnchors = useMemo<ChatMessageTimelineAnchor[]>(
     () =>
-      messages
+      orderedMessages
         .filter(message => message.role === "user")
         .map(message => ({
           id: message.id,
@@ -1515,7 +1541,7 @@ const AppChatInner = ({
               .join("")
           )
         })),
-    [messages]
+    [orderedMessages]
   )
 
   const syncActiveTimelineIndex = useCallback(() => {
@@ -1648,12 +1674,7 @@ const AppChatInner = ({
     ? false
     : !input.trim() || status !== "ready" || Boolean(activeChatId && compactingChats[activeChatId])
   const submitTooltip = isStreaming ? tooltipConstants.stop : tooltipConstants.submit
-  const showIntroEmptyState = !activeChatId && messages.length === 0 && status === "ready"
-
-  const lastMessage = messages[messages.length - 1]
-  const isAwaitingAssistantReply =
-    (status === "submitted" && lastMessage?.role === "user") ||
-    ((status === "streaming" || status === "error") && lastMessage?.parts.length === 0)
+  const showIntroEmptyState = !activeChatId && messageOrder.length === 0 && status === "ready"
 
   useLayoutEffect(() => {
     timelineItemRefs.current.length = timelineAnchors.length
@@ -1695,143 +1716,16 @@ const AppChatInner = ({
             {showIntroEmptyState ? (
               <NewChatEmptyState />
             ) : (
-              messages.map((message, index) => {
-                const messageText = message.parts
-                  .filter(isTextUIPart)
-                  .map(part => part.text)
-                  .join("")
-                const metadata = message.metadata as AssistantMessageMetadata | undefined
-                const messageModelPricing = findModelPricing(
-                  metadata?.modelProvider,
-                  metadata?.modelId
-                )
-                const isLastMessage = index === messages.length - 1
-                const isCurrentlyStreaming = status === "streaming" && isLastMessage
-                const messageToolDurations =
-                  metadata?.toolDurations ?? toolDurations?.get(message.id)
-                const messageReasoningDurations =
-                  metadata?.reasoningDurations ?? reasoningDurations?.get(message.id)
-
-                const isUserMessage = message.role === "user"
-                const isAssistantMessage = message.role === "assistant"
-                const assistantSegments = isAssistantMessage
-                  ? buildAssistantMessageSegments(message.parts)
-                  : []
-                const firstReasoningPartIndex = isAssistantMessage
-                  ? message.parts.findIndex(isReasoningUIPart)
-                  : -1
-
-                return (
-                  <MessageBranch defaultBranch={0} key={message.id}>
-                    <MessageBranchContent>
-                      <Message
-                        from={message.role}
-                        key={message.id}
-                        ref={getMessageNodeRef(message.id, message.role)}
-                      >
-                        {isUserMessage ? (
-                          <MessageContent>
-                            <div className="whitespace-pre-wrap wrap-break-word">{messageText}</div>
-                          </MessageContent>
-                        ) : (
-                          assistantSegments.map(segment => {
-                            if (segment.type === "text") {
-                              return (
-                                <MessageContent
-                                  key={`text-${message.id}-${segment.startPartIndex}`}
-                                >
-                                  <MessageResponse localImageProxyOrigin={sidecarOrigin}>
-                                    {segment.text}
-                                  </MessageResponse>
-                                </MessageContent>
-                              )
-                            }
-
-                            if (segment.type === "fallback") {
-                              return (
-                                <AssistantFallbackParts
-                                  key={`fallback-${message.id}-${segment.startPartIndex}`}
-                                  parts={segment.parts}
-                                />
-                              )
-                            }
-
-                            return (
-                              <AssistantActivityTimeline
-                                autoOpenWhileActive
-                                fallbackThinkingDurationPartIndex={
-                                  firstReasoningPartIndex >= 0 ? firstReasoningPartIndex : undefined
-                                }
-                                key={`activity-${message.id}-${segment.startPartIndex}`}
-                                onToolApprovalResponse={response => {
-                                  if (runtimeForActiveChat?.compactionAbort) {
-                                    return
-                                  }
-                                  return addToolApprovalResponse(response)
-                                }}
-                                parts={segment.parts}
-                                reasoningDurations={messageReasoningDurations}
-                                thinkingDuration={
-                                  metadata?.thinkingDuration ?? thinkingDurations?.get(message.id)
-                                }
-                                toolDurations={messageToolDurations}
-                              />
-                            )
-                          })
-                        )}
-                        {isUserMessage && (
-                          <UserMessageActionsBar
-                            messageText={messageText}
-                            createdAt={metadata?.createdAt}
-                            onEdit={() => {
-                              /** noop */
-                            }}
-                          />
-                        )}
-                        {isAssistantMessage &&
-                          !isCurrentlyStreaming &&
-                          !message.parts.some(
-                            part => isToolUIPart(part) && part.state === "approval-requested"
-                          ) && (
-                            <AssistantMessageActionsBar
-                              messageText={messageText}
-                              tokenInfo={metadata?.totalUsage}
-                              createdAt={metadata?.createdAt}
-                              firstTokenAt={metadata?.firstTokenAt}
-                              lastTokenAt={metadata?.lastTokenAt}
-                              modelProvider={metadata?.modelProvider}
-                              modelProviderLabel={metadata?.modelProviderLabel}
-                              modelId={metadata?.modelId}
-                              modelLabel={metadata?.modelLabel}
-                              modelPricing={messageModelPricing}
-                              onRefresh={() => {
-                                if (runtimeForActiveChat?.compactionAbort) {
-                                  return
-                                }
-                                void regenerate({ messageId: message.id })
-                              }}
-                              showRefresh={isLastMessage}
-                            />
-                          )}
-                      </Message>
-                    </MessageBranchContent>
-                  </MessageBranch>
-                )
-              })
-            )}
-
-            {isAwaitingAssistantReply && (
-              <MessageBranch defaultBranch={0}>
-                <MessageBranchContent>
-                  <Message from="assistant">
-                    <MessageContent>
-                      <div className="px-0.5 py-2 text-muted-foreground">
-                        <CircleIcon className="size-3 fill-current animate-pulse-scale" />
-                      </div>
-                    </MessageContent>
-                  </Message>
-                </MessageBranchContent>
-              </MessageBranch>
+              <ChatTranscript
+                store={activeRenderStore}
+                sidecarOrigin={sidecarOrigin}
+                thinkingDurations={thinkingDurations}
+                reasoningDurations={reasoningDurations}
+                toolDurations={toolDurations}
+                getMessageNodeRef={getMessageNodeRef}
+                onToolApprovalResponse={handleToolApprovalResponse}
+                onRegenerate={handleRegenerate}
+              />
             )}
 
             {!showIntroEmptyState && (

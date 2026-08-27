@@ -126,23 +126,6 @@ type SaveMessageOptions = {
   isNewChat?: boolean
 }
 
-type PendingPin = {
-  chatId: ChatId
-  messageId: MessageId
-  createdAt: number
-  retries: number
-  scrollBehavior: "instant" | "smooth"
-}
-
-type PinSessionMode = "pinning" | "released"
-
-type PinSession = {
-  chatId: ChatId
-  messageId: MessageId
-  anchorScrollTop: number
-  mode: PinSessionMode
-}
-
 interface SessionRuntime {
   chatId: ChatId
   contextState: ContextState
@@ -162,19 +145,7 @@ const getDraftKey = (chatId: ChatId | null | undefined) => (chatId ? `chat:${cha
 
 const EMPTY_SESSION_USAGE: SessionUsageRecords = new Map()
 
-const TOP_PIN_OFFSET = 0
-const EPSILON = 1
-const PENDING_TIMEOUT_MS = 500
-const MAX_PENDING_FRAMES = 30
 const TIMELINE_PREVIEW_LENGTH = 10
-// Keep send-scroll behavior aligned with use-stick-to-bottom's default spring profile.
-const SEND_SCROLL_ANIMATION = {
-  damping: 0.7,
-  stiffness: 0.05,
-  mass: 1.25
-} as const
-// Extra hold time for scrollToBottom to keep following during late layout updates.
-const RETAIN_ANIMATION_DURATION_MS = 350
 
 function getTimelinePreview(text: string): string {
   const normalizedText = text.replace(/\s+/g, " ").trim()
@@ -231,7 +202,6 @@ const AppChatInner = ({
   const reasoningEffortRef = useLatest(preferredReasoningEffort)
   const inputContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<PromptInputTextareaHandle>(null)
-  const spacerElementRef = useRef<HTMLDivElement>(null)
   const activeChatIdRef = useRef<ChatId | null>(activeChatId ?? null)
   const newChatTokenRef = useRef<string | null>(newChatToken)
   const conversationContextRef = useRef<StickToBottomContext | null>(null)
@@ -260,12 +230,6 @@ const AppChatInner = ({
     })
   }, [])
   const [compactingChats, setCompactingChats] = useState<Record<string, boolean>>({})
-  const pendingPinRef = useRef<PendingPin | null>(null)
-  const pinSessionRef = useRef<PinSession | null>(null)
-  const spacerHeightRef = useRef(0)
-  const pendingPinFrameRef = useRef<number | null>(null)
-  const pendingPinTimeoutRef = useRef<number | null>(null)
-  const recalcFrameRef = useRef<number | null>(null)
   const timelineItemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const timelineAnchorOffsetsRef = useRef<number[]>([])
   const timelineGeometryDirtyRef = useRef(true)
@@ -306,242 +270,13 @@ const AppChatInner = ({
     [t, toastConstants]
   )
 
-  const setSpacerHeight = useCallback((nextHeight: number) => {
-    const safeHeight = Math.max(0, nextHeight)
-    if (Math.abs(spacerHeightRef.current - safeHeight) <= EPSILON) {
-      return
-    }
-    spacerHeightRef.current = safeHeight
-    if (spacerElementRef.current) {
-      spacerElementRef.current.style.height = `${safeHeight}px`
+  const setUserMessageNodeRef = useCallback((messageId: MessageId, node: HTMLDivElement | null) => {
+    if (node) {
+      messageNodeByIdRef.current.set(messageId, node)
+    } else {
+      messageNodeByIdRef.current.delete(messageId)
     }
   }, [])
-
-  const clearPendingPin = useCallback(() => {
-    pendingPinRef.current = null
-    if (pendingPinFrameRef.current !== null) {
-      cancelAnimationFrame(pendingPinFrameRef.current)
-      pendingPinFrameRef.current = null
-    }
-    if (pendingPinTimeoutRef.current !== null) {
-      clearTimeout(pendingPinTimeoutRef.current)
-      pendingPinTimeoutRef.current = null
-    }
-  }, [])
-
-  const clearPinSession = useCallback(() => {
-    pinSessionRef.current = null
-    const context = conversationContextRef.current
-    if (context) {
-      context.targetScrollTop = null
-    }
-    setSpacerHeight(0)
-  }, [setSpacerHeight])
-
-  const releasePinSessionConstraint = useCallback(() => {
-    const context = conversationContextRef.current
-    if (context) {
-      context.targetScrollTop = null
-    }
-
-    const pinSession = pinSessionRef.current
-    if (!pinSession || pinSession.mode === "released") {
-      return
-    }
-
-    pinSessionRef.current = {
-      ...pinSession,
-      mode: "released"
-    }
-  }, [])
-
-  const recalculateTopPinSpacer = useCallback(() => {
-    const pinSession = pinSessionRef.current
-    if (!pinSession || pinSession.mode !== "pinning") {
-      return
-    }
-    if (activeChatIdRef.current !== pinSession.chatId) {
-      return
-    }
-
-    const context = conversationContextRef.current
-    const scrollElement = context?.scrollRef.current
-    if (!context || !scrollElement) {
-      return
-    }
-
-    const baseMaxScrollTop = Math.max(
-      0,
-      scrollElement.scrollHeight - scrollElement.clientHeight - spacerHeightRef.current
-    )
-    const nextSpacerHeight = Math.max(0, pinSession.anchorScrollTop - baseMaxScrollTop)
-
-    if (nextSpacerHeight > EPSILON) {
-      setSpacerHeight(nextSpacerHeight)
-      return
-    }
-
-    pinSessionRef.current = {
-      ...pinSession,
-      mode: "released"
-    }
-    context.targetScrollTop = null
-    setSpacerHeight(0)
-  }, [setSpacerHeight])
-
-  const scheduleRecalculateTopPinSpacer = useCallback(() => {
-    if (recalcFrameRef.current !== null) {
-      return
-    }
-
-    recalcFrameRef.current = requestAnimationFrame(() => {
-      recalcFrameRef.current = null
-      recalculateTopPinSpacer()
-    })
-  }, [recalculateTopPinSpacer])
-
-  const attemptPendingPin = useCallback(() => {
-    if (pendingPinFrameRef.current !== null) {
-      return
-    }
-
-    const pendingPin = pendingPinRef.current
-    if (!pendingPin) {
-      return
-    }
-
-    if (
-      Date.now() - pendingPin.createdAt > PENDING_TIMEOUT_MS ||
-      pendingPin.retries >= MAX_PENDING_FRAMES
-    ) {
-      clearPendingPin()
-      return
-    }
-
-    const context = conversationContextRef.current
-    const scrollElement = context?.scrollRef.current
-    const messageNode = messageNodeByIdRef.current.get(pendingPin.messageId)
-
-    if (
-      activeChatIdRef.current !== pendingPin.chatId ||
-      !context ||
-      !scrollElement ||
-      !messageNode ||
-      !messageNode.isConnected
-    ) {
-      pendingPin.retries += 1
-      pendingPinFrameRef.current = requestAnimationFrame(() => {
-        pendingPinFrameRef.current = null
-        attemptPendingPin()
-      })
-      return
-    }
-
-    pendingPin.retries += 1
-    pendingPinFrameRef.current = requestAnimationFrame(() => {
-      pendingPinFrameRef.current = null
-      pendingPinFrameRef.current = requestAnimationFrame(() => {
-        pendingPinFrameRef.current = null
-
-        const latestPendingPin = pendingPinRef.current
-        if (
-          !latestPendingPin ||
-          latestPendingPin.chatId !== pendingPin.chatId ||
-          latestPendingPin.messageId !== pendingPin.messageId
-        ) {
-          return
-        }
-
-        const latestContext = conversationContextRef.current
-        const latestScrollElement = latestContext?.scrollRef.current
-        const latestMessageNode = messageNodeByIdRef.current.get(latestPendingPin.messageId)
-
-        if (
-          activeChatIdRef.current !== latestPendingPin.chatId ||
-          !latestContext ||
-          !latestScrollElement ||
-          !latestMessageNode ||
-          !latestMessageNode.isConnected
-        ) {
-          latestPendingPin.retries += 1
-          attemptPendingPin()
-          return
-        }
-
-        const anchorScrollTop = Math.max(0, latestMessageNode.offsetTop - TOP_PIN_OFFSET)
-        pinSessionRef.current = {
-          chatId: latestPendingPin.chatId,
-          messageId: latestPendingPin.messageId,
-          anchorScrollTop,
-          mode: "pinning"
-        }
-        latestContext.targetScrollTop = targetScrollTop => {
-          const activePinSession = pinSessionRef.current
-          if (!activePinSession || activePinSession.mode !== "pinning") {
-            return targetScrollTop
-          }
-          if (activeChatIdRef.current !== activePinSession.chatId) {
-            return targetScrollTop
-          }
-          return Math.max(0, Math.min(activePinSession.anchorScrollTop, targetScrollTop))
-        }
-        if (latestPendingPin.scrollBehavior === "smooth") {
-          void latestContext.scrollToBottom({
-            animation: SEND_SCROLL_ANIMATION,
-            duration: RETAIN_ANIMATION_DURATION_MS,
-            ignoreEscapes: true
-          })
-        } else {
-          latestScrollElement.scrollTop = anchorScrollTop
-        }
-        clearPendingPin()
-        scheduleRecalculateTopPinSpacer()
-      })
-    })
-  }, [clearPendingPin, scheduleRecalculateTopPinSpacer])
-
-  const startPendingPin = useCallback(
-    (chatId: ChatId, messageId: MessageId, scrollBehavior: "instant" | "smooth") => {
-      clearPendingPin()
-      clearPinSession()
-
-      pendingPinRef.current = {
-        chatId,
-        messageId,
-        createdAt: Date.now(),
-        retries: 0,
-        scrollBehavior
-      }
-      pendingPinTimeoutRef.current = window.setTimeout(() => {
-        const latestPendingPin = pendingPinRef.current
-        if (
-          latestPendingPin &&
-          latestPendingPin.chatId === chatId &&
-          latestPendingPin.messageId === messageId
-        ) {
-          clearPendingPin()
-        }
-      }, PENDING_TIMEOUT_MS)
-
-      attemptPendingPin()
-    },
-    [attemptPendingPin, clearPendingPin, clearPinSession]
-  )
-
-  const setUserMessageNodeRef = useCallback(
-    (messageId: MessageId, node: HTMLDivElement | null) => {
-      if (node) {
-        messageNodeByIdRef.current.set(messageId, node)
-      } else {
-        messageNodeByIdRef.current.delete(messageId)
-      }
-
-      if (node && pendingPinRef.current?.messageId === messageId) {
-        attemptPendingPin()
-      }
-    },
-    [attemptPendingPin]
-  )
 
   const getMessageNodeRef = useCallback(
     (messageId: MessageId, role: UIMessage["role"]) => {
@@ -1120,45 +855,24 @@ const AppChatInner = ({
           })
         }
       }
-      return userMessageId
     },
     [onChatReplyingChange, saveAllMessagesAsync, selectedModelRef, updateChatTitle]
   )
 
   useLayoutEffect(() => {
     activeChatIdRef.current = activeChatId ?? null
+    messageNodeByIdRef.current.clear()
+    messageNodeRefCallbacksRef.current.clear()
   }, [activeChatId])
 
   useEffect(() => {
     newChatTokenRef.current = newChatToken
   }, [newChatToken])
 
-  useEffect(() => {
-    const currentChatId = activeChatId ?? null
-    messageNodeByIdRef.current.clear()
-    messageNodeRefCallbacksRef.current.clear()
-
-    const pendingPin = pendingPinRef.current
-    if (pendingPin && pendingPin.chatId !== currentChatId) {
-      clearPendingPin()
-    }
-
-    const pinSession = pinSessionRef.current
-    if (pinSession && pinSession.chatId !== currentChatId) {
-      clearPinSession()
-    }
-  }, [activeChatId, clearPendingPin, clearPinSession])
-
   useEffect(
     () => () => {
-      clearPendingPin()
-      clearPinSession()
       messageNodeByIdRef.current.clear()
       messageNodeRefCallbacksRef.current.clear()
-      if (recalcFrameRef.current !== null) {
-        cancelAnimationFrame(recalcFrameRef.current)
-        recalcFrameRef.current = null
-      }
       if (timelineScrollFrameRef.current !== null) {
         cancelAnimationFrame(timelineScrollFrameRef.current)
         timelineScrollFrameRef.current = null
@@ -1168,7 +882,7 @@ const AppChatInner = ({
       }
       draftRenderStoreRef.current?.dispose()
     },
-    [clearPendingPin, clearPinSession]
+    []
   )
 
   useEffect(() => {
@@ -1186,13 +900,6 @@ const AppChatInner = ({
 
     return () => cancelAnimationFrame(frameId)
   }, [focusTargetKey])
-
-  useEffect(() => {
-    if (!spacerElementRef.current) {
-      return
-    }
-    spacerElementRef.current.style.height = `${spacerHeightRef.current}px`
-  }, [])
 
   useEffect(() => {
     const knownChatIds = new Set(chats.map(chat => chat.id))
@@ -1342,21 +1049,9 @@ const AppChatInner = ({
     selectedModelRef
   ])
 
-  useLayoutEffect(() => {
-    if (!pendingPinRef.current) {
-      return
-    }
-    attemptPendingPin()
-  }, [attemptPendingPin])
-
-  useEffect(() => {
-    scheduleRecalculateTopPinSpacer()
-  }, [scheduleRecalculateTopPinSpacer])
-
   useEffect(() => {
     let isDisposed = false
     let setupFrameId: number | null = null
-    let scrollObserver: ResizeObserver | null = null
     let contentObserver: ResizeObserver | null = null
 
     const setupObservers = () => {
@@ -1365,24 +1060,17 @@ const AppChatInner = ({
       }
 
       const context = conversationContextRef.current
-      const scrollElement = context?.scrollRef.current
       const contentElement = context?.contentRef.current
 
-      if (!scrollElement || !contentElement) {
+      if (!contentElement) {
         setupFrameId = requestAnimationFrame(setupObservers)
         return
       }
 
-      scrollObserver = new ResizeObserver(() => {
-        scheduleRecalculateTopPinSpacer()
-      })
       contentObserver = new ResizeObserver(() => {
-        scheduleRecalculateTopPinSpacer()
         timelineGeometryDirtyRef.current = true
       })
-      scrollObserver.observe(scrollElement)
       contentObserver.observe(contentElement)
-      window.addEventListener("resize", scheduleRecalculateTopPinSpacer)
     }
 
     setupObservers()
@@ -1392,11 +1080,9 @@ const AppChatInner = ({
       if (setupFrameId !== null) {
         cancelAnimationFrame(setupFrameId)
       }
-      scrollObserver?.disconnect()
       contentObserver?.disconnect()
-      window.removeEventListener("resize", scheduleRecalculateTopPinSpacer)
     }
-  }, [scheduleRecalculateTopPinSpacer])
+  }, [])
 
   useEffect(() => {
     // Errors are shown by the toast and retained as metadata, never forged as model text.
@@ -1483,9 +1169,8 @@ const AppChatInner = ({
           onRequestActivateChat?.(chatId, tokenAtSend)
         }
 
-        const userMessageId = await appendUserMessageAndSend(runtime, messageText, message.files)
-        const shouldSmoothScroll = !(conversationContextRef.current?.isAtBottom ?? true)
-        startPendingPin(runtime.chatId, userMessageId, shouldSmoothScroll ? "smooth" : "instant")
+        // Leave the viewport to Conversation's default stick-to-bottom behavior.
+        await appendUserMessageAndSend(runtime, messageText, message.files)
       } catch (sendError) {
         const draftForKey = draftByKeyRef.current.get(draftKeyAtSubmit) ?? ""
         if (!draftForKey) {
@@ -1509,7 +1194,6 @@ const AppChatInner = ({
       getOrCreateChatForToken,
       onRequestActivateChat,
       status,
-      startPendingPin,
       t,
       toastConstants
     ]
@@ -1637,9 +1321,6 @@ const AppChatInner = ({
         return
       }
 
-      clearPendingPin()
-      releasePinSessionConstraint()
-
       const scrollElement = conversationContextRef.current?.scrollRef.current
       const messageNode = messageNodeByIdRef.current.get(targetAnchor.id)
       if (!scrollElement || !messageNode || !messageNode.isConnected) {
@@ -1650,11 +1331,11 @@ const AppChatInner = ({
         setActiveTimelineIndex(currentIndex => (currentIndex === index ? currentIndex : index))
       })
       scrollElement.scrollTo({
-        top: Math.max(0, messageNode.offsetTop - TOP_PIN_OFFSET),
+        top: Math.max(0, messageNode.offsetTop),
         behavior: "smooth"
       })
     },
-    [clearPendingPin, releasePinSessionConstraint, timelineAnchors]
+    [timelineAnchors]
   )
 
   const handleCompact = async () => {
@@ -1784,15 +1465,6 @@ const AppChatInner = ({
                 getMessageNodeRef={getMessageNodeRef}
                 onToolApprovalResponse={handleToolApprovalResponse}
                 onRegenerate={handleRegenerate}
-              />
-            )}
-
-            {!showIntroEmptyState && (
-              <div
-                aria-hidden="true"
-                className="w-full pointer-events-none"
-                ref={spacerElementRef}
-                style={{ height: "0px" }}
               />
             )}
           </ConversationContent>

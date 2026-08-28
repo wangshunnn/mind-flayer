@@ -532,7 +532,7 @@ export function ChannelTelegramChat() {
         </aside>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <Conversation className="h-full">
+          <Conversation className="h-full" resetKey={selectedSessionKey ?? "telegram-empty"}>
             <ConversationContent>
               {selectedSessionStartedAtText && (
                 <ThreadMetaDivider testId="selected-thread-started-at">

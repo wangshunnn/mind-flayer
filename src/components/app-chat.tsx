@@ -23,7 +23,6 @@ import {
 } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-import type { StickToBottomContext } from "use-stick-to-bottom"
 import { ContextWindowUsageIndicator } from "@/components/ai-elements/context-window-usage-indicator"
 import {
   Conversation,
@@ -59,6 +58,7 @@ import { ToolButton } from "@/components/tool-button"
 import { TopFloatingHeader } from "@/components/top-floating-header"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useAvailableModels } from "@/hooks/use-available-models"
+import type { ConversationScrollController } from "@/hooks/use-conversation-scroll"
 import { useLatest } from "@/hooks/use-latest"
 import { useObservableValue } from "@/hooks/use-observable-value"
 import { useSetting } from "@/hooks/use-settings-store"
@@ -204,7 +204,7 @@ const AppChatInner = ({
   const textareaRef = useRef<PromptInputTextareaHandle>(null)
   const activeChatIdRef = useRef<ChatId | null>(activeChatId ?? null)
   const newChatTokenRef = useRef<string | null>(newChatToken)
-  const conversationContextRef = useRef<StickToBottomContext | null>(null)
+  const conversationContextRef = useRef<ConversationScrollController | null>(null)
 
   const sessionRuntimesRef = useRef<Map<ChatId, SessionRuntime>>(new Map())
   const pendingChatByTokenRef = useRef<Map<string, Promise<ChatId>>>(new Map())
@@ -1049,40 +1049,13 @@ const AppChatInner = ({
     selectedModelRef
   ])
 
-  useEffect(() => {
-    let isDisposed = false
-    let setupFrameId: number | null = null
-    let contentObserver: ResizeObserver | null = null
-
-    const setupObservers = () => {
-      if (isDisposed) {
-        return
-      }
-
-      const context = conversationContextRef.current
-      const contentElement = context?.contentRef.current
-
-      if (!contentElement) {
-        setupFrameId = requestAnimationFrame(setupObservers)
-        return
-      }
-
-      contentObserver = new ResizeObserver(() => {
+  useEffect(
+    () =>
+      conversationContextRef.current?.addLayoutListener(() => {
         timelineGeometryDirtyRef.current = true
-      })
-      contentObserver.observe(contentElement)
-    }
-
-    setupObservers()
-
-    return () => {
-      isDisposed = true
-      if (setupFrameId !== null) {
-        cancelAnimationFrame(setupFrameId)
-      }
-      contentObserver?.disconnect()
-    }
-  }, [])
+      }),
+    []
+  )
 
   useEffect(() => {
     // Errors are shown by the toast and retained as metadata, never forged as model text.
@@ -1321,12 +1294,14 @@ const AppChatInner = ({
         return
       }
 
-      const scrollElement = conversationContextRef.current?.scrollRef.current
+      const conversationContext = conversationContextRef.current
+      const scrollElement = conversationContext?.scrollRef.current
       const messageNode = messageNodeByIdRef.current.get(targetAnchor.id)
       if (!scrollElement || !messageNode || !messageNode.isConnected) {
         return
       }
 
+      conversationContext.stopFollowing()
       startTransition(() => {
         setActiveTimelineIndex(currentIndex => (currentIndex === index ? currentIndex : index))
       })
@@ -1451,7 +1426,11 @@ const AppChatInner = ({
 
       {/* Middle */}
       <div className="flex-1 min-h-0">
-        <Conversation className="h-full" contextRef={conversationContextRef}>
+        <Conversation
+          className="h-full"
+          contextRef={conversationContextRef}
+          resetKey={focusTargetKey}
+        >
           <ConversationContent className={cn(showIntroEmptyState && "min-h-full justify-center")}>
             {showIntroEmptyState ? (
               <NewChatEmptyState />

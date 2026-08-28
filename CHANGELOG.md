@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.12.0](https://github.com/wangshunnn/mind-flayer/compare/v0.11.0...v0.12.0) (2026-08-28)
+
+### Features
+
+* add Z.AI (Zhipu) provider integration and related tests ([32f90e3](https://github.com/wangshunnn/mind-flayer/commit/32f90e3f6cd9e571cf3e2670215b76b7b306ad1f))
+* **chat:** display cumulative session token usage ([dcd8393](https://github.com/wangshunnn/mind-flayer/commit/dcd8393cee2d7ba0e52bb31b7da6e8273b8423c1))
+* **chat:** display message send and completion times ([d11712a](https://github.com/wangshunnn/mind-flayer/commit/d11712a85496c8e3df052f687e517affdb590171))
+* **chat:** integrate persistent compaction across desktop and Telegram ([0ab40a7](https://github.com/wangshunnn/mind-flayer/commit/0ab40a7fc50fe77e31a5023200140b3ea336a234))
+* **context:** add durable compaction engine and checkpoint storage ([c9ae255](https://github.com/wangshunnn/mind-flayer/commit/c9ae255406fa0844a4dd9f0a85ee8b47d88bc5e9))
+* **context:** display token usage composition ([28c5864](https://github.com/wangshunnn/mind-flayer/commit/28c586486ab5f17a63a5e432530601007fe219e1))
+
+### Bug Fixes
+
+* **chat:** keep loading indicator above composer ([89f34e4](https://github.com/wangshunnn/mind-flayer/commit/89f34e4ffd15810fa4a559d625f165c78a2d8102))
+* **chat:** own conversation bottom follow ([ce999b4](https://github.com/wangshunnn/mind-flayer/commit/ce999b43f0aef0b3f903f76ecedfb99b3d0b87c3))
+* **chat:** preserve precise cache hit percentages ([a6fb440](https://github.com/wangshunnn/mind-flayer/commit/a6fb440e334c04b77c2703bdf3ad45de62753c5a))
+* **chat:** remove sent-message top pinning ([f22bd0f](https://github.com/wangshunnn/mind-flayer/commit/f22bd0f0144ca6bcb2a474b653d8ee83eb5c74dc))
+* **context:** keep usage breakdown segments visible ([56b595a](https://github.com/wangshunnn/mind-flayer/commit/56b595afd513b9173ff6897c2bc9c2fb25db0e8f))
+* **context:** preserve measured and cumulative step usage ([ee38523](https://github.com/wangshunnn/mind-flayer/commit/ee38523ddcc452a59c2dea61111f7244470258d4))
+* **minimax:** preserve image inputs with AI SDK 7 ([91bc509](https://github.com/wangshunnn/mind-flayer/commit/91bc5099f5a81b8aa402c7197bb8998dcf89a9ee))
+* **usage:** normalize shared token accounting ([6f4d5b1](https://github.com/wangshunnn/mind-flayer/commit/6f4d5b107f3c96f03c4f4ea2f196ccf5ad743162))
+* **zai:** apply thinking controls to provider requests ([bce0ddb](https://github.com/wangshunnn/mind-flayer/commit/bce0ddb917d2e08db8651b3e5a6ede79fa5918ea))
+* **zai:** replay reasoning across tool calls and restored sessions ([5560c6b](https://github.com/wangshunnn/mind-flayer/commit/5560c6b5149c88a6a8e2a4a54eca7820537c71bd))
+
+### Performance Improvements
+
+* **chat:** decouple timeline from streaming updates ([6707b16](https://github.com/wangshunnn/mind-flayer/commit/6707b16f4a157575603c6acd13d6edaa1372aabd))
+* **markdown:** incrementally render streaming blocks ([631b787](https://github.com/wangshunnn/mind-flayer/commit/631b787d4cc49a6ce1cf940826629b75736a9bf9))
+
 ## [0.11.0](https://github.com/wangshunnn/mind-flayer/compare/v0.10.0...v0.11.0) (2026-07-06)
 
 ### Features

@@ -51,6 +51,10 @@ type ToolButtonProps = {
    * Callback when the enabled state changes
    */
   onEnabledChange: (enabled: boolean) => void
+  /** Keep the enabled state visible while preventing the model from being disabled. */
+  enabledLocked?: boolean
+  /** Explanation shown next to a locked enabled switch. */
+  enabledLockedDescription?: string
   /**
    * Whether the button should be collapsed (icon only)
    */
@@ -102,6 +106,8 @@ const ToolButton = ({
   tooltip,
   enabled,
   onEnabledChange,
+  enabledLocked = false,
+  enabledLockedDescription,
   collapsed = false,
   modes,
   panelDescription,
@@ -119,7 +125,12 @@ const ToolButton = ({
       <Tooltip>
         <TooltipTrigger asChild>
           <PromptInputButton
-            onClick={() => onEnabledChange(!enabled)}
+            onClick={() => {
+              if (!enabledLocked) {
+                onEnabledChange(!enabled)
+              }
+            }}
+            aria-disabled={enabledLocked}
             variant={variant ?? (enabled ? "selected" : "ghost")}
             collapsed={collapsed}
             className={className}
@@ -132,7 +143,7 @@ const ToolButton = ({
             {!collapsed && <span>{label}</span>}
           </PromptInputButton>
         </TooltipTrigger>
-        <TooltipContent>{tooltip}</TooltipContent>
+        <TooltipContent>{enabledLockedDescription ?? tooltip}</TooltipContent>
       </Tooltip>
     )
   }
@@ -173,8 +184,11 @@ const ToolButton = ({
           <div className="flex min-w-0 items-center gap-1.5 pr-3">
             <div className="text-sm font-medium text-muted-foreground">{label}</div>
             {panelDescription && <InfoTooltipIcon content={panelDescription} />}
+            {enabledLocked && enabledLockedDescription && (
+              <span className="text-xs text-muted-foreground">{enabledLockedDescription}</span>
+            )}
           </div>
-          <Switch checked={enabled} onCheckedChange={onEnabledChange} />
+          <Switch checked={enabled} disabled={enabledLocked} onCheckedChange={onEnabledChange} />
         </div>
 
         <DropdownMenuGroup>

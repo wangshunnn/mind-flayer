@@ -92,6 +92,7 @@
       "label": "Reasoning",
       "tooltip": "Reasoning",
       "description": "Only applies to models that support adjustable reasoning effort.",
+      "alwaysEnabled": "Always on for this model",
       "modes": {
         "default": {
           "label": "Default",
@@ -113,6 +114,15 @@
         "xhigh": {
           "label": "Extra High",
           "description": "Use the highest supported reasoning effort"
+        },
+        "defaultMax": {
+          "label": "Default (Max)",
+          "badge": "Recommended",
+          "description": "Use this model's default maximum reasoning effort"
+        },
+        "max": {
+          "label": "Max",
+          "description": "Use the maximum reasoning effort supported by this model"
         }
       }
     }

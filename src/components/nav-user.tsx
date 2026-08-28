@@ -37,6 +37,10 @@ import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 import { type AppearanceThemeId, ShortcutAction } from "@/types/settings"
 
+function keepSettingsMenuOpen(event: Event) {
+  event.preventDefault()
+}
+
 export function NavUser() {
   const { t } = useTranslation(["common", "settings"])
   const { theme, setTheme, appearanceTheme, setAppearanceTheme, resolvedTheme } = useTheme()
@@ -103,6 +107,7 @@ export function NavUser() {
                         value="light"
                         data-autofocus-scope={themeAutofocusScope}
                         data-item-value="light"
+                        onSelect={keepSettingsMenuOpen}
                       >
                         <SunIcon />
                         {t("theme.light")}
@@ -111,6 +116,7 @@ export function NavUser() {
                         value="dark"
                         data-autofocus-scope={themeAutofocusScope}
                         data-item-value="dark"
+                        onSelect={keepSettingsMenuOpen}
                       >
                         <MoonStarIcon />
                         {t("theme.dark")}
@@ -119,6 +125,7 @@ export function NavUser() {
                         value="system"
                         data-autofocus-scope={themeAutofocusScope}
                         data-item-value="system"
+                        onSelect={keepSettingsMenuOpen}
                       >
                         <MonitorIcon />
                         {t("theme.system")}
@@ -156,6 +163,7 @@ export function NavUser() {
                           value={themeId}
                           data-autofocus-scope={appearanceThemeAutofocusScope}
                           data-item-value={themeId}
+                          onSelect={keepSettingsMenuOpen}
                         >
                           <AppearanceThemePreview
                             themeId={themeId}
@@ -193,6 +201,7 @@ export function NavUser() {
                         value="zh-CN"
                         data-autofocus-scope={languageAutofocusScope}
                         data-item-value="zh-CN"
+                        onSelect={keepSettingsMenuOpen}
                       >
                         {t("general.languageChinese", { ns: "settings" })}
                       </DropdownMenuRadioItem>
@@ -200,6 +209,7 @@ export function NavUser() {
                         value="en"
                         data-autofocus-scope={languageAutofocusScope}
                         data-item-value="en"
+                        onSelect={keepSettingsMenuOpen}
                       >
                         {t("general.languageEnglish", { ns: "settings" })}
                       </DropdownMenuRadioItem>
@@ -207,6 +217,7 @@ export function NavUser() {
                         value="system"
                         data-autofocus-scope={languageAutofocusScope}
                         data-item-value="system"
+                        onSelect={keepSettingsMenuOpen}
                       >
                         {t("general.languageSystem", { ns: "settings" })}
                       </DropdownMenuRadioItem>

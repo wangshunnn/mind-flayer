@@ -1431,7 +1431,9 @@ const AppChatInner = ({
           contextRef={conversationContextRef}
           resetKey={focusTargetKey}
         >
-          <ConversationContent className={cn(showIntroEmptyState && "min-h-full justify-center")}>
+          <ConversationContent
+            className={cn("pb-10", showIntroEmptyState && "min-h-full justify-center")}
+          >
             {showIntroEmptyState ? (
               <NewChatEmptyState />
             ) : (

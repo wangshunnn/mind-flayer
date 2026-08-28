@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { ThemeProvider, useTheme } from "@/components/theme-provider"
 import { getAppearanceThemeTokens } from "@/lib/appearance-themes"
+import { APPEARANCE_THEME_IDS } from "@/types/settings"
 
 const storeValues = new Map<string, unknown>()
 const storeGet = vi.fn(async (key: string) => storeValues.get(key))
@@ -61,16 +62,14 @@ function ThemeProbe({ id }: { id: string }) {
         onClick={() => void setTheme("system")}
         type="button"
       />
-      <button
-        data-action={`${id}-set-workbench`}
-        onClick={() => void setAppearanceTheme("workbench")}
-        type="button"
-      />
-      <button
-        data-action={`${id}-set-graphite`}
-        onClick={() => void setAppearanceTheme("graphite")}
-        type="button"
-      />
+      {APPEARANCE_THEME_IDS.map(themeId => (
+        <button
+          key={themeId}
+          data-action={`${id}-set-${themeId}`}
+          onClick={() => void setAppearanceTheme(themeId)}
+          type="button"
+        />
+      ))}
     </div>
   )
 }
@@ -260,6 +259,21 @@ describe("ThemeProvider", () => {
     expect(root.style.getPropertyValue("--background")).toBe(
       getAppearanceThemeTokens("sand", "dark")["--background"]
     )
+  })
+
+  it("applies every available appearance preset", async () => {
+    const container = await renderProbe("presets")
+    const root = document.documentElement
+
+    for (const themeId of APPEARANCE_THEME_IDS) {
+      await triggerClick(container, `presets-set-${themeId}`)
+
+      const tokens = getAppearanceThemeTokens(themeId, "light")
+
+      expect(root.dataset.appearanceTheme).toBe(themeId)
+      expect(root.style.getPropertyValue("--background")).toBe(tokens["--background"])
+      expect(root.style.getPropertyValue("--brand-color")).toBe(tokens["--brand-color"])
+    }
   })
 
   it("syncs appearance theme changes across providers via setting-changed events", async () => {

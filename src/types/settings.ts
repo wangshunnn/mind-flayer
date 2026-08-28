@@ -1,5 +1,14 @@
 export type Theme = "dark" | "light" | "system"
-export const APPEARANCE_THEME_IDS = ["forest", "sand", "workbench", "graphite"] as const
+export const APPEARANCE_THEME_IDS = [
+  "forest",
+  "sand",
+  "workbench",
+  "graphite",
+  "aurora",
+  "lavender",
+  "sakura",
+  "ember"
+] as const
 export type AppearanceThemeId = (typeof APPEARANCE_THEME_IDS)[number]
 export type Language = "en" | "zh-CN" | "system"
 export type WebSearchMode = "auto" | "always"

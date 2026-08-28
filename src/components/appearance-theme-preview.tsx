@@ -40,7 +40,11 @@ export function useAppearanceThemeLabels(): Record<AppearanceThemeId, string> {
     forest: t("general.appearanceThemes.forest"),
     sand: t("general.appearanceThemes.sand"),
     workbench: t("general.appearanceThemes.workbench"),
-    graphite: t("general.appearanceThemes.graphite")
+    graphite: t("general.appearanceThemes.graphite"),
+    aurora: t("general.appearanceThemes.aurora"),
+    lavender: t("general.appearanceThemes.lavender"),
+    sakura: t("general.appearanceThemes.sakura"),
+    ember: t("general.appearanceThemes.ember")
   }
 }
 

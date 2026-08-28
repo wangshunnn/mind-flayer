@@ -63,7 +63,11 @@
       "forest": "Forest Green",
       "sand": "Amber Sand",
       "workbench": "Deep Sea Blue",
-      "graphite": "Ink White"
+      "graphite": "Ink White",
+      "aurora": "System Blue",
+      "lavender": "Mist Lilac",
+      "sakura": "Soft Blush",
+      "ember": "Warm Linen"
     }
   },
   "shortcuts": {

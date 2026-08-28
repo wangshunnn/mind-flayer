@@ -64,7 +64,11 @@
       "forest": "森林绿",
       "sand": "琥珀砂",
       "workbench": "深海蓝",
-      "graphite": "素墨白"
+      "graphite": "素墨白",
+      "aurora": "系统蓝",
+      "lavender": "薄雾紫",
+      "sakura": "柔雾粉",
+      "ember": "暖亚麻"
     }
   },
   "shortcuts": {

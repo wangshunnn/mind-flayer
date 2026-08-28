@@ -8,7 +8,8 @@ type ProviderOptions = SharedV4ProviderOptions
 
 const OPENAI_REASONING_MODEL_PREFIXES = ["o1", "o3", "o4", "gpt-5"] as const
 const MINIMAX_ADJUSTABLE_REASONING_MODEL_PREFIXES = ["MiniMax-M3"] as const
-const ZAI_ADJUSTABLE_REASONING_MODEL_PREFIXES = ["glm-5.2"] as const
+const ZAI_ADJUSTABLE_REASONING_MODEL_PREFIXES = ["glm-5.2", "glm-5.3"] as const
+const ZAI_ALWAYS_REASONING_MODEL_PREFIXES = ["glm-5.3"] as const
 const ANTHROPIC_REASONING_MODEL_PATTERNS = [
   /^claude-(sonnet|opus|haiku)-4(?:[.-]|$)/u,
   /^claude-(sonnet|opus)-4-5(?:[.-]|$)/u,
@@ -119,6 +120,29 @@ function mapMiniMaxThinking(reasoningEnabled: boolean): ProviderOptions["minimax
   }
 }
 
+function isZaiAlwaysReasoningModel(modelId: string): boolean {
+  return ZAI_ALWAYS_REASONING_MODEL_PREFIXES.some(prefix => modelId.startsWith(prefix))
+}
+
+function mapZaiAlwaysReasoningEffort(
+  reasoningEnabled: boolean,
+  reasoningEffort: ReasoningEffort
+): "low" | "high" | "max" {
+  if (!reasoningEnabled) {
+    return "low"
+  }
+
+  if (reasoningEffort === "low") {
+    return "low"
+  }
+
+  if (reasoningEffort === "medium" || reasoningEffort === "high") {
+    return "high"
+  }
+
+  return "max"
+}
+
 export function buildProviderOptions({
   modelProvider,
   modelId,
@@ -150,6 +174,15 @@ export function buildProviderOptions({
   }
 
   if (modelProvider === "zhipu") {
+    if (isZaiAlwaysReasoningModel(modelId)) {
+      return {
+        zhipu: {
+          thinking: { type: "enabled" },
+          reasoningEffort: mapZaiAlwaysReasoningEffort(reasoningEnabled, reasoningEffort)
+        }
+      }
+    }
+
     return {
       zhipu: {
         thinking: { type: reasoningEnabled ? "enabled" : "disabled" },

@@ -6,34 +6,20 @@ import type {
   LanguageModelV4StreamResult
 } from "@ai-sdk/provider"
 import type { LanguageModel } from "ai"
-import { MODEL_PROVIDERS } from "../config/constants"
+import { normalizeZaiChatBaseUrl, validateZaiChatBaseUrl } from "../../../shared/zai-connection"
 import type { ProviderConfig } from "../type"
 import type { IProvider } from "./base"
 
-const ZAI_TERMINAL_PATHS = ["/chat/completions", "/responses"] as const
 type FetchFunction = typeof globalThis.fetch
 
-function normalizeZaiBaseUrl(baseUrl?: string): string {
-  let normalizedBaseUrl = (baseUrl?.trim() || MODEL_PROVIDERS.zhipu.defaultBaseUrl).replace(
-    /\/+$/,
-    ""
-  )
-
-  for (const terminalPath of ZAI_TERMINAL_PATHS) {
-    if (normalizedBaseUrl.endsWith(terminalPath)) {
-      normalizedBaseUrl = normalizedBaseUrl.slice(0, -terminalPath.length)
-      break
-    }
-  }
-
-  return normalizedBaseUrl
-}
+const GLM_53_MODEL_PREFIX = "glm-5.3"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 function createZaiRequestFetch(
+  modelId: string,
   options: LanguageModelV4CallOptions,
   fetchFn: FetchFunction = globalThis.fetch
 ): FetchFunction {
@@ -48,10 +34,12 @@ function createZaiRequestFetch(
     )
   const zaiOptions = options.providerOptions?.zhipu
   const thinking = zaiOptions?.thinking
-  const thinkingType =
+  const configuredThinkingType =
     isRecord(thinking) && (thinking.type === "enabled" || thinking.type === "disabled")
       ? thinking.type
       : undefined
+  const isAlwaysReasoningModel = modelId.startsWith(GLM_53_MODEL_PREFIX)
+  const thinkingType = isAlwaysReasoningModel ? "enabled" : configuredThinkingType
   const reasoningEffort =
     typeof zaiOptions?.reasoningEffort === "string" && thinkingType !== "disabled"
       ? zaiOptions.reasoningEffort
@@ -60,7 +48,8 @@ function createZaiRequestFetch(
   if (
     !assistantReasoning.some(Boolean) &&
     thinkingType === undefined &&
-    reasoningEffort === undefined
+    reasoningEffort === undefined &&
+    !isAlwaysReasoningModel
   ) {
     return fetchFn
   }
@@ -94,8 +83,16 @@ function createZaiRequestFetch(
       body: JSON.stringify({
         ...body,
         messages,
-        ...(thinkingType !== undefined ? { thinking: { type: thinkingType } } : {}),
-        ...(reasoningEffort !== undefined ? { reasoning_effort: reasoningEffort } : {})
+        ...(thinkingType !== undefined
+          ? {
+              thinking: {
+                type: thinkingType,
+                ...(isAlwaysReasoningModel ? { clear_thinking: false } : {})
+              }
+            }
+          : {}),
+        ...(reasoningEffort !== undefined ? { reasoning_effort: reasoningEffort } : {}),
+        ...(isAlwaysReasoningModel && body.stream === true ? { tool_stream: true } : {})
       })
     })
   }
@@ -185,7 +182,13 @@ export class ZaiProvider implements IProvider {
   readonly name = "zhipu"
 
   createModel(modelId: string, config: ProviderConfig): LanguageModel {
-    const baseUrl = normalizeZaiBaseUrl(config.baseUrl)
+    if (config.baseUrl) {
+      const validationError = validateZaiChatBaseUrl(config.baseUrl)
+      if (validationError) {
+        throw new Error(`Invalid Z.AI Chat Completions Base URL: ${validationError}`)
+      }
+    }
+    const baseUrl = normalizeZaiChatBaseUrl(config.baseUrl)
 
     const settings = {
       apiKey: config.apiKey,
@@ -195,7 +198,7 @@ export class ZaiProvider implements IProvider {
     const model = createOpenAI(settings).chat(modelId)
     // Bind each fetch adapter to its own prompt, including newly generated tool steps.
     const createRequestModel = (options: LanguageModelV4CallOptions) =>
-      createOpenAI({ ...settings, fetch: createZaiRequestFetch(options) }).chat(modelId)
+      createOpenAI({ ...settings, fetch: createZaiRequestFetch(modelId, options) }).chat(modelId)
 
     return withZaiReasoningStream({
       specificationVersion: model.specificationVersion,

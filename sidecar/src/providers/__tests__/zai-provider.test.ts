@@ -202,7 +202,7 @@ describe("ZaiProvider", () => {
       expect(zhipuChatModelFactoryMock).toHaveBeenCalledWith(modelId)
     })
 
-    it("normalizes full responses endpoint URLs to the SDK base URL", () => {
+    it("rejects Responses endpoint URLs", () => {
       const provider = new ZaiProvider()
       const config: ProviderConfig = {
         apiKey: "test-api-key",
@@ -210,14 +210,10 @@ describe("ZaiProvider", () => {
       }
       const modelId = "glm-5.2"
 
-      provider.createModel(modelId, config)
-
-      expect(createOpenAIMock).toHaveBeenCalledWith({
-        apiKey: config.apiKey,
-        baseURL: "https://open.bigmodel.cn/api/paas/v4",
-        name: "zhipu"
-      })
-      expect(zhipuChatModelFactoryMock).toHaveBeenCalledWith(modelId)
+      expect(() => provider.createModel(modelId, config)).toThrow(
+        "Invalid Z.AI Chat Completions Base URL: responsesUnsupported"
+      )
+      expect(createOpenAIMock).not.toHaveBeenCalled()
     })
 
     it("falls back to the domestic default base URL and uses chat completions", () => {
@@ -467,6 +463,99 @@ describe("ZaiProvider", () => {
       const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
       expect(body.thinking).toEqual({ type: thinking })
       expect(body.reasoning_effort).toBe(expectedEffort)
+    })
+
+    it.each([
+      "glm-5.3",
+      "glm-5.3-flash"
+    ])("forces reasoning and tool streaming for %s", async modelId => {
+      const fetchMock = vi.fn<typeof fetch>(async () => createChatResponse(true))
+      vi.stubGlobal("fetch", fetchMock)
+      const result = streamText({
+        model: new ZaiProvider().createModel(modelId, { apiKey: "test-api-key" }),
+        prompt: "Hello",
+        providerOptions: buildProviderOptions({
+          modelProvider: "zhipu",
+          modelId,
+          reasoningEnabled: false,
+          reasoningEffort: "xhigh"
+        }),
+        maxRetries: 0
+      })
+
+      expect(await result.text).toBe("Done.")
+      const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
+      expect(body.thinking).toEqual({ type: "enabled", clear_thinking: false })
+      expect(body.reasoning_effort).toBe("low")
+      expect(body.tool_stream).toBe(true)
+    })
+
+    it("serializes GLM-5.3-Flash image and PDF inputs through Chat Completions", async () => {
+      const fetchMock = vi.fn<typeof fetch>(async () => createChatResponse(false))
+      vi.stubGlobal("fetch", fetchMock)
+      const messages = await convertHistory([
+        {
+          id: "user-1",
+          role: "user",
+          parts: [
+            {
+              type: "file",
+              mediaType: "image/png",
+              filename: "mockup.png",
+              url: "data:image/png;base64,aW1hZ2U="
+            },
+            {
+              type: "file",
+              mediaType: "image/jpeg",
+              filename: "detail.jpg",
+              url: "data:image/jpeg;base64,ZGV0YWls"
+            },
+            {
+              type: "file",
+              mediaType: "application/pdf",
+              filename: "spec.pdf",
+              url: "data:application/pdf;base64,cGRm"
+            },
+            { type: "text", text: "Review these files." }
+          ]
+        }
+      ])
+      const modelId = "glm-5.3-flash"
+
+      await generateText({
+        model: new ZaiProvider().createModel(modelId, { apiKey: "test-api-key" }),
+        messages,
+        providerOptions: buildProviderOptions({
+          modelProvider: "zhipu",
+          modelId,
+          reasoningEnabled: true,
+          reasoningEffort: "default"
+        }),
+        maxRetries: 0
+      })
+
+      const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
+      expect(body.messages[0]).toMatchObject({
+        role: "user",
+        content: [
+          {
+            type: "image_url",
+            image_url: { url: "data:image/png;base64,aW1hZ2U=" }
+          },
+          {
+            type: "image_url",
+            image_url: { url: "data:image/jpeg;base64,ZGV0YWls" }
+          },
+          {
+            type: "file",
+            file: {
+              filename: "spec.pdf",
+              file_data: "data:application/pdf;base64,cGRm"
+            }
+          },
+          { type: "text", text: "Review these files." }
+        ]
+      })
     })
 
     it("replays complete reasoning alongside tool results in the next streaming step", async () => {

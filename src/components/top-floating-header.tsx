@@ -32,7 +32,7 @@ export function TopFloatingHeader({
         data-tauri-drag-region
         className={cn(
           "fixed left-10 z-50 flex items-center pointer-events-auto",
-          isFullWidth ? "left-42" : "left-66.75",
+          isFullWidth ? "left-44" : "left-66.75",
           "transition-left duration-300 ease",
           contentClassName
         )}

@@ -57,7 +57,7 @@ function ChatMessageTimeline({
       data-testid="chat-message-timeline"
       onMouseDownCapture={preventTimelineSelection}
     >
-      <div className="pointer-events-auto flex max-h-[min(48vh,24rem)] flex-col items-end gap-1 overflow-y-auto pr-0.5 select-none">
+      <div className="pointer-events-auto flex max-h-[min(48vh,24rem)] flex-col items-end gap-1.5 overflow-y-auto pr-0.5 select-none">
         {anchors.map((anchor, index) => {
           const isActive = activeIndex === index
           const anchorLabel = anchor.preview || t("timeline.jumpToMessage", { index: index + 1 })

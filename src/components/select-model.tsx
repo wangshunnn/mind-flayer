@@ -15,7 +15,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useAutofocusSelectedDropdownItem } from "@/hooks/use-autofocus-selected-dropdown-item"
 import { useAvailableModels } from "@/hooks/use-available-models"
 import { useDropdownTooltip } from "@/hooks/use-dropdown-tooltip"
-import type { ModelPricing } from "@/lib/provider-constants"
+import type {
+  ModelInputModality,
+  ModelPricing,
+  ModelReasoningPolicy
+} from "@/lib/provider-constants"
 import { cn } from "@/lib/utils"
 import { openSettingsWindow, SettingsSection } from "@/lib/window-manager"
 
@@ -26,6 +30,8 @@ interface ModelOption {
   api_id: string
   contextWindow?: number | null
   pricing?: ModelPricing
+  inputModalities?: readonly ModelInputModality[]
+  reasoningPolicy?: ModelReasoningPolicy
 }
 
 interface SelectModelProps extends Omit<React.ComponentProps<typeof Button>, "onChange" | "value"> {

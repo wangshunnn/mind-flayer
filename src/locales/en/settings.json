@@ -17,6 +17,26 @@
     "baseUrl": "Base URL",
     "baseUrlOptional": "Optional",
     "baseUrlPlaceholder": "Default: {{defaultUrl}}",
+    "validation": {
+      "apiKeyRequired": "API Key is required"
+    },
+    "zai": {
+      "connectionPreset": "Connection",
+      "presets": {
+        "cn-api": "China · API",
+        "cn-coding-plan": "China · Coding Plan",
+        "international-api": "International · API",
+        "international-coding-plan": "International · Coding Plan",
+        "custom": "Custom Chat Completions"
+      },
+      "codingPlanNotice": "Coding Plan quota is limited to officially supported coding scenarios.",
+      "viewGuide": "View setup guide",
+      "validation": {
+        "invalidUrl": "Enter a valid Chat Completions Base URL",
+        "httpsRequired": "The Z.AI Base URL must use HTTPS",
+        "responsesUnsupported": "Responses endpoints are not supported; use a Chat Completions Base URL"
+      }
+    },
     "clear": "Clear",
     "save": "Save",
     "saving": "Saving",

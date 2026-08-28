@@ -5,6 +5,9 @@ import {
   findModelContextWindow,
   findModelPricing,
   MODEL_PROVIDERS,
+  modelSupportsAttachments,
+  modelSupportsMediaType,
+  resolveModelReasoningSettings,
   sortProvidersByAvailabilityAndName,
   UPCOMING_PROVIDERS
 } from "@/lib/provider-constants"
@@ -123,6 +126,8 @@ describe("MODEL_PROVIDERS supported providers", () => {
           "defaultBaseUrl": "https://open.bigmodel.cn/api/paas/v4",
           "id": "zhipu",
           "modelIds": [
+            "glm-5.3",
+            "glm-5.3-flash",
             "glm-5.2",
           ],
           "name": "Z.AI",
@@ -152,7 +157,7 @@ describe("MODEL_PROVIDERS supported providers", () => {
     expect(zhipuProvider?.disabled ?? false).toBe(false)
   })
 
-  it("uses the domestic Z.AI base URL and GLM-5.2 model metadata", () => {
+  it("uses the domestic Z.AI base URL and current GLM model metadata", () => {
     const zhipuProvider = MODEL_PROVIDERS.find(provider => provider.id === "zhipu")
 
     expect(zhipuProvider).toEqual(
@@ -161,31 +166,45 @@ describe("MODEL_PROVIDERS supported providers", () => {
         defaultBaseUrl: "https://open.bigmodel.cn/api/paas/v4",
         apiKeyUrl: "https://open.bigmodel.cn/usercenter/apikeys",
         models: [
-          expect.objectContaining({
+          {
+            label: "GLM-5.3",
+            api_id: "glm-5.3",
+            contextWindow: 1_000_000,
+            inputModalities: ["text"],
+            reasoningPolicy: {
+              type: "always",
+              supportedEfforts: ["default", "low", "high", "xhigh"]
+            }
+          },
+          {
+            label: "GLM-5.3-Flash",
+            api_id: "glm-5.3-flash",
+            contextWindow: 1_000_000,
+            inputModalities: ["text", "image", "pdf"],
+            reasoningPolicy: {
+              type: "always",
+              supportedEfforts: ["default", "low", "high", "xhigh"]
+            }
+          },
+          {
             label: "GLM-5.2",
             api_id: "glm-5.2",
             contextWindow: 1_000_000,
-            pricing: {
-              currency: "CNY",
-              input: 8,
-              output: 28,
-              cachedRead: 2,
-              cachedWrite: 0
+            inputModalities: ["text"],
+            reasoningPolicy: {
+              type: "configurable",
+              supportedEfforts: ["default", "low", "medium", "high", "xhigh"]
             }
-          })
+          }
         ]
       })
     )
   })
 
-  it("uses official GLM-5.2 pricing metadata", () => {
-    expect(findModelPricing("zhipu", "glm-5.2")).toEqual({
-      currency: "CNY",
-      input: 8,
-      output: 28,
-      cachedRead: 2,
-      cachedWrite: 0
-    })
+  it("does not show pay-as-you-go pricing for region-dependent Z.AI connections", () => {
+    expect(findModelPricing("zhipu", "glm-5.3")).toBeUndefined()
+    expect(findModelPricing("zhipu", "glm-5.3-flash")).toBeUndefined()
+    expect(findModelPricing("zhipu", "glm-5.2")).toBeUndefined()
   })
 
   it("uses current DeepSeek v4 pricing metadata", () => {
@@ -221,10 +240,11 @@ describe("MODEL_PROVIDERS supported providers", () => {
 describe("DEFAULT_FORM_DATA", () => {
   it("includes form entries for all providers", () => {
     for (const provider of ALL_PROVIDERS) {
-      expect(DEFAULT_FORM_DATA[provider.id]).toEqual({
-        apiKey: "",
-        baseUrl: ""
-      })
+      expect(DEFAULT_FORM_DATA[provider.id]).toEqual(
+        provider.id === "zhipu"
+          ? { apiKey: "", baseUrl: "", connectionPreset: "cn-api" }
+          : { apiKey: "", baseUrl: "" }
+      )
     }
   })
 })
@@ -259,11 +279,50 @@ describe("findModelContextWindow", () => {
     expect(findModelContextWindow("openai", "gpt-5.4")).toBe(1_050_000)
     expect(findModelContextWindow("deepseek", "deepseek-v4-pro")).toBe(1_000_000)
     expect(findModelContextWindow("minimax", "MiniMax-M3")).toBe(1_000_000)
+    expect(findModelContextWindow("zhipu", "glm-5.3")).toBe(1_000_000)
+    expect(findModelContextWindow("zhipu", "glm-5.3-flash")).toBe(1_000_000)
     expect(findModelContextWindow("zhipu", "glm-5.2")).toBe(1_000_000)
   })
 
   it("returns undefined for unknown providers or models", () => {
     expect(findModelContextWindow("missing", "gpt-5.4")).toBeUndefined()
     expect(findModelContextWindow("openai", "missing")).toBeUndefined()
+  })
+})
+
+describe("model capabilities", () => {
+  it("restricts GLM-5.3 attachments and accepts images and PDFs for GLM-5.3-Flash", () => {
+    const zhipu = MODEL_PROVIDERS.find(provider => provider.id === "zhipu")
+    const glm53 = zhipu?.models?.find(model => model.api_id === "glm-5.3")
+    const flash = zhipu?.models?.find(model => model.api_id === "glm-5.3-flash")
+
+    expect(modelSupportsAttachments(glm53?.inputModalities)).toBe(false)
+    expect(modelSupportsAttachments(flash?.inputModalities)).toBe(true)
+    expect(modelSupportsMediaType(flash?.inputModalities, "image/png")).toBe(true)
+    expect(modelSupportsMediaType(flash?.inputModalities, "application/pdf")).toBe(true)
+    expect(modelSupportsMediaType(flash?.inputModalities, "video/mp4")).toBe(false)
+  })
+
+  it("forces always-reasoning models on without changing configurable model behavior", () => {
+    const alwaysPolicy = {
+      type: "always" as const,
+      supportedEfforts: ["default", "low", "high", "xhigh"] as const
+    }
+
+    expect(resolveModelReasoningSettings(alwaysPolicy, false, "medium")).toEqual({
+      enabled: true,
+      effort: "high",
+      locked: true
+    })
+    expect(resolveModelReasoningSettings(alwaysPolicy, false, "xhigh")).toEqual({
+      enabled: true,
+      effort: "xhigh",
+      locked: true
+    })
+    expect(resolveModelReasoningSettings(undefined, false, "medium")).toEqual({
+      enabled: false,
+      effort: "medium",
+      locked: false
+    })
   })
 })

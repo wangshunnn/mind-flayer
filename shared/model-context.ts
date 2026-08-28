@@ -10,6 +10,8 @@ const CONTEXT_WINDOWS: Record<string, number> = {
   "anthropic/claude-sonnet-4-6": 1_000_000,
   "deepseek/deepseek-v4-flash": 1_000_000,
   "deepseek/deepseek-v4-pro": 1_000_000,
+  "zhipu/glm-5.3": 1_000_000,
+  "zhipu/glm-5.3-flash": 1_000_000,
   "zhipu/glm-5.2": 1_000_000
 }
 

@@ -133,4 +133,32 @@ describe("ChatTranscript streaming isolation", () => {
     )
     store.dispose()
   })
+
+  it("uses the theme brand color for the assistant reply placeholder", async () => {
+    const { clock } = createClock()
+    const store = new ChatRenderStore(clock)
+    store.publishMessagesNow([message("user", "question", "user")])
+    store.publishStatus("submitted")
+
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ChatTranscript
+            store={store}
+            getMessageNodeRef={() => undefined}
+            onRegenerate={() => {}}
+            onToolApprovalResponse={async () => {}}
+          />
+        </I18nextProvider>
+      )
+    })
+
+    const indicator = container.querySelector<SVGElement>(
+      '[data-slot="assistant-reply-loading-indicator"]'
+    )
+
+    expect(indicator).not.toBeNull()
+    expect(indicator?.classList.contains("text-brand")).toBe(true)
+    store.dispose()
+  })
 })

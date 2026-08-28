@@ -239,8 +239,11 @@ const AssistantReplyPlaceholder = memo(function AssistantReplyPlaceholder({
       <MessageBranchContent>
         <Message from="assistant">
           <MessageContent>
-            <div className="px-0.5 py-2 text-muted-foreground">
-              <CircleIcon className="size-3 fill-current animate-pulse-scale" />
+            <div className="px-0.5 py-2">
+              <CircleIcon
+                className="size-3 fill-current text-brand animate-pulse-scale"
+                data-slot="assistant-reply-loading-indicator"
+              />
             </div>
           </MessageContent>
         </Message>

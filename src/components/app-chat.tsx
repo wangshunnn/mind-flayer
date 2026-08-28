@@ -82,6 +82,11 @@ import {
   resolveConversationContextUsage
 } from "@/lib/context-window-usage"
 import {
+  modelSupportsAttachments,
+  modelSupportsMediaType,
+  resolveModelReasoningSettings
+} from "@/lib/provider-constants"
+import {
   mergeSessionUsage,
   type SessionUsageRecords,
   summarizeSessionUsage,
@@ -192,6 +197,30 @@ const AppChatInner = ({
 
   const selectedModel =
     availableModels.find(m => m.api_id === selectedModelApiId) ?? availableModels[0] ?? null
+  const effectiveReasoning = resolveModelReasoningSettings(
+    selectedModel?.reasoningPolicy,
+    reasoningEnabled,
+    preferredReasoningEffort
+  )
+  const reasoningModes = useMemo(() => {
+    const modes = toolButtonConstants.reasoning.modes
+    if (selectedModel?.reasoningPolicy?.type === "always") {
+      return [modes.defaultMax, modes.low, modes.high, modes.max]
+    }
+
+    const availableModes = [modes.default, modes.low, modes.medium, modes.high, modes.xhigh]
+    const supportedEfforts = selectedModel?.reasoningPolicy?.supportedEfforts
+    return supportedEfforts
+      ? availableModes.filter(mode => supportedEfforts.includes(mode.value))
+      : availableModes
+  }, [selectedModel?.reasoningPolicy, toolButtonConstants.reasoning.modes])
+  const attachmentsSupported = modelSupportsAttachments(selectedModel?.inputModalities)
+  const attachmentAccept = selectedModel?.inputModalities
+    ? [
+        ...(selectedModel.inputModalities.includes("image") ? ["image/*"] : []),
+        ...(selectedModel.inputModalities.includes("pdf") ? ["application/pdf"] : [])
+      ].join(",")
+    : undefined
 
   const [isCondensed, setIsCondensed] = useState(false)
   const [input, setInput] = useState("")
@@ -369,17 +398,24 @@ const AppChatInner = ({
     ): SessionRuntime => {
       const renderStore = new ChatRenderStore()
       renderStore.setVisible(desktopChatPaneVisible && activeChatId === chatId)
-      const requestHeaders = () => ({
-        "X-Model-Provider": selectedModelRef.current?.provider ?? "",
-        "X-Model-Provider-Label": selectedModelRef.current?.providerLabel ?? "",
-        "X-Model-Id": selectedModelRef.current?.api_id ?? "",
-        "X-Model-Label": selectedModelRef.current?.label ?? "",
-        "X-Use-Web-Search": useWebSearchRef.current.toString(),
-        "X-Web-Search-Mode": webSearchModeRef.current,
-        "X-Reasoning-Enabled": reasoningEnabledRef.current.toString(),
-        "X-Reasoning-Effort": reasoningEffortRef.current,
-        "X-Chat-Id": chatId
-      })
+      const requestHeaders = () => {
+        const reasoning = resolveModelReasoningSettings(
+          selectedModelRef.current?.reasoningPolicy,
+          reasoningEnabledRef.current,
+          reasoningEffortRef.current
+        )
+        return {
+          "X-Model-Provider": selectedModelRef.current?.provider ?? "",
+          "X-Model-Provider-Label": selectedModelRef.current?.providerLabel ?? "",
+          "X-Model-Id": selectedModelRef.current?.api_id ?? "",
+          "X-Model-Label": selectedModelRef.current?.label ?? "",
+          "X-Use-Web-Search": useWebSearchRef.current.toString(),
+          "X-Web-Search-Mode": webSearchModeRef.current,
+          "X-Reasoning-Enabled": reasoning.enabled.toString(),
+          "X-Reasoning-Effort": reasoning.effort,
+          "X-Chat-Id": chatId
+        }
+      }
       const runtime: SessionRuntime = {
         chatId,
         contextState: emptyContextState(),
@@ -985,8 +1021,8 @@ const AppChatInner = ({
     selectedModel?.label,
     useWebSearch,
     webSearchMode,
-    reasoningEnabled,
-    preferredReasoningEffort
+    effectiveReasoning.enabled,
+    effectiveReasoning.effort
   ])
   const contextCompacting = Boolean(activeChatId && compactingChats[activeChatId])
 
@@ -1112,6 +1148,18 @@ const AppChatInner = ({
         return
       }
 
+      const unsupportedAttachment = message.files?.find(
+        file => !modelSupportsMediaType(selectedModel?.inputModalities, file.mediaType)
+      )
+      if (unsupportedAttachment) {
+        toast.error(t("chat:input.attachmentsUnsupported"), {
+          description: attachmentsSupported
+            ? t("chat:input.attachmentTypesUnsupported", { model: selectedModel?.label })
+            : t("chat:input.modelIsTextOnly", { model: selectedModel?.label })
+        })
+        throw new Error("UNSUPPORTED_ATTACHMENT")
+      }
+
       if (message.files?.length) {
         toast.success(toastConstants.filesAttached, {
           description: toastConstants.filesAttachedDescription(message.files.length)
@@ -1161,11 +1209,14 @@ const AppChatInner = ({
     },
     [
       appendUserMessageAndSend,
+      attachmentsSupported,
       availableModels,
       currentDraftKey,
       ensureSessionRuntime,
       getOrCreateChatForToken,
       onRequestActivateChat,
+      selectedModel?.inputModalities,
+      selectedModel?.label,
       status,
       t,
       toastConstants
@@ -1475,7 +1526,23 @@ const AppChatInner = ({
             className="relative w-full max-w-(--chat-content-max-width) pb-2"
             ref={inputContainerRef}
           >
-            <PromptInput globalDrop multiple onSubmit={handleSubmit}>
+            <PromptInput
+              accept={attachmentAccept}
+              attachmentsDisabled={!attachmentsSupported}
+              globalDrop
+              multiple
+              onError={attachmentError => {
+                toast.error(t("chat:input.attachmentsUnsupported"), {
+                  description:
+                    attachmentError.code === "attachments_disabled"
+                      ? t("chat:input.modelIsTextOnly", { model: selectedModel?.label })
+                      : t("chat:input.attachmentTypesUnsupported", {
+                          model: selectedModel?.label
+                        })
+                })
+              }}
+              onSubmit={handleSubmit}
+            >
               {/* Attachments header */}
               <PromptInputHeader>
                 <PromptInputAttachments>
@@ -1497,12 +1564,14 @@ const AppChatInner = ({
                 {/* Tools in Left */}
                 <PromptInputTools className="-ml-1">
                   {/* Add attachments */}
-                  <PromptInputActionMenu>
-                    <PromptInputActionMenuTrigger />
-                    <PromptInputActionMenuContent align="start">
-                      <PromptInputActionAddAttachments />
-                    </PromptInputActionMenuContent>
-                  </PromptInputActionMenu>
+                  {attachmentsSupported && (
+                    <PromptInputActionMenu>
+                      <PromptInputActionMenuTrigger />
+                      <PromptInputActionMenuContent align="start">
+                        <PromptInputActionAddAttachments />
+                      </PromptInputActionMenuContent>
+                    </PromptInputActionMenu>
+                  )}
 
                   <ToolButton
                     icon={GlobeIcon}
@@ -1524,17 +1593,17 @@ const AppChatInner = ({
                     label={toolButtonConstants.reasoning.label}
                     tooltip={toolButtonConstants.reasoning.tooltip}
                     panelDescription={toolButtonConstants.reasoning.description}
-                    enabled={reasoningEnabled}
+                    enabled={effectiveReasoning.enabled}
                     onEnabledChange={setReasoningEnabled}
+                    enabledLocked={effectiveReasoning.locked}
+                    enabledLockedDescription={
+                      effectiveReasoning.locked
+                        ? toolButtonConstants.reasoning.alwaysEnabled
+                        : undefined
+                    }
                     collapsed={isCondensed}
-                    modes={[
-                      { ...toolButtonConstants.reasoning.modes.default, icon: BrainIcon },
-                      { ...toolButtonConstants.reasoning.modes.low, icon: BrainIcon },
-                      { ...toolButtonConstants.reasoning.modes.medium, icon: BrainIcon },
-                      { ...toolButtonConstants.reasoning.modes.high, icon: BrainIcon },
-                      { ...toolButtonConstants.reasoning.modes.xhigh, icon: BrainIcon }
-                    ]}
-                    selectedMode={preferredReasoningEffort}
+                    modes={reasoningModes.map(mode => ({ ...mode, icon: BrainIcon }))}
+                    selectedMode={effectiveReasoning.effort}
                     onModeChange={mode => setPreferredReasoningEffort(mode as ReasoningEffort)}
                   />
                 </PromptInputTools>

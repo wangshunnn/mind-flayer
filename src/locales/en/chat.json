@@ -19,7 +19,10 @@
     "image": "Image",
     "attachment": "Attachment",
     "removeAttachment": "Remove attachment",
-    "uploadFiles": "Upload files"
+    "uploadFiles": "Upload files",
+    "attachmentsUnsupported": "Attachments are not supported",
+    "modelIsTextOnly": "{{model}} accepts text only.",
+    "attachmentTypesUnsupported": "{{model}} accepts images and PDF files only."
   },
   "tokens": {
     "input": "{{count}} input",

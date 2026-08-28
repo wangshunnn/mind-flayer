@@ -421,6 +421,7 @@ export type PromptInputMessage = {
 
 export type PromptInputProps = Omit<HTMLAttributes<HTMLFormElement>, "onSubmit" | "onError"> & {
   accept?: string // e.g., "image/*" or leave undefined for any
+  attachmentsDisabled?: boolean
   multiple?: boolean
   // When true, accepts drops anywhere on document. Default false (opt-in).
   globalDrop?: boolean
@@ -429,13 +430,17 @@ export type PromptInputProps = Omit<HTMLAttributes<HTMLFormElement>, "onSubmit" 
   // Minimal constraints
   maxFiles?: number
   maxFileSize?: number // bytes
-  onError?: (err: { code: "max_files" | "max_file_size" | "accept"; message: string }) => void
+  onError?: (err: {
+    code: "max_files" | "max_file_size" | "accept" | "attachments_disabled"
+    message: string
+  }) => void
   onSubmit: (message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => void | Promise<void>
 }
 
 export const PromptInput = ({
   className,
   accept,
+  attachmentsDisabled = false,
   multiple,
   globalDrop,
   syncHiddenInput,
@@ -491,6 +496,13 @@ export const PromptInput = ({
   const addLocal = useCallback(
     (fileList: File[] | FileList) => {
       const incoming = Array.from(fileList)
+      if (attachmentsDisabled && incoming.length > 0) {
+        onError?.({
+          code: "attachments_disabled",
+          message: "The selected model does not support attachments."
+        })
+        return
+      }
       const accepted = incoming.filter(f => matchesAccept(f))
       if (incoming.length && accepted.length === 0) {
         onError?.({
@@ -532,7 +544,7 @@ export const PromptInput = ({
         return prev.concat(next)
       })
     },
-    [matchesAccept, maxFiles, maxFileSize, onError]
+    [attachmentsDisabled, matchesAccept, maxFiles, maxFileSize, onError]
   )
 
   const removeLocal = useCallback(
@@ -757,6 +769,7 @@ export const PromptInput = ({
         accept={accept}
         aria-label="Upload files"
         className="hidden"
+        disabled={attachmentsDisabled}
         multiple={multiple}
         onChange={handleChange}
         ref={inputRef}

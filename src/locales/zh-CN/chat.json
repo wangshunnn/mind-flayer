@@ -18,7 +18,10 @@
     "image": "图片",
     "attachment": "附件",
     "removeAttachment": "移除附件",
-    "uploadFiles": "上传文件"
+    "uploadFiles": "上传文件",
+    "attachmentsUnsupported": "当前模型不支持这些附件",
+    "modelIsTextOnly": "{{model}} 仅支持文本输入。",
+    "attachmentTypesUnsupported": "{{model}} 仅支持图片和 PDF 文件。"
   },
   "tokens": {
     "input": "{{count}} 输入",

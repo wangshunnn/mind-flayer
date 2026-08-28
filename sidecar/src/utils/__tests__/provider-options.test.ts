@@ -193,4 +193,27 @@ describe("buildProviderOptions", () => {
       }
     })
   })
+
+  it.each([
+    [false, "xhigh", "low"],
+    [true, "default", "max"],
+    [true, "low", "low"],
+    [true, "medium", "high"],
+    [true, "high", "high"],
+    [true, "xhigh", "max"]
+  ] as const)("maps GLM-5.3 enabled=%s effort=%s to mandatory effort=%s", (reasoningEnabled, reasoningEffort, expectedEffort) => {
+    expect(
+      buildProviderOptions({
+        modelProvider: "zhipu",
+        modelId: "glm-5.3-flash",
+        reasoningEnabled,
+        reasoningEffort
+      })
+    ).toEqual({
+      zhipu: {
+        thinking: { type: "enabled" },
+        reasoningEffort: expectedEffort
+      }
+    })
+  })
 })

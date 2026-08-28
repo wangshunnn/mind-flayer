@@ -201,4 +201,45 @@ describe("PromptInputTextarea IME Enter handling", () => {
 
     expect(requestSubmitSpy).not.toHaveBeenCalled()
   })
+
+  it("rejects file selection when attachments are disabled", async () => {
+    const onError = vi.fn()
+    await act(async () => {
+      root.render(
+        <PromptInput attachmentsDisabled onError={onError} onSubmit={vi.fn()}>
+          <button type="submit">Send</button>
+        </PromptInput>
+      )
+    })
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]')
+    expect(input?.disabled).toBe(true)
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      value: [new File(["image"], "mockup.png", { type: "image/png" })]
+    })
+
+    await act(async () => input?.dispatchEvent(new Event("change", { bubbles: true })))
+
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: "attachments_disabled" }))
+  })
+
+  it("accepts images and PDFs while rejecting other media types", async () => {
+    const onError = vi.fn()
+    await act(async () => {
+      root.render(
+        <PromptInput accept="image/*,application/pdf" multiple onError={onError} onSubmit={vi.fn()}>
+          <button type="submit">Send</button>
+        </PromptInput>
+      )
+    })
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]')
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      value: [new File(["video"], "demo.mp4", { type: "video/mp4" })]
+    })
+
+    await act(async () => input?.dispatchEvent(new Event("change", { bubbles: true })))
+
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: "accept" }))
+  })
 })

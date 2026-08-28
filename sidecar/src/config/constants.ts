@@ -1,3 +1,5 @@
+import { DEFAULT_ZAI_CONNECTION_PRESET } from "../../../shared/zai-connection"
+
 /**
  * Provider configurations with default base URLs
  */
@@ -15,7 +17,7 @@ export const MODEL_PROVIDERS = {
     defaultBaseUrl: "https://api.deepseek.com"
   },
   zhipu: {
-    defaultBaseUrl: "https://open.bigmodel.cn/api/paas/v4"
+    defaultBaseUrl: DEFAULT_ZAI_CONNECTION_PRESET.baseUrl
   }
 } as const
 

@@ -160,6 +160,7 @@ export function useToolButtonConstants() {
         label: t("buttons.reasoning.label"),
         tooltip: t("buttons.reasoning.tooltip"),
         description: t("buttons.reasoning.description"),
+        alwaysEnabled: t("buttons.reasoning.alwaysEnabled"),
         modes: {
           default: {
             value: "default" as const,
@@ -186,6 +187,17 @@ export function useToolButtonConstants() {
             value: "xhigh" as const,
             label: t("buttons.reasoning.modes.xhigh.label"),
             description: t("buttons.reasoning.modes.xhigh.description")
+          },
+          defaultMax: {
+            value: "default" as const,
+            label: t("buttons.reasoning.modes.defaultMax.label"),
+            badge: t("buttons.reasoning.modes.defaultMax.badge"),
+            description: t("buttons.reasoning.modes.defaultMax.description")
+          },
+          max: {
+            value: "xhigh" as const,
+            label: t("buttons.reasoning.modes.max.label"),
+            description: t("buttons.reasoning.modes.max.description")
           }
         }
       }

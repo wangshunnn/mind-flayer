@@ -9,7 +9,7 @@ import {
   OpenAIIcon,
   ZhipuIcon
 } from "@/components/icons"
-import type { ProviderFormData } from "@/types/settings"
+import type { ProviderFormData, ReasoningEffort } from "@/types/settings"
 import { getModelContextWindow } from "../../shared/model-context"
 
 type ProviderIconComponent = React.ComponentType<{ className?: string }>
@@ -32,6 +32,72 @@ export interface ProviderModel {
   api_id: string
   contextWindow?: number | null
   pricing?: ModelPricing
+  inputModalities?: readonly ModelInputModality[]
+  reasoningPolicy?: ModelReasoningPolicy
+}
+
+export type ModelInputModality = "text" | "image" | "pdf"
+
+export function modelSupportsAttachments(
+  inputModalities: readonly ModelInputModality[] | undefined
+): boolean {
+  return (
+    inputModalities === undefined ||
+    inputModalities.includes("image") ||
+    inputModalities.includes("pdf")
+  )
+}
+
+export function modelSupportsMediaType(
+  inputModalities: readonly ModelInputModality[] | undefined,
+  mediaType: string
+): boolean {
+  if (inputModalities === undefined) {
+    return true
+  }
+
+  if (mediaType.startsWith("image/")) {
+    return inputModalities.includes("image")
+  }
+
+  if (mediaType === "application/pdf") {
+    return inputModalities.includes("pdf")
+  }
+
+  return false
+}
+
+export interface ModelReasoningPolicy {
+  type: "always" | "configurable"
+  supportedEfforts: readonly ReasoningEffort[]
+}
+
+export interface EffectiveModelReasoningSettings {
+  enabled: boolean
+  effort: ReasoningEffort
+  locked: boolean
+}
+
+export function resolveModelReasoningSettings(
+  policy: ModelReasoningPolicy | undefined,
+  enabled: boolean,
+  effort: ReasoningEffort
+): EffectiveModelReasoningSettings {
+  if (policy?.type !== "always") {
+    return { enabled, effort, locked: false }
+  }
+
+  const supportedEffort = policy.supportedEfforts.includes(effort)
+    ? effort
+    : effort === "medium"
+      ? "high"
+      : "default"
+
+  return {
+    enabled: true,
+    effort: supportedEffort,
+    locked: true
+  }
 }
 
 export interface Provider {
@@ -215,15 +281,33 @@ export const MODEL_PROVIDERS: Provider[] = [
     logo: ZhipuIcon,
     models: [
       {
+        label: "GLM-5.3",
+        api_id: "glm-5.3",
+        contextWindow: getModelContextWindow("zhipu", "glm-5.3"),
+        inputModalities: ["text"],
+        reasoningPolicy: {
+          type: "always",
+          supportedEfforts: ["default", "low", "high", "xhigh"]
+        }
+      },
+      {
+        label: "GLM-5.3-Flash",
+        api_id: "glm-5.3-flash",
+        contextWindow: getModelContextWindow("zhipu", "glm-5.3-flash"),
+        inputModalities: ["text", "image", "pdf"],
+        reasoningPolicy: {
+          type: "always",
+          supportedEfforts: ["default", "low", "high", "xhigh"]
+        }
+      },
+      {
         label: "GLM-5.2",
         api_id: "glm-5.2",
         contextWindow: getModelContextWindow("zhipu", "glm-5.2"),
-        pricing: {
-          currency: "CNY",
-          input: 8,
-          output: 28,
-          cachedRead: 2,
-          cachedWrite: 0
+        inputModalities: ["text"],
+        reasoningPolicy: {
+          type: "configurable",
+          supportedEfforts: ["default", "low", "medium", "high", "xhigh"]
         }
       }
     ]
@@ -329,7 +413,11 @@ export function findModelContextWindow(
 
 export const DEFAULT_FORM_DATA = ALL_PROVIDERS.reduce(
   (acc, provider) => {
-    acc[provider.id] = { apiKey: "", baseUrl: "" }
+    acc[provider.id] = {
+      apiKey: "",
+      baseUrl: "",
+      ...(provider.id === "zhipu" ? { connectionPreset: "cn-api" as const } : {})
+    }
     return acc
   },
   {} as Record<string, ProviderFormData>

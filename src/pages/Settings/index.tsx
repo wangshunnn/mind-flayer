@@ -18,6 +18,12 @@ import { testTelegramConnection } from "@/lib/sidecar-client"
 import { cn } from "@/lib/utils"
 import { SettingsSection } from "@/lib/window-manager"
 import type { ProviderFormData } from "@/types/settings"
+import {
+  normalizeZaiChatBaseUrl,
+  resolveZaiConnectionChoice,
+  validateZaiChatBaseUrl,
+  ZAI_PROVIDER_ID
+} from "../../../shared/zai-connection"
 import { AboutSection } from "./components/AboutSection"
 import { AdvancedSection } from "./components/AdvancedSection"
 import { ChannelSection } from "./components/ChannelSection"
@@ -121,7 +127,10 @@ export default function Settings() {
           [activeProvider]: {
             ...prev[activeProvider],
             apiKey: config.apiKey,
-            baseUrl: config.baseUrl || ""
+            baseUrl: config.baseUrl || "",
+            ...(activeProvider === ZAI_PROVIDER_ID
+              ? { connectionPreset: resolveZaiConnectionChoice(config.baseUrl) }
+              : {})
           }
         }))
         setStoredProviders(prev => ({ ...prev, [activeProvider]: true }))
@@ -190,8 +199,22 @@ export default function Settings() {
     const data = formData[providerId]
     if (!data.apiKey.trim()) {
       setActionFeedback("save", "error")
-      setSaveError("API Key is required")
+      setSaveError(t("providers.validation.apiKeyRequired"))
       return
+    }
+
+    let baseUrl = data.baseUrl.trim() || undefined
+    if (providerId === ZAI_PROVIDER_ID) {
+      const validationError =
+        data.connectionPreset === "custom" && !data.baseUrl.trim()
+          ? "invalidUrl"
+          : validateZaiChatBaseUrl(data.baseUrl)
+      if (validationError) {
+        setActionFeedback("save", "error")
+        setSaveError(t(`providers.zai.validation.${validationError}`))
+        return
+      }
+      baseUrl = normalizeZaiChatBaseUrl(data.baseUrl)
     }
 
     try {
@@ -200,7 +223,7 @@ export default function Settings() {
       if (successTimeoutRef.current) {
         clearTimeout(successTimeoutRef.current)
       }
-      await saveConfig(providerId, data.apiKey.trim(), data.baseUrl.trim() || undefined)
+      await saveConfig(providerId, data.apiKey.trim(), baseUrl)
       setStoredProviders(prev => ({ ...prev, [providerId]: true }))
       setActionFeedback("save", "success")
       toast.success(t("providers.toast.saved"))
@@ -246,7 +269,8 @@ export default function Settings() {
         [providerId]: {
           ...prev[providerId],
           apiKey: "",
-          baseUrl: ""
+          baseUrl: "",
+          ...(providerId === ZAI_PROVIDER_ID ? { connectionPreset: "cn-api" as const } : {})
         }
       }))
       if (CHANNEL_PROVIDER_IDS.has(providerId)) {

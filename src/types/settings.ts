@@ -1,3 +1,5 @@
+import type { ZaiConnectionChoice } from "../../shared/zai-connection"
+
 export type Theme = "dark" | "light" | "system"
 export const APPEARANCE_THEME_IDS = [
   "forest",
@@ -151,4 +153,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
 export interface ProviderFormData {
   apiKey: string
   baseUrl: string
+  connectionPreset?: ZaiConnectionChoice
 }

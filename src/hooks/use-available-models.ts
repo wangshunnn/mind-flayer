@@ -33,7 +33,9 @@ export function useAvailableModels() {
               label: model.label,
               api_id: model.api_id,
               contextWindow: model.contextWindow,
-              pricing: model.pricing ? { ...model.pricing } : undefined
+              pricing: model.pricing ? { ...model.pricing } : undefined,
+              inputModalities: model.inputModalities,
+              reasoningPolicy: model.reasoningPolicy
             })
           }
         }

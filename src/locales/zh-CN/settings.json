@@ -17,6 +17,26 @@
     "baseUrl": "Base URL",
     "baseUrlOptional": "可选",
     "baseUrlPlaceholder": "默认：{{defaultUrl}}",
+    "validation": {
+      "apiKeyRequired": "请输入 API Key"
+    },
+    "zai": {
+      "connectionPreset": "接入方式",
+      "presets": {
+        "cn-api": "国内 · 普通 API",
+        "cn-coding-plan": "国内 · Coding Plan",
+        "international-api": "国际 · 普通 API",
+        "international-coding-plan": "国际 · Coding Plan",
+        "custom": "自定义 Chat Completions"
+      },
+      "codingPlanNotice": "Coding Plan 额度仅限官方支持的编程场景使用。",
+      "viewGuide": "查看接入指南",
+      "validation": {
+        "invalidUrl": "请输入有效的 Chat Completions Base URL",
+        "httpsRequired": "Z.AI Base URL 必须使用 HTTPS",
+        "responsesUnsupported": "暂不支持 Responses 端点，请使用 Chat Completions Base URL"
+      }
+    },
     "clear": "清除",
     "save": "保存",
     "saving": "保存中",

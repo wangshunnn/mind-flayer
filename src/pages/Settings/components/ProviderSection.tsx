@@ -12,6 +12,13 @@ import {
   InputGroupInput
 } from "@/components/ui/input-group"
 import { ProviderLogo } from "@/components/ui/provider-logo"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -21,6 +28,11 @@ import {
 } from "@/lib/provider-constants"
 import { cn } from "@/lib/utils"
 import type { ProviderFormData } from "@/types/settings"
+import {
+  ZAI_CONNECTION_PRESETS,
+  ZAI_PROVIDER_ID,
+  type ZaiConnectionChoice
+} from "../../../../shared/zai-connection"
 import { SettingActionButtonContent, type SettingActionFeedback } from "./shared"
 
 interface ProviderSectionProps {
@@ -119,6 +131,20 @@ export function ProviderSection({
         }
         const data = formData[provider.id]
         const providerLocked = provider.disabled ?? false
+        const zaiConnectionChoice =
+          provider.id === ZAI_PROVIDER_ID ? (data?.connectionPreset ?? "cn-api") : undefined
+        const zaiPreset =
+          zaiConnectionChoice && zaiConnectionChoice !== "custom"
+            ? ZAI_CONNECTION_PRESETS.find(preset => preset.id === zaiConnectionChoice)
+            : undefined
+        const credentialUrl =
+          provider.id === ZAI_PROVIDER_ID ? zaiPreset?.credentialUrl : provider.apiKeyUrl
+        const displayedBaseUrl =
+          provider.id === ZAI_PROVIDER_ID && zaiConnectionChoice !== "custom"
+            ? (zaiPreset?.baseUrl ?? provider.defaultBaseUrl)
+            : data?.baseUrl === provider.defaultBaseUrl
+              ? ""
+              : data?.baseUrl
 
         return (
           <div key={provider.id} className={cn("max-w-2xl space-y-6 transition-opacity")}>
@@ -189,13 +215,61 @@ export function ProviderSection({
                 </InputGroupAddon>
               </InputGroup>
               <FieldDescription>
-                {provider.apiKeyUrl && (
-                  <a href={provider.apiKeyUrl} target="_blank" rel="noopener noreferrer">
+                {credentialUrl && (
+                  <a href={credentialUrl} target="_blank" rel="noopener noreferrer">
                     {t("providers.getApiKey")}
                   </a>
                 )}
               </FieldDescription>
             </Field>
+
+            {provider.id === ZAI_PROVIDER_ID && (
+              <Field>
+                <FieldLabel htmlFor={`${provider.id}-connection-preset`}>
+                  {t("providers.zai.connectionPreset")}
+                </FieldLabel>
+                <Select
+                  disabled={providerLocked}
+                  value={zaiConnectionChoice}
+                  onValueChange={value => {
+                    resetSaveFeedback()
+                    const connectionPreset = value as ZaiConnectionChoice
+                    const preset =
+                      connectionPreset === "custom"
+                        ? undefined
+                        : ZAI_CONNECTION_PRESETS.find(item => item.id === connectionPreset)
+                    setFormData(prev => ({
+                      ...prev,
+                      [provider.id]: {
+                        ...prev[provider.id],
+                        connectionPreset,
+                        baseUrl: preset?.baseUrl ?? ""
+                      }
+                    }))
+                  }}
+                >
+                  <SelectTrigger id={`${provider.id}-connection-preset`} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ZAI_CONNECTION_PRESETS.map(preset => (
+                      <SelectItem key={preset.id} value={preset.id}>
+                        {t(`providers.zai.presets.${preset.id}`)}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom">{t("providers.zai.presets.custom")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {zaiPreset?.codingPlan && (
+                  <FieldDescription>
+                    {t("providers.zai.codingPlanNotice")}{" "}
+                    <a href={zaiPreset.documentationUrl} target="_blank" rel="noopener noreferrer">
+                      {t("providers.zai.viewGuide")}
+                    </a>
+                  </FieldDescription>
+                )}
+              </Field>
+            )}
 
             {/* Base URL Field */}
             <Field>
@@ -203,9 +277,12 @@ export function ProviderSection({
               <Input
                 id={`${provider.id}-base-url`}
                 type="url"
-                disabled={providerLocked}
+                disabled={
+                  providerLocked ||
+                  (provider.id === ZAI_PROVIDER_ID && zaiConnectionChoice !== "custom")
+                }
                 placeholder={provider.defaultBaseUrl}
-                value={data?.baseUrl === provider.defaultBaseUrl ? "" : data?.baseUrl}
+                value={displayedBaseUrl}
                 onChange={e => {
                   resetSaveFeedback()
                   setFormData(prev => ({

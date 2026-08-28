@@ -88,6 +88,7 @@
       "label": "推理",
       "tooltip": "推理",
       "description": "仅对支持调整思考程度的模型生效。",
+      "alwaysEnabled": "此模型始终开启思考",
       "modes": {
         "default": {
           "label": "默认",
@@ -109,6 +110,15 @@
         "xhigh": {
           "label": "超高",
           "description": "使用模型支持范围内最高的思考强度"
+        },
+        "defaultMax": {
+          "label": "默认（Max）",
+          "badge": "推荐",
+          "description": "使用该模型默认的最大思考强度"
+        },
+        "max": {
+          "label": "Max",
+          "description": "使用该模型支持的最大思考强度"
         }
       }
     }

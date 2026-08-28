@@ -91,6 +91,17 @@ describe("SessionTokenUsage", () => {
     await render({ ...usage, cacheRead: 0, cacheHitPercent: 0 })
     expect(container.textContent).toContain("R 0CH 0.0%")
   })
+  it("does not present near-perfect cache hits as exactly 100%", async () => {
+    await render({ ...usage, cacheHitPercent: 99.9 })
+    expect(container.textContent).toContain("CH 99.9%")
+
+    await render({ ...usage, cacheHitPercent: 99.95 })
+    expect(container.textContent).toContain("CH >99.9%")
+    expect(container.querySelector("button")?.getAttribute("aria-label")).toContain("CH >99.9%")
+
+    await render({ ...usage, cacheHitPercent: 100 })
+    expect(container.textContent).toContain("CH >99.9%")
+  })
   it("marks estimated context and preserves decimal precision and unknown states", async () => {
     await render({ ...usage, turns: 2, steps: 1 }, { tokens: 30000, source: "estimated" })
     expect(container.textContent).toContain("2 turns · 1 step")

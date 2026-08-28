@@ -17,13 +17,21 @@ interface SessionTokenUsageProps {
   contextWindow?: number | null
 }
 
+function formatCacheHitPercent(percent: number): string {
+  if (percent > 99.9) {
+    return ">99.9%"
+  }
+  return `${percent.toFixed(1)}%`
+}
+
 export function SessionTokenUsage({ usage, contextUsage, contextWindow }: SessionTokenUsageProps) {
   const { t } = useTranslation("chat")
   if (!usage.hasUsage) {
     return null
   }
   const unavailable = t("sessionUsage.unavailable")
-  const hit = usage.cacheHitPercent === null ? unavailable : `${usage.cacheHitPercent.toFixed(1)}%`
+  const hit =
+    usage.cacheHitPercent === null ? unavailable : formatCacheHitPercent(usage.cacheHitPercent)
   const turns = t(usage.turns === 1 ? "sessionUsage.oneTurn" : "sessionUsage.manyTurns", {
     count: usage.turns
   })

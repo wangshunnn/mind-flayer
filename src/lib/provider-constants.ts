@@ -250,6 +250,7 @@ export const MODEL_PROVIDERS: Provider[] = [
         label: "DeepSeek-V4-Flash",
         api_id: "deepseek-v4-flash",
         contextWindow: getModelContextWindow("deepseek", "deepseek-v4-flash"),
+        inputModalities: ["text"],
         pricing: {
           currency: "USD",
           input: 0.14,
@@ -262,6 +263,7 @@ export const MODEL_PROVIDERS: Provider[] = [
         label: "DeepSeek-V4-Pro",
         api_id: "deepseek-v4-pro",
         contextWindow: getModelContextWindow("deepseek", "deepseek-v4-pro"),
+        inputModalities: ["text"],
         pricing: {
           currency: "USD",
           input: 1.74,

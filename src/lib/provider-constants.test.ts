@@ -291,11 +291,16 @@ describe("findModelContextWindow", () => {
 })
 
 describe("model capabilities", () => {
-  it("restricts GLM-5.3 attachments and accepts images and PDFs for GLM-5.3-Flash", () => {
+  it("restricts text-only models and accepts images and PDFs for GLM-5.3-Flash", () => {
+    const deepseek = MODEL_PROVIDERS.find(provider => provider.id === "deepseek")
     const zhipu = MODEL_PROVIDERS.find(provider => provider.id === "zhipu")
+    const deepseekFlash = deepseek?.models?.find(model => model.api_id === "deepseek-v4-flash")
+    const deepseekPro = deepseek?.models?.find(model => model.api_id === "deepseek-v4-pro")
     const glm53 = zhipu?.models?.find(model => model.api_id === "glm-5.3")
     const flash = zhipu?.models?.find(model => model.api_id === "glm-5.3-flash")
 
+    expect(modelSupportsAttachments(deepseekFlash?.inputModalities)).toBe(false)
+    expect(modelSupportsAttachments(deepseekPro?.inputModalities)).toBe(false)
     expect(modelSupportsAttachments(glm53?.inputModalities)).toBe(false)
     expect(modelSupportsAttachments(flash?.inputModalities)).toBe(true)
     expect(modelSupportsMediaType(flash?.inputModalities, "image/png")).toBe(true)

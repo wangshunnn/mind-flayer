@@ -34,10 +34,7 @@ const settingsRoute = createRoute({
 const imagePreviewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/image-preview",
-  component: ImagePreview,
-  validateSearch: z.object({
-    session: z.string().optional()
-  })
+  component: ImagePreview
 })
 
 const routeTree = rootRoute.addChildren([indexRoute, settingsRoute, imagePreviewRoute])

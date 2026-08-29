@@ -13,6 +13,10 @@ vi.mock("@/hooks/use-shortcut-config", () => ({
 
 import {
   PromptInput,
+  PromptInputActionAddAttachments,
+  PromptInputActionMenu,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuTrigger,
   PromptInputBody,
   PromptInputTextarea
 } from "@/components/ai-elements/prompt-input"
@@ -241,5 +245,46 @@ describe("PromptInputTextarea IME Enter handling", () => {
     await act(async () => input?.dispatchEvent(new Event("change", { bubbles: true })))
 
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: "accept" }))
+  })
+
+  it("closes the attachment action menu after opening the file picker", async () => {
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <PromptInput onSubmit={vi.fn()}>
+            <PromptInputActionMenu>
+              <PromptInputActionMenuTrigger />
+              <PromptInputActionMenuContent>
+                <PromptInputActionAddAttachments />
+              </PromptInputActionMenuContent>
+            </PromptInputActionMenu>
+          </PromptInput>
+        </I18nextProvider>
+      )
+    })
+
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')
+    const inputClick = vi.spyOn(fileInput as HTMLInputElement, "click").mockImplementation(() => {})
+    const trigger = container.querySelector<HTMLElement>('[data-slot="dropdown-menu-trigger"]')
+
+    await act(async () => {
+      trigger?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }))
+      await Promise.resolve()
+    })
+
+    const menuItem = document.body.querySelector<HTMLElement>('[data-slot="dropdown-menu-item"]')
+    expect(menuItem).not.toBeNull()
+
+    await act(async () => {
+      menuItem?.click()
+      await Promise.resolve()
+    })
+
+    expect(inputClick).toHaveBeenCalledOnce()
+    expect(
+      document.body
+        .querySelector<HTMLElement>('[data-slot="dropdown-menu-content"]')
+        ?.getAttribute("data-state")
+    ).not.toBe("open")
   })
 })

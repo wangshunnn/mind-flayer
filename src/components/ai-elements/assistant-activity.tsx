@@ -194,6 +194,10 @@ export function buildAssistantMessageSegments(
 
   parts.forEach((part, partIndex) => {
     if (isTextUIPart(part)) {
+      if (!part.text.trim()) {
+        return
+      }
+
       flushActivity()
       flushFallback()
       if (textStartPartIndex === -1) {

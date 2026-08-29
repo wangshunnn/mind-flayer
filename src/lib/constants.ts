@@ -213,9 +213,7 @@ export function useToastConstants() {
   return useMemo(
     () => ({
       error: t("toast.error"),
-      filesAttached: t("toast.filesAttached"),
-      apiKeyNotConfigured: t("toast.apiKeyNotConfigured"),
-      filesAttachedDescription: (count: number) => t("toast.filesAttachedDescription", { count })
+      apiKeyNotConfigured: t("toast.apiKeyNotConfigured")
     }),
     [t]
   )

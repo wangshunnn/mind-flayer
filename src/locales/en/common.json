@@ -33,8 +33,6 @@
     "channelThreadDeleted": "Telegram thread deleted",
     "failedToDeleteChannelThread": "Failed to delete Telegram thread",
     "error": "Error",
-    "filesAttached": "Files attached",
-    "filesAttachedDescription": "{{count}} file(s) attached to message",
     "apiKeyNotConfigured": "Please configure your API key in Settings to continue chatting."
   },
   "dialog": {

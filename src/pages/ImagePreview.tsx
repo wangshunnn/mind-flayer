@@ -1,8 +1,5 @@
-import { useSearch } from "@tanstack/react-router"
-import { listen } from "@tauri-apps/api/event"
+import { emit, listen } from "@tauri-apps/api/event"
 import { getCurrentWindow } from "@tauri-apps/api/window"
-import { save } from "@tauri-apps/plugin-dialog"
-import { writeFile } from "@tauri-apps/plugin-fs"
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { CopyIcon, DownloadIcon, FolderSearchIcon, InfoIcon, LoaderCircleIcon } from "lucide-react"
 import {
@@ -21,7 +18,13 @@ import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { consumeImagePreviewSession, type ImagePreviewPayload } from "@/lib/image-preview"
+import { saveBlobAs } from "@/lib/file-save"
+import {
+  IMAGE_PREVIEW_READY_EVENT,
+  IMAGE_PREVIEW_SHOW_EVENT,
+  IMAGE_PREVIEW_WINDOW_LABEL,
+  type ImagePreviewPayload
+} from "@/lib/image-preview"
 import { cn } from "@/lib/utils"
 
 type ImageMetrics = {
@@ -208,13 +211,10 @@ function ActionButton({
 export default function ImagePreview() {
   const { t: tChat } = useTranslation("chat")
   const { t: tCommon } = useTranslation("common")
-  const searchParams = useSearch({ from: "/image-preview" })
   const imageRef = useRef<HTMLImageElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const dragStateRef = useRef<ImageDragState | null>(null)
-  const [payload, setPayload] = useState<ImagePreviewPayload | null>(() =>
-    searchParams.session ? consumeImagePreviewSession(searchParams.session) : null
-  )
+  const [payload, setPayload] = useState<ImagePreviewPayload | null>(null)
   const [isPanning, setIsPanning] = useState(false)
   const [metrics, setMetrics] = useState<ImageMetrics>(EMPTY_METRICS)
   const [panOffset, setPanOffset] = useState<ImagePanOffset>(DEFAULT_PAN_OFFSET)
@@ -228,16 +228,25 @@ export default function ImagePreview() {
 
   useEffect(() => {
     let unlisten: (() => void) | undefined
+    let active = true
 
     const setupListener = async () => {
-      unlisten = await listen<ImagePreviewPayload>("image-preview:show", event => {
+      const stopListening = await listen<ImagePreviewPayload>(IMAGE_PREVIEW_SHOW_EVENT, event => {
         setPayload(event.payload)
       })
+      if (!active) {
+        stopListening()
+        return
+      }
+
+      unlisten = stopListening
+      await emit(IMAGE_PREVIEW_READY_EVENT, { windowLabel: IMAGE_PREVIEW_WINDOW_LABEL })
     }
 
-    setupListener()
+    void setupListener()
 
     return () => {
+      active = false
       if (unlisten) {
         unlisten()
       }
@@ -354,47 +363,53 @@ export default function ImagePreview() {
   const infoLabel = tChat("imagePreview.actions.info")
   const notAvailableText = tChat("imagePreview.info.notAvailable")
 
-  const infoRows = useMemo(
-    () =>
-      payload
-        ? [
-            {
-              label: tChat("imagePreview.info.fileName"),
-              value: payload.filename
-            },
-            {
-              label: tChat("imagePreview.info.source"),
-              value:
-                payload.kind === "local"
-                  ? tChat("imagePreview.info.sourceLocal")
-                  : tChat("imagePreview.info.sourceRemote")
-            },
-            {
-              label: tChat("imagePreview.info.resolution"),
-              value: formatResolution(metrics, notAvailableText)
-            },
-            {
-              label: tChat("imagePreview.info.fileSize"),
-              value: formatFileSize(metrics.fileSize, notAvailableText)
-            },
-            {
-              label: tChat("imagePreview.info.mimeType"),
-              value: metrics.mimeType || notAvailableText
-            },
-            {
-              label:
-                payload.kind === "local"
-                  ? tChat("imagePreview.info.localPath")
-                  : tChat("imagePreview.info.url"),
-              value:
-                payload.kind === "local"
-                  ? (payload.localPath ?? notAvailableText)
-                  : payload.originalUrl
-            }
-          ]
-        : [],
-    [metrics, notAvailableText, payload, tChat]
-  )
+  const infoRows = useMemo(() => {
+    if (!payload) {
+      return []
+    }
+
+    const rows = [
+      {
+        label: tChat("imagePreview.info.fileName"),
+        value: payload.filename
+      },
+      {
+        label: tChat("imagePreview.info.source"),
+        value:
+          payload.kind === "local"
+            ? tChat("imagePreview.info.sourceLocal")
+            : payload.kind === "remote"
+              ? tChat("imagePreview.info.sourceRemote")
+              : tChat("imagePreview.info.sourceEmbedded")
+      },
+      {
+        label: tChat("imagePreview.info.resolution"),
+        value: formatResolution(metrics, notAvailableText)
+      },
+      {
+        label: tChat("imagePreview.info.fileSize"),
+        value: formatFileSize(metrics.fileSize, notAvailableText)
+      },
+      {
+        label: tChat("imagePreview.info.mimeType"),
+        value: metrics.mimeType || notAvailableText
+      }
+    ]
+
+    if (payload.kind === "local") {
+      rows.push({
+        label: tChat("imagePreview.info.localPath"),
+        value: payload.localPath ?? notAvailableText
+      })
+    } else if (payload.kind === "remote") {
+      rows.push({
+        label: tChat("imagePreview.info.url"),
+        value: payload.originalUrl
+      })
+    }
+
+    return rows
+  }, [metrics, notAvailableText, payload, tChat])
 
   const handleCopy = useCallback(async () => {
     if (!resourceState.blob) {
@@ -417,17 +432,10 @@ export default function ImagePreview() {
     }
 
     try {
-      const filePath = await save({
-        defaultPath: payload.filename
-      })
-
-      if (!filePath || Array.isArray(filePath)) {
-        return
+      const saved = await saveBlobAs(resourceState.blob, payload.filename)
+      if (saved) {
+        toast.success(tChat("imagePreview.toast.saveSuccess"))
       }
-
-      const bytes = new Uint8Array(await resourceState.blob.arrayBuffer())
-      await writeFile(filePath, bytes)
-      toast.success(tChat("imagePreview.toast.saveSuccess"))
     } catch (error) {
       toast.error(tCommon("toast.error"), {
         description: error instanceof Error ? error.message : tChat("imagePreview.toast.saveError")

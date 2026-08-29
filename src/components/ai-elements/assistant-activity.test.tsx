@@ -192,6 +192,26 @@ describe("buildAssistantMessageSegments", () => {
       warnSpy.mockRestore()
     }
   })
+
+  it("keeps activity rows together across empty step text", () => {
+    const segments = buildAssistantMessageSegments([
+      createReasoningPart(0, "First check."),
+      createBashPart(1),
+      createTextPart(""),
+      createStepStartPart(),
+      createReasoningPart(4, "Second check."),
+      createWebSearchPart(5),
+      createTextPart("  \n"),
+      createStepStartPart(),
+      createReasoningPart(8, "Final check.")
+    ])
+
+    expect(segments).toHaveLength(1)
+    expect(segments[0]).toMatchObject({ type: "activity", parts: expect.any(Array) })
+    if (segments[0].type === "activity") {
+      expect(segments[0].parts.map(part => part.partIndex)).toEqual([0, 1, 4, 5, 8])
+    }
+  })
 })
 
 describe("AssistantActivityTimeline", () => {

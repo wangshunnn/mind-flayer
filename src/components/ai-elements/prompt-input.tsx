@@ -396,6 +396,7 @@ export type PromptInputActionAddAttachmentsProps = ComponentProps<typeof Dropdow
 
 export const PromptInputActionAddAttachments = ({
   label,
+  onSelect,
   ...props
 }: PromptInputActionAddAttachmentsProps) => {
   const { t } = useTranslation("chat")
@@ -404,8 +405,11 @@ export const PromptInputActionAddAttachments = ({
   return (
     <DropdownMenuItem
       {...props}
-      onSelect={e => {
-        e.preventDefault()
+      onSelect={event => {
+        onSelect?.(event)
+        if (event.defaultPrevented) {
+          return
+        }
         attachments.openFileDialog()
       }}
     >

@@ -1,10 +1,11 @@
 import type {
   ChatAddToolApproveResponseFunction,
   ChatStatus,
+  FileUIPart,
   LanguageModelUsage,
   UIMessage
 } from "ai"
-import { isReasoningUIPart, isTextUIPart, isToolUIPart } from "ai"
+import { isFileUIPart, isReasoningUIPart, isTextUIPart, isToolUIPart } from "ai"
 import { CircleIcon } from "lucide-react"
 import type { CSSProperties } from "react"
 import { memo, useCallback, useMemo } from "react"
@@ -15,6 +16,8 @@ import {
 } from "@/components/ai-elements/assistant-activity"
 import {
   Message,
+  MessageAttachment,
+  MessageAttachments,
   MessageBranch,
   MessageBranchContent,
   MessageContent,
@@ -101,12 +104,26 @@ const ChatMessageSeat = memo(function ChatMessageSeat({
       .map(part => part.text)
       .join("")
     const metadata = message.metadata as AssistantMessageMetadata | undefined
+    const isUserMessage = message.role === "user"
     const isAssistantMessage = message.role === "assistant"
+    const userAttachments: { data: FileUIPart; key: string }[] = []
+    if (isUserMessage) {
+      for (let partIndex = 0; partIndex < message.parts.length; partIndex += 1) {
+        const part = message.parts[partIndex]
+        if (part && isFileUIPart(part)) {
+          userAttachments.push({
+            data: part,
+            key: `${message.id}-file-part-${partIndex}`
+          })
+        }
+      }
+    }
     return {
       messageText,
       metadata,
-      isUserMessage: message.role === "user",
+      isUserMessage,
       isAssistantMessage,
+      userAttachments,
       assistantSegments: isAssistantMessage ? buildAssistantMessageSegments(message.parts) : [],
       firstReasoningPartIndex: isAssistantMessage ? message.parts.findIndex(isReasoningUIPart) : -1,
       messageModelPricing: findModelPricing(metadata?.modelProvider, metadata?.modelId),
@@ -125,6 +142,7 @@ const ChatMessageSeat = memo(function ChatMessageSeat({
     metadata,
     isUserMessage,
     isAssistantMessage,
+    userAttachments,
     assistantSegments,
     firstReasoningPartIndex,
     messageModelPricing,
@@ -145,9 +163,25 @@ const ChatMessageSeat = memo(function ChatMessageSeat({
           style={isStreaming ? STREAMING_MESSAGE_STYLE : SETTLED_MESSAGE_STYLE}
         >
           {isUserMessage ? (
-            <MessageContent>
-              <div className="whitespace-pre-wrap wrap-break-word">{messageText}</div>
-            </MessageContent>
+            <>
+              {userAttachments.length > 0 && (
+                <MessageAttachments>
+                  {userAttachments.map(attachment => (
+                    <MessageAttachment
+                      data={attachment.data}
+                      key={attachment.key}
+                      sidecarOrigin={sidecarOrigin}
+                      variant={userAttachments.length === 1 ? "single" : "tile"}
+                    />
+                  ))}
+                </MessageAttachments>
+              )}
+              {messageText && (
+                <MessageContent>
+                  <div className="whitespace-pre-wrap wrap-break-word">{messageText}</div>
+                </MessageContent>
+              )}
+            </>
           ) : (
             assistantSegments.map(segment => {
               if (segment.type === "text") {
@@ -192,6 +226,7 @@ const ChatMessageSeat = memo(function ChatMessageSeat({
               messageText={messageText}
               createdAt={metadata?.createdAt}
               onEdit={noop}
+              showTextActions={Boolean(messageText)}
             />
           )}
           {isAssistantMessage && !isStreaming && !hasPendingApproval && (

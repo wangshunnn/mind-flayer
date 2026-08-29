@@ -1,8 +1,26 @@
 import { math } from "@streamdown/math"
+import { openUrl } from "@tauri-apps/plugin-opener"
 import type { FileUIPart, UIMessage } from "ai"
-import { ChevronLeftIcon, ChevronRightIcon, PaperclipIcon, XIcon } from "lucide-react"
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DownloadIcon,
+  LoaderCircleIcon,
+  PaperclipIcon
+} from "lucide-react"
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react"
-import { createContext, forwardRef, memo, useContext, useEffect, useMemo, useState } from "react"
+import {
+  createContext,
+  forwardRef,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState
+} from "react"
+import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import { defaultRemarkPlugins, Streamdown } from "streamdown"
 import {
   createRewriteLocalImageRemarkPlugin,
@@ -12,8 +30,11 @@ import {
 import { Button } from "@/components/ui/button"
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { saveUrlAs } from "@/lib/file-save"
+import { buildImagePreviewPayload } from "@/lib/image-preview"
 import { normalizeLocalImageMarkdown } from "@/lib/local-image-url"
 import { cn } from "@/lib/utils"
+import { openImagePreviewWindow } from "@/lib/window-manager"
 import "katex/dist/katex.min.css"
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
@@ -40,6 +61,7 @@ export type MessageContentProps = HTMLAttributes<HTMLDivElement>
 
 export const MessageContent = ({ children, className, ...props }: MessageContentProps) => (
   <div
+    data-slot="message-content"
     className={cn(
       "is-user:dark flex w-fit max-w-full min-w-0 flex-col gap-2",
       "text-[14px] leading-[1.6] px-0",
@@ -369,88 +391,168 @@ MessageResponse.displayName = "MessageResponse"
 export type MessageAttachmentProps = HTMLAttributes<HTMLDivElement> & {
   data: FileUIPart
   className?: string
-  onRemove?: () => void
+  sidecarOrigin?: string
+  variant: "single" | "tile"
 }
 
-export function MessageAttachment({ data, className, onRemove, ...props }: MessageAttachmentProps) {
-  const filename = data.filename || ""
-  const mediaType = data.mediaType?.startsWith("image/") && data.url ? "image" : "file"
-  const isImage = mediaType === "image"
-  const attachmentLabel = filename || (isImage ? "Image" : "Attachment")
+const HTTP_PROTOCOL_REGEX = /^https?:/i
+
+export const MessageAttachment = memo(function MessageAttachment({
+  data,
+  className,
+  sidecarOrigin,
+  variant,
+  ...props
+}: MessageAttachmentProps) {
+  const { t } = useTranslation(["chat", "common"])
+  const filename = data.filename?.trim() || ""
+  const isImage = data.mediaType?.startsWith("image/") && Boolean(data.url)
+  const attachmentLabel =
+    filename || t(isImage ? "chat:attachments.image" : "chat:attachments.file")
+  const previewPayload = useMemo(
+    () =>
+      isImage
+        ? buildImagePreviewPayload(data.url, attachmentLabel, sidecarOrigin, {
+            allowEmbedded: true,
+            filename: attachmentLabel
+          })
+        : null,
+    [attachmentLabel, data.url, isImage, sidecarOrigin]
+  )
+  const imageUrl = previewPayload?.resourceUrl ?? data.url
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const showFileCard = !isImage || failedImageUrl === imageUrl
+
+  const handleOpenPreview = useCallback(() => {
+    if (!previewPayload) {
+      return
+    }
+
+    void openImagePreviewWindow(previewPayload).catch(() => {
+      toast.error(t("common:toast.error"), {
+        description: t("chat:attachments.toast.previewError")
+      })
+    })
+  }, [previewPayload, t])
+
+  const handleSave = useCallback(async () => {
+    if (isSaving) {
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const saved = await saveUrlAs(data.url, attachmentLabel)
+      if (saved) {
+        toast.success(t("chat:attachments.toast.saveSuccess"))
+      }
+    } catch {
+      if (HTTP_PROTOCOL_REGEX.test(data.url)) {
+        try {
+          await openUrl(data.url)
+          return
+        } catch {
+          // Report the shared attachment error below.
+        }
+      }
+
+      toast.error(t("common:toast.error"), {
+        description: t("chat:attachments.toast.saveError")
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }, [attachmentLabel, data.url, isSaving, t])
 
   return (
-    <div className={cn("group relative size-24 overflow-hidden rounded-lg", className)} {...props}>
-      {isImage ? (
-        <>
-          <img
-            alt={filename || "attachment"}
-            className="size-full object-cover"
-            height={100}
-            src={data.url}
-            width={100}
-          />
-          {onRemove && (
-            <Button
-              aria-label="Remove attachment"
-              className={cn(
-                "absolute top-2 right-2 size-6 rounded-full p-0",
-                "bg-background/80 backdrop-blur-sm hover:bg-background",
-                "opacity-0 transition-opacity group-hover:opacity-100",
-                "[&>svg]:size-3"
-              )}
-              onClick={e => {
-                e.stopPropagation()
-                onRemove()
-              }}
-              type="button"
-              variant="ghost"
-            >
-              <XIcon />
-              <span className="sr-only">Remove</span>
-            </Button>
-          )}
-        </>
-      ) : (
-        <>
-          <Tooltip>
+    <div className={cn("min-w-0", className)} {...props}>
+      {showFileCard ? (
+        <TooltipProvider>
+          <Tooltip disableHoverableContent={true}>
             <TooltipTrigger asChild>
-              <div
+              <button
+                aria-label={t("chat:attachments.downloadNamed", { name: attachmentLabel })}
                 className={cn(
-                  "flex size-full shrink-0 items-center justify-center",
-                  "rounded-lg bg-muted text-muted-foreground"
+                  "flex h-12 min-w-40 max-w-64 items-center gap-2 rounded-lg border border-border",
+                  "bg-background/80 px-3 text-left shadow-xs transition-colors",
+                  "hover:bg-accent hover:text-accent-foreground",
+                  "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+                  "disabled:pointer-events-none disabled:opacity-60"
                 )}
+                data-slot="message-attachment-file"
+                disabled={isSaving}
+                onClick={() => {
+                  void handleSave()
+                }}
+                type="button"
               >
-                <PaperclipIcon className="size-4" />
-              </div>
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                  <PaperclipIcon className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-medium">{attachmentLabel}</span>
+                  <span className="block truncate text-[11px] text-muted-foreground">
+                    {data.mediaType || t("chat:attachments.unknownType")}
+                  </span>
+                </span>
+                {isSaving ? (
+                  <LoaderCircleIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
+                ) : (
+                  <DownloadIcon className="size-4 shrink-0 text-muted-foreground" />
+                )}
+              </button>
             </TooltipTrigger>
             <TooltipContent>
               <p>{attachmentLabel}</p>
             </TooltipContent>
           </Tooltip>
-          {onRemove && (
-            <Button
-              aria-label="Remove attachment"
-              className={cn(
-                "size-6 shrink-0 rounded-full p-0",
-                "opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100",
-                "[&>svg]:size-3"
-              )}
-              onClick={e => {
-                e.stopPropagation()
-                onRemove()
-              }}
-              type="button"
-              variant="ghost"
-            >
-              <XIcon />
-              <span className="sr-only">Remove</span>
-            </Button>
-          )}
-        </>
+        </TooltipProvider>
+      ) : (
+        <TooltipProvider>
+          <Tooltip disableHoverableContent={true}>
+            <TooltipTrigger asChild>
+              <button
+                aria-label={t("chat:attachments.previewNamed", { name: attachmentLabel })}
+                className={cn(
+                  "block overflow-hidden rounded-lg border border-border bg-muted/30",
+                  "cursor-zoom-in transition-colors hover:bg-muted/50",
+                  "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+                  variant === "single" ? "max-h-40 max-w-40" : "size-24"
+                )}
+                data-attachment-variant={variant}
+                data-slot="message-attachment-image"
+                onClick={handleOpenPreview}
+                type="button"
+              >
+                <img
+                  alt={attachmentLabel}
+                  className={cn(
+                    "block object-contain",
+                    variant === "single"
+                      ? "h-auto max-h-40 w-auto max-w-40"
+                      : "size-full object-cover"
+                  )}
+                  decoding="async"
+                  height={variant === "single" ? 160 : 96}
+                  loading="lazy"
+                  onError={() => {
+                    setFailedImageUrl(imageUrl)
+                  }}
+                  src={imageUrl}
+                  width={variant === "single" ? 160 : 96}
+                />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t("chat:attachments.previewNamed", { name: attachmentLabel })}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
     </div>
   )
-}
+})
 
 export type MessageAttachmentsProps = ComponentProps<"div">
 
@@ -460,7 +562,14 @@ export function MessageAttachments({ children, className, ...props }: MessageAtt
   }
 
   return (
-    <div className={cn("ml-auto flex w-fit flex-wrap items-start gap-2", className)} {...props}>
+    <div
+      className={cn(
+        "ml-auto flex w-fit max-w-[75%] flex-wrap items-start justify-end gap-2",
+        className
+      )}
+      data-slot="message-attachments"
+      {...props}
+    >
       {children}
     </div>
   )

@@ -3,10 +3,13 @@ import { getLocalImagePath, resolveLocalImageUrl } from "@/lib/local-image-url"
 const REMOTE_IMAGE_PROXY_PATH_SUFFIX = "/api/remote-image"
 const HTTP_PROTOCOL_REGEX = /^https?:/i
 const DATA_OR_BLOB_PROTOCOL_REGEX = /^(data:|blob:)/i
-const IMAGE_PREVIEW_SESSION_STORAGE_PREFIX = "image-preview:session:"
 const RELATIVE_URL_PARSE_BASE = "http://localhost"
 
-export type ImagePreviewSourceKind = "local" | "remote"
+export const IMAGE_PREVIEW_READY_EVENT = "image-preview:ready"
+export const IMAGE_PREVIEW_SHOW_EVENT = "image-preview:show"
+export const IMAGE_PREVIEW_WINDOW_LABEL = "image-preview"
+
+export type ImagePreviewSourceKind = "embedded" | "local" | "remote"
 
 export interface ImagePreviewPayload {
   alt: string
@@ -17,24 +20,17 @@ export interface ImagePreviewPayload {
   resourceUrl: string
 }
 
-export function isRemoteImageUrl(source: string): boolean {
-  return HTTP_PROTOCOL_REGEX.test(source.trim())
+export interface ImagePreviewReadyPayload {
+  windowLabel: typeof IMAGE_PREVIEW_WINDOW_LABEL
 }
 
-function isImagePreviewPayload(value: unknown): value is ImagePreviewPayload {
-  if (!value || typeof value !== "object") {
-    return false
-  }
+export interface BuildImagePreviewPayloadOptions {
+  allowEmbedded?: boolean
+  filename?: string
+}
 
-  const candidate = value as Record<string, unknown>
-  return (
-    typeof candidate.alt === "string" &&
-    typeof candidate.filename === "string" &&
-    (candidate.kind === "local" || candidate.kind === "remote") &&
-    (typeof candidate.localPath === "string" || candidate.localPath === null) &&
-    typeof candidate.originalUrl === "string" &&
-    typeof candidate.resourceUrl === "string"
-  )
+export function isRemoteImageUrl(source: string): boolean {
+  return HTTP_PROTOCOL_REGEX.test(source.trim())
 }
 
 function trimTrailingSlashes(origin: string): string {
@@ -113,18 +109,34 @@ export function deriveImageFilename(source: string, localPath?: string | null): 
 export function buildImagePreviewPayload(
   source: string,
   alt: string,
-  sidecarOrigin?: string
+  sidecarOrigin?: string,
+  options?: BuildImagePreviewPayloadOptions
 ): ImagePreviewPayload | null {
   const trimmedSource = source.trim()
-  if (!trimmedSource || DATA_OR_BLOB_PROTOCOL_REGEX.test(trimmedSource)) {
+  if (!trimmedSource) {
     return null
+  }
+
+  if (DATA_OR_BLOB_PROTOCOL_REGEX.test(trimmedSource)) {
+    if (!options?.allowEmbedded) {
+      return null
+    }
+
+    return {
+      alt,
+      filename: options.filename?.trim() || "image",
+      kind: "embedded",
+      localPath: null,
+      originalUrl: "",
+      resourceUrl: trimmedSource
+    }
   }
 
   const proxiedRemoteUrl = getOriginalRemoteImageUrlFromProxyUrl(trimmedSource)
   if (proxiedRemoteUrl) {
     return {
       alt,
-      filename: deriveImageFilename(proxiedRemoteUrl),
+      filename: options?.filename?.trim() || deriveImageFilename(proxiedRemoteUrl),
       kind: "remote",
       localPath: null,
       originalUrl: proxiedRemoteUrl,
@@ -137,7 +149,7 @@ export function buildImagePreviewPayload(
     const originalUrl = trimmedSource
     return {
       alt,
-      filename: deriveImageFilename(trimmedSource, localPath),
+      filename: options?.filename?.trim() || deriveImageFilename(trimmedSource, localPath),
       kind: "local",
       localPath,
       originalUrl,
@@ -152,48 +164,10 @@ export function buildImagePreviewPayload(
 
   return {
     alt,
-    filename: deriveImageFilename(originalUrl),
+    filename: options?.filename?.trim() || deriveImageFilename(originalUrl),
     kind: "remote",
     localPath: null,
     originalUrl,
     resourceUrl: resolveRemoteImageUrl(originalUrl, sidecarOrigin)
-  }
-}
-
-export function createImagePreviewSessionKey(sessionId: string): string {
-  return `${IMAGE_PREVIEW_SESSION_STORAGE_PREFIX}${sessionId}`
-}
-
-export function storeImagePreviewSession(sessionId: string, payload: ImagePreviewPayload): void {
-  const storageKey = createImagePreviewSessionKey(sessionId)
-
-  try {
-    globalThis.localStorage.setItem(storageKey, JSON.stringify(payload))
-  } catch (error) {
-    console.error(`[image-preview] Failed to store preview session "${storageKey}"`, error)
-  }
-}
-
-export function consumeImagePreviewSession(sessionId: string): ImagePreviewPayload | null {
-  const storageKey = createImagePreviewSessionKey(sessionId)
-
-  try {
-    const storedValue = globalThis.localStorage.getItem(storageKey)
-    if (!storedValue) {
-      return null
-    }
-
-    globalThis.localStorage.removeItem(storageKey)
-
-    const parsedValue: unknown = JSON.parse(storedValue)
-    if (!isImagePreviewPayload(parsedValue)) {
-      console.warn(`[image-preview] Ignoring invalid preview session "${storageKey}"`)
-      return null
-    }
-
-    return parsedValue
-  } catch (error) {
-    console.error(`[image-preview] Failed to consume preview session "${storageKey}"`, error)
-    return null
   }
 }

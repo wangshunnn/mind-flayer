@@ -24,6 +24,18 @@
     "modelIsTextOnly": "{{model}} accepts text only.",
     "attachmentTypesUnsupported": "{{model}} accepts images and PDF files only."
   },
+  "attachments": {
+    "image": "Image",
+    "file": "Attachment",
+    "unknownType": "File",
+    "previewNamed": "Preview {{name}}",
+    "downloadNamed": "Save {{name}}",
+    "toast": {
+      "previewError": "Failed to open the image preview.",
+      "saveSuccess": "Attachment saved",
+      "saveError": "Failed to save the attachment."
+    }
+  },
   "tokens": {
     "input": "{{count}} input",
     "output": "{{count}} output",
@@ -112,6 +124,7 @@
       "source": "Source",
       "sourceLocal": "Local file",
       "sourceRemote": "Remote image",
+      "sourceEmbedded": "Message attachment",
       "resolution": "Resolution",
       "fileSize": "File size",
       "mimeType": "MIME type",

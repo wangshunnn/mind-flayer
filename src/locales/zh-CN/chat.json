@@ -23,6 +23,18 @@
     "modelIsTextOnly": "{{model}} 仅支持文本输入。",
     "attachmentTypesUnsupported": "{{model}} 仅支持图片和 PDF 文件。"
   },
+  "attachments": {
+    "image": "图片",
+    "file": "附件",
+    "unknownType": "文件",
+    "previewNamed": "预览 {{name}}",
+    "downloadNamed": "保存 {{name}}",
+    "toast": {
+      "previewError": "打开图片预览失败。",
+      "saveSuccess": "附件已保存",
+      "saveError": "保存附件失败。"
+    }
+  },
   "tokens": {
     "input": "{{count}} 输入",
     "output": "{{count}} 输出",
@@ -111,6 +123,7 @@
       "source": "来源",
       "sourceLocal": "本地文件",
       "sourceRemote": "远程图片",
+      "sourceEmbedded": "消息附件",
       "resolution": "分辨率",
       "fileSize": "文件大小",
       "mimeType": "MIME 类型",

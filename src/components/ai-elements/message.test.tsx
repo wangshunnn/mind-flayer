@@ -1,21 +1,41 @@
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
+import { I18nextProvider } from "react-i18next"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 
-const { openImagePreviewWindow } = vi.hoisted(() => ({
-  openImagePreviewWindow: vi.fn()
+const { openImagePreviewWindow, openUrl, saveUrlAs, toastError, toastSuccess } = vi.hoisted(() => ({
+  openImagePreviewWindow: vi.fn(),
+  openUrl: vi.fn(),
+  saveUrlAs: vi.fn(),
+  toastError: vi.fn(),
+  toastSuccess: vi.fn()
 }))
 
-vi.mock("@/lib/window-manager", async () => {
-  const actual =
-    await vi.importActual<typeof import("@/lib/window-manager")>("@/lib/window-manager")
-  return {
-    ...actual,
-    openImagePreviewWindow
-  }
-})
+vi.mock("@/lib/window-manager", () => ({
+  openImagePreviewWindow
+}))
 
-import { MessageContent, MessageResponse } from "@/components/ai-elements/message"
+vi.mock("@/lib/file-save", () => ({
+  saveUrlAs
+}))
+
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openUrl
+}))
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: toastError,
+    success: toastSuccess
+  }
+}))
+
+import {
+  MessageAttachment,
+  MessageContent,
+  MessageResponse
+} from "@/components/ai-elements/message"
+import i18n from "@/lib/i18n"
 
 const STREAMING_MARKDOWN_BOUNDARY_CASES = [
   {
@@ -75,6 +95,7 @@ describe("MessageResponse local image rendering", () => {
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
+    openImagePreviewWindow.mockReset().mockResolvedValue(undefined)
   })
 
   afterAll(() => {
@@ -399,5 +420,146 @@ describe("MessageResponse local image rendering", () => {
     previewButton?.dispatchEvent(contextMenuEvent)
 
     expect(contextMenuEvent.defaultPrevented).toBe(true)
+  })
+})
+
+describe("MessageAttachment", () => {
+  let container: HTMLDivElement
+  let root: Root
+  let previousActEnvironment: boolean | undefined
+
+  beforeAll(() => {
+    previousActEnvironment = (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean })
+      .IS_REACT_ACT_ENVIRONMENT
+    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  })
+
+  beforeEach(async () => {
+    await i18n.changeLanguage("en")
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    openImagePreviewWindow.mockReset().mockResolvedValue(undefined)
+    openUrl.mockReset()
+    saveUrlAs.mockReset()
+    toastError.mockReset()
+    toastSuccess.mockReset()
+  })
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount()
+    })
+    container.remove()
+  })
+
+  afterAll(() => {
+    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
+      previousActEnvironment
+  })
+
+  it("renders a bounded embedded image and opens the shared preview", async () => {
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <MessageAttachment
+            data={{
+              type: "file",
+              filename: "photo.png",
+              mediaType: "image/png",
+              url: "data:image/png;base64,abc"
+            }}
+            variant="single"
+          />
+        </I18nextProvider>
+      )
+    })
+
+    const button = container.querySelector<HTMLButtonElement>(
+      '[data-slot="message-attachment-image"]'
+    )
+    const image = button?.querySelector("img")
+    expect(button?.dataset.attachmentVariant).toBe("single")
+    expect(button?.className).toContain("max-w-40")
+    expect(image?.getAttribute("loading")).toBe("lazy")
+    expect(image?.getAttribute("decoding")).toBe("async")
+
+    await act(async () => {
+      button?.click()
+      await Promise.resolve()
+    })
+
+    expect(openImagePreviewWindow).toHaveBeenCalledWith({
+      alt: "photo.png",
+      filename: "photo.png",
+      kind: "embedded",
+      localPath: null,
+      originalUrl: "",
+      resourceUrl: "data:image/png;base64,abc"
+    })
+  })
+
+  it("falls back to a downloadable file card when an image fails to load", async () => {
+    saveUrlAs.mockResolvedValue(true)
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <MessageAttachment
+            data={{
+              type: "file",
+              filename: "broken.png",
+              mediaType: "image/png",
+              url: "data:image/png;base64,broken"
+            }}
+            variant="tile"
+          />
+        </I18nextProvider>
+      )
+    })
+
+    await act(async () => {
+      container.querySelector("img")?.dispatchEvent(new Event("error"))
+    })
+
+    const fileButton = container.querySelector<HTMLButtonElement>(
+      '[data-slot="message-attachment-file"]'
+    )
+    expect(fileButton?.textContent).toContain("broken.png")
+
+    await act(async () => {
+      fileButton?.click()
+      await Promise.resolve()
+    })
+
+    expect(saveUrlAs).toHaveBeenCalledWith("data:image/png;base64,broken", "broken.png")
+    expect(toastSuccess).toHaveBeenCalledWith("Attachment saved")
+  })
+
+  it("opens a remote file when saving it directly fails", async () => {
+    saveUrlAs.mockRejectedValue(new Error("CORS"))
+    openUrl.mockResolvedValue(undefined)
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <MessageAttachment
+            data={{
+              type: "file",
+              filename: "brief.pdf",
+              mediaType: "application/pdf",
+              url: "https://example.com/brief.pdf"
+            }}
+            variant="single"
+          />
+        </I18nextProvider>
+      )
+    })
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-slot="message-attachment-file"]')?.click()
+      await Promise.resolve()
+    })
+
+    expect(openUrl).toHaveBeenCalledWith("https://example.com/brief.pdf")
+    expect(toastError).not.toHaveBeenCalled()
   })
 })

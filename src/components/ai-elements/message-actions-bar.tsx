@@ -94,12 +94,14 @@ export type UserMessageActionsBarProps = ComponentProps<"div"> & {
   messageText: string
   createdAt?: number
   onEdit?: () => void
+  showTextActions?: boolean
 }
 
 export const UserMessageActionsBar = ({
   messageText,
   createdAt,
   onEdit,
+  showTextActions = true,
   className,
   ...props
 }: UserMessageActionsBarProps) => {
@@ -116,26 +118,30 @@ export const UserMessageActionsBar = ({
       {...props}
     >
       <MessageTime timestamp={createdAt} className="mr-2" />
-      <CopyButton text={messageText} />
-      <TooltipProvider>
-        <Tooltip disableHoverableContent={true}>
-          <TooltipTrigger asChild>
-            <Button
-              size="icon-xs"
-              type="button"
-              variant="ghost"
-              className="text-muted-foreground hover:text-foreground"
-              onClick={onEdit}
-            >
-              <PencilIcon className="size-3.5" />
-              <span className="sr-only">{edit}</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p>{edit}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      {showTextActions && (
+        <>
+          <CopyButton text={messageText} />
+          <TooltipProvider>
+            <Tooltip disableHoverableContent={true}>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-xs"
+                  type="button"
+                  variant="ghost"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={onEdit}
+                >
+                  <PencilIcon className="size-3.5" />
+                  <span className="sr-only">{edit}</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{edit}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </>
+      )}
     </div>
   )
 }

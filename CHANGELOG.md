@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.13.0](https://github.com/wangshunnn/mind-flayer/compare/v0.12.0...v0.13.0) (2026-08-29)
+
+### Features
+
+* **chat:** align reasoning and attachments with model capabilities ([981fdf8](https://github.com/wangshunnn/mind-flayer/commit/981fdf80302515de0151fd7b6f72f0bab38f51a0))
+* **chat:** display user message attachments ([babd9e6](https://github.com/wangshunnn/mind-flayer/commit/babd9e6361ef17f88ab54116232c7b0f2a8bb20d))
+* **sidecar:** support GLM 5.3 request semantics ([0f9b3da](https://github.com/wangshunnn/mind-flayer/commit/0f9b3da0e09f7559f0f9ee972393db3e341f007c))
+* **theme:** add refined appearance presets ([77981e8](https://github.com/wangshunnn/mind-flayer/commit/77981e87c8b1cb5cf5d7cb90131a272494abc24f))
+* **zai:** add GLM 5.3 models and connection presets ([e255eb4](https://github.com/wangshunnn/mind-flayer/commit/e255eb44dcbd0b777ec7f1ea311ebfece60f3ced))
+
+### Bug Fixes
+
+* **chat:** close attachment menu after selection ([a864317](https://github.com/wangshunnn/mind-flayer/commit/a864317889d074bff02bf1ec6c36ba11d29e50a0))
+* **chat:** preserve activity timeline spacing ([0afae15](https://github.com/wangshunnn/mind-flayer/commit/0afae15ded3b8b2c6ed4977d3532103afb10e9f4))
+* **chat:** remove attachment sent toast ([a7df2ed](https://github.com/wangshunnn/mind-flayer/commit/a7df2eddd2ca186156225ca8a15ce2bed310800d))
+* **chat:** use theme accent for reply loading indicator ([56cf488](https://github.com/wangshunnn/mind-flayer/commit/56cf488a97d77de46ea82c32780a862fc780074e))
+* **models:** mark DeepSeek V4 as text-only ([d4a6817](https://github.com/wangshunnn/mind-flayer/commit/d4a6817c59efb4eaf501e60f1622b8635cac0f74))
+* **settings:** keep option menus open after selection ([bf0755d](https://github.com/wangshunnn/mind-flayer/commit/bf0755d98333eb29bb2c850b53e4b17a3efb33c0))
+
 ## [0.12.0](https://github.com/wangshunnn/mind-flayer/compare/v0.11.0...v0.12.0) (2026-08-28)
 
 ### Features

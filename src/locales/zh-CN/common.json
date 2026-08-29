@@ -33,8 +33,6 @@
     "channelThreadDeleted": "Telegram 线程已删除",
     "failedToDeleteChannelThread": "删除 Telegram 线程失败",
     "error": "错误",
-    "filesAttached": "文件已附加",
-    "filesAttachedDescription": "已附加 {{count}} 个文件到消息",
     "apiKeyNotConfigured": "请在设置中配置 API Key 以继续对话。"
   },
   "dialog": {

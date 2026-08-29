@@ -1160,12 +1160,6 @@ const AppChatInner = ({
         throw new Error("UNSUPPORTED_ATTACHMENT")
       }
 
-      if (message.files?.length) {
-        toast.success(toastConstants.filesAttached, {
-          description: toastConstants.filesAttachedDescription(message.files.length)
-        })
-      }
-
       const draftKeyAtSubmit = currentDraftKey
       const submittedInputText = message.text ?? ""
 
@@ -1218,8 +1212,7 @@ const AppChatInner = ({
       selectedModel?.inputModalities,
       selectedModel?.label,
       status,
-      t,
-      toastConstants
+      t
     ]
   )
 
